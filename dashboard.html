@@ -847,7 +847,11 @@ async function saveManualRapport() {
   try {
     /* Rapport déjà là ? */
     const { data: existRap } = await db.from('rapports').select('id,num').eq('date', date).maybeSingle();
-    if (existRap) { toast(`Rapport déjà existant pour le ${frDateShort(date)}`, 'ko'); return; }
+    if (existRap) {
+      toast(`Rapport déjà existant pour le ${frDateShort(date)}`, 'ko');
+      if (btn) { btn.disabled = false; btn.textContent = 'ENREGISTRER'; }
+      return;
+    }
 
     /* Session existante ou nouvelle */
     let sessId;

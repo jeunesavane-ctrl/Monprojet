@@ -444,10 +444,6 @@ async function addAchat() {
 
     /* Mise à jour stock si produit catalogue */
     if (produitSelId) {
-      await db.from('produits')
-        .update({ quantite: db.rpc ? undefined : undefined }) // via rpc n/a
-        .eq('id', produitSelId);
-      /* decrement direct */
       const prod = produits.find(p => p.id === produitSelId);
       if (prod) {
         const newQty = Math.max(0, (prod.quantite || 0) - qty);
