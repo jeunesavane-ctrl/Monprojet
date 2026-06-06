@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Ma Fiche — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+.profile-card{display:flex;align-items:center;gap:14px;background:var(--bg2);
+  border-radius:var(--r);padding:16px}
+.avatar{width:54px;height:54px;border-radius:50%;background:var(--gold);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Bebas Neue',sans-serif;font-size:22px;color:#0d0d0d;flex-shrink:0}
+.profile-name{font-size:18px;font-weight:600;line-height:1.2}
+.profile-poste{font-size:13px;color:var(--muted);text-transform:capitalize;margin-top:2px}
+.profile-info{font-size:12px;color:var(--muted);margin-top:4px}
+.progress-bar{height:8px;background:var(--bg3);border-radius:4px;
+  overflow:hidden;margin:10px 0 6px}
+.progress-fill{height:100%;background:var(--gold);border-radius:4px;transition:width .3s}
+.progress-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.pres-recent{display:flex;flex-direction:column;gap:6px;
+  margin-top:10px;border-top:1px solid var(--bg3);padding-top:10px}
+.pres-row{display:flex;justify-content:space-between;align-items:center;font-size:13px}
+.statut-dot{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500}
+.dot-present{background:rgba(80,200,120,.15);color:#50c878}
+.dot-absent{background:rgba(255,80,80,.15);color:#ff5050}
+.dot-retard{background:rgba(255,180,0,.15);color:#ffb400}
+.dot-conge{background:rgba(100,150,255,.15);color:#6496ff}
+.avance-item{background:var(--bg2);border-radius:var(--rs);padding:12px 14px;
+  display:flex;justify-content:space-between;align-items:flex-start}
+.avance-montant{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--gold)}
+.avance-info{font-size:12px;color:var(--muted);margin-top:2px}
+.statut-chip{font-size:10px;padding:2px 7px;border-radius:20px;
+  font-weight:500;margin-top:4px;display:inline-block}
+.chip-ok{background:rgba(80,200,120,.15);color:#50c878}
+.chip-wait{background:rgba(255,180,0,.15);color:#ffb400}
+.solde-card{background:var(--bg2);border-radius:var(--r);padding:16px;
+  display:flex;justify-content:space-between;align-items:center;
+  border-left:3px solid var(--gold)}
+.solde-label{font-size:13px;color:var(--muted)}
+.solde-val{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--gold)}
+.month-sel{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--rs);
+  color:var(--text);padding:4px 8px;font-size:12px;outline:none}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap" style="display:flex;flex-direction:column;gap:14px">
+
+    <!-- Identité -->
+    <div id="profile-card" class="profile-card" data-salaire="0">
+      <div class="avatar" id="avatar-init">?</div>
+      <div>
+        <div class="profile-name" id="profile-name">Chargement…</div>
+        <div class="profile-poste" id="profile-poste"></div>
+        <div class="profile-info" id="profile-info"></div>
+      </div>
+    </div>
+
+    <!-- Présences -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Présences</div>
+        <input type="month" id="pres-mois" class="month-sel"
+          onchange="loadPresences()">
+      </div>
+      <div class="card-body">
+        <div id="pres-stats"><div class="state-msg">Chargement…</div></div>
+        <div class="pres-recent" id="pres-list" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- Avances -->
+    <div class="card">
+      <div class="card-head"><div class="card-title">Avances en cours</div></div>
+      <div class="card-body">
+        <div id="avances-wrap"><div class="state-msg">Chargement…</div></div>
+      </div>
+    </div>
+
+    <!-- Solde estimé -->
+    <div class="solde-card">
+      <div>
+        <div class="solde-label">Salaire net estimé ce mois</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">
+          base − avances non remboursées</div>
+      </div>
+      <div class="solde-val" id="solde-val">—</div>
+    </div>
+
+  </div>
+  <div id="toast"></div>
+
+<script>
+let salaireBase = 0;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['staff'])) return;
+
+  const extra = ML.getExtra();
+  const empId = extra.employe_id;
+
+  if (!empId) {
+    document.querySelector('.body-wrap').innerHTML =
+      '<div class="state-msg" style="margin-top:40px">Compte employé introuvable.</div>';
+    return;
+  }
+
+  $('pres-mois').value = todayISO().slice(0,7);
+
+  await loadEmployee(empId);
+  await Promise.all([loadPresences(), loadAvances(empId)]);
+});
+
+async function loadEmployee(empId) {
+  try {
+    const { data: emp } = await db.from('employes').select('*').eq('id',empId).single();
+    if (!emp) return;
+    salaireBase = emp.salaire_base || 0;
+    const initials = ((emp.nom?.[0]||'')+(emp.prenom?.[0]||'')).toUpperCase() || '?';
+    $('avatar-init').textContent  = initials;
+    $('profile-name').textContent = emp.nom + (emp.prenom ? ' '+emp.prenom : '');
+    $('profile-poste').textContent = emp.poste || '';
+    if (emp.date_embauche)
+      $('profile-info').textContent = 'Depuis ' + frDateShort(emp.date_embauche);
+  } catch(e) { console.warn('loadEmployee', e.message); }
+}
+
+async function loadPresences() {
+  const extra = ML.getExtra();
+  const empId = extra.employe_id;
+  const mois  = $('pres-mois').value;
+  if (!mois || !empId) return;
+
+  const debut = mois + '-01';
+  const fin   = mois === todayISO().slice(0,7)
+    ? todayISO()
+    : new Date(+mois.slice(0,4), +mois.slice(5,7), 0).toISOString().slice(0,10);
+
+  try {
+    const { data } = await db.from('presences')
+      .select('*')
+      .eq('employe_id', empId)
+      .gte('date', debut)
+      .lte('date', fin)
+      .order('date', { ascending:false });
+
+    const list = data || [];
+
+    if (!list.length) {
+      $('pres-stats').innerHTML = '<div class="state-msg">Aucune présence enregistrée.</div>';
+      $('pres-list').style.display = 'none';
+      return;
+    }
+
+    const c = { present:0, retard:0, absent:0, conge:0 };
+    list.forEach(p => { if (c[p.statut]!==undefined) c[p.statut]++; });
+    const travailles = c.present + c.retard;
+    const total      = list.length;
+    const pct        = Math.round(travailles / total * 100);
+
+    $('pres-stats').innerHTML = `
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:4px">
+        <span style="font-size:13px">✅ Présent : <b>${c.present}</b></span>
+        ${c.retard ? `<span style="font-size:13px">⚠ Retard : <b>${c.retard}</b></span>` : ''}
+        ${c.absent ? `<span style="font-size:13px;color:var(--danger)">❌ Absent : <b>${c.absent}</b></span>` : ''}
+        ${c.conge  ? `<span style="font-size:13px">🏖 Congé : <b>${c.conge}</b></span>`  : ''}
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width:${pct}%"></div>
+      </div>
+      <div class="progress-label">
+        <span>${travailles} / ${total} jours travaillés</span>
+        <span style="font-weight:600;color:var(--gold)">${pct}%</span>
+      </div>`;
+
+    const LABELS = {
+      present:'✅ Présent', absent:'❌ Absent', retard:'⚠ Retard', conge:'🏖 Congé'
+    };
+    const recent = list.slice(0,7);
+    $('pres-list').style.display = 'flex';
+    $('pres-list').innerHTML = recent.map(p => `
+      <div class="pres-row">
+        <span style="color:var(--muted)">${frDateShort(p.date)}</span>
+        <span class="statut-dot dot-${p.statut}">${LABELS[p.statut]||p.statut}</span>
+      </div>`).join('');
+
+  } catch(e) {
+    $('pres-stats').innerHTML = `<div class="state-msg err">${e.message}</div>`;
+  }
+}
+
+async function loadAvances(empId) {
+  try {
+    const { data } = await db.from('avances')
+      .select('*')
+      .eq('employe_id', empId)
+      .eq('rembourse', false)
+      .order('date', { ascending:false });
+
+    const list = data || [];
+    const totalAvances = list
+      .filter(a => a.statut === 'approuvee')
+      .reduce((s,a) => s + (a.montant||0), 0);
+
+    if (!list.length) {
+      $('avances-wrap').innerHTML = '<div class="state-msg">Aucune avance en cours.</div>';
+    } else {
+      $('avances-wrap').innerHTML = list.map(a => `
+        <div class="avance-item">
+          <div>
+            <div style="font-size:14px;font-weight:500">${frDateShort(a.date)}</div>
+            <div class="avance-info">${a.note_demande||a.obs||'—'}</div>
+            <span class="statut-chip ${a.statut==='en_attente'?'chip-wait':'chip-ok'}">
+              ${a.statut==='en_attente'?'En attente':'Approuvée'}
+            </span>
+          </div>
+          <div class="avance-montant">${gnf(a.montant)}</div>
+        </div>`).join('');
+    }
+
+    const solde = Math.max(0, salaireBase - totalAvances);
+    $('solde-val').textContent = gnf(solde);
+
+  } catch(e) {
+    $('avances-wrap').innerHTML = `<div class="state-msg err">${e.message}</div>`;
+  }
+}
+</script>
+</body>
+</html>

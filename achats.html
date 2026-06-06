@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Achats — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+/* ── Shared layout ── */
+.kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:1.4px;margin-bottom:4px;font-weight:500}
+.fond-card{
+  background:var(--bg2);border:1px solid var(--b1);border-radius:var(--r);
+  padding:14px 16px;display:flex;justify-content:space-between;align-items:center;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 8px rgba(0,0,0,.3)}
+.add-form{
+  background:var(--bg2);border-radius:var(--r);padding:16px;
+  border:1px solid var(--b1);
+  box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 2px 10px rgba(0,0,0,.4)}
+
+/* ── Stats cards ── */
+.stats-row{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:4px}
+.stats-full{grid-template-columns:1fr;margin-bottom:4px}
+.stat-card{
+  background:var(--bg2);border:1px solid var(--b1);border-radius:var(--r);
+  padding:14px 16px;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 1px 6px rgba(0,0,0,.28)}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
+.stat-val{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--text);line-height:1;word-break:break-all}
+.stat-val.purple{color:#B080F0}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:3px}
+
+/* ── Produit datalist ── */
+#f-produit-wrap{position:relative}
+.produit-suggestions{
+  position:absolute;top:calc(100% + 2px);left:0;right:0;z-index:20;
+  background:var(--bg2);border:1px solid var(--b1);border-radius:var(--rs);
+  overflow:hidden;display:none}
+.produit-suggestions.open{display:block}
+.produit-sugg-item{
+  padding:10px 14px;cursor:pointer;font-size:14px;
+  border-bottom:1px solid var(--b1);transition:background var(--t)}
+.produit-sugg-item:last-child{border-bottom:none}
+.produit-sugg-item:hover,.produit-sugg-item.focused{background:rgba(255,255,255,.06)}
+.produit-sugg-meta{font-size:11px;color:var(--muted);margin-top:1px}
+
+/* ── Achat item ── */
+.achat-item{
+  display:flex;align-items:center;gap:10px;padding:12px 14px;
+  background:var(--bg2);border-radius:var(--r);border:1px solid var(--b1);
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 1px 5px rgba(0,0,0,.28)}
+.achat-icon{
+  width:34px;height:34px;border-radius:50%;background:rgba(140,80,220,.12);
+  border:1px solid rgba(140,80,220,.3);display:flex;align-items:center;
+  justify-content:center;font-size:16px;flex-shrink:0}
+.achat-info{flex:1;min-width:0}
+.achat-label{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.achat-meta{font-size:11px;color:var(--muted);margin-top:1px}
+.achat-montant{font-family:'Bebas Neue',sans-serif;font-size:18px;color:#B080F0;
+  flex-shrink:0;text-align:right;white-space:nowrap}
+
+/* ── Filter tabs ── */
+.filter-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.filter-tab{
+  padding:7px 14px;border-radius:var(--rs);border:1px solid var(--b1);
+  background:transparent;color:var(--muted);font-size:13px;font-weight:500;
+  cursor:pointer;transition:all var(--t);-webkit-tap-highlight-color:transparent}
+.filter-tab.active{background:rgba(140,80,220,.12);border-color:rgba(140,80,220,.35);color:#B080F0}
+
+/* ── Preview montant ── */
+.montant-preview{
+  background:rgba(140,80,220,.08);border:1px solid rgba(140,80,220,.2);
+  border-radius:var(--rs);padding:11px 14px;
+  font-family:'Bebas Neue',sans-serif;font-size:22px;color:#B080F0;
+  text-align:center;letter-spacing:1px;min-height:48px}
+
+/* ── RO banner ── */
+.ro-banner{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.03);border:1px solid var(--b1);
+  border-radius:var(--rs);padding:9px 14px;font-size:12px;color:var(--muted)}
+
+/* ── Stock badge ── */
+.stock-ok{color:var(--ok)}
+.stock-low{color:#F59E0B}
+.stock-zero{color:var(--danger)}
+
+/* ── Custom input entry ── */
+.custom-prod-row{
+  background:rgba(140,80,220,.05);border:1px solid rgba(140,80,220,.15);
+  border-radius:var(--rs);padding:10px 14px;font-size:13px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap" id="main-body">
+    <div class="state-msg">Chargement…</div>
+  </div>
+  <div id="overlay"><div class="sheet" id="overlay-sheet"></div></div>
+  <div id="toast"></div>
+
+<script>
+let sessionId  = null;
+let empId      = null;
+let empNom     = '';
+let allAchats  = [];   // session courante
+let produits   = [];   // catalogue
+let activeFilter = 'session';
+let produitSelId = null; // null = produit custom
+
+const isReadOnly = () => ML.getRole() !== 'achats';
+
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['achats','manager','owner'])) return;
+
+  const extra = ML.getExtra();
+  empId  = extra.employe_id || null;
+  empNom = extra.nom || 'Achats';
+
+  if (!empId && !isReadOnly()) {
+    $('main-body').innerHTML = '<div class="state-msg err">Compte employé non configuré.</div>';
+    return;
+  }
+  await loadData();
+});
+
+async function loadData() {
+  const today = todayISO();
+  try {
+    let [sessRes, prodRes] = await Promise.all([
+      db.from('sessions_caisse').select('id,statut').eq('date', today).maybeSingle(),
+      db.from('produits').select('id,nom,categorie,quantite,prix_vente').eq('actif', true).order('nom')
+    ]);
+
+    produits = prodRes.data || [];
+
+    if (!sessRes.data) {
+      if (isReadOnly()) {
+        $('main-body').innerHTML = `<div class="state-msg" style="padding:44px 0;text-align:center">
+          <div style="font-size:38px;opacity:.35;margin-bottom:12px">🛒</div>
+          <div style="font-size:15px;font-weight:500">Pas de session ouverte aujourd'hui</div>
+        </div>`;
+        return;
+      }
+      const { data: cr, error } = await db
+        .from('sessions_caisse').insert({ date: today, statut:'ouvert' }).select().single();
+      if (error) throw error;
+      sessRes.data = cr;
+    }
+    sessionId = sessRes.data.id;
+
+    await reloadAchats();
+    subscribeRealtime();
+
+  } catch(e) {
+    $('main-body').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+
+async function reloadAchats() {
+  const { data } = await db
+    .from('achats_session').select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: false });
+  allAchats = data || [];
+  await renderPage();
+}
+
+function subscribeRealtime() {
+  if (!sessionId) return;
+  db.channel('ml-achats-' + sessionId)
+    .on('postgres_changes', {
+      event:'*', schema:'public', table:'achats_session',
+      filter:`session_id=eq.${sessionId}`
+    }, () => reloadAchats())
+    .subscribe();
+}
+
+/* ════════════════════════════════════════════
+   STATS ALL-TIME / 30d / 7d / session
+════════════════════════════════════════════ */
+async function calcStats() {
+  const today = todayISO();
+  const d7    = new Date(); d7.setDate(d7.getDate() - 7);
+  const d30   = new Date(); d30.setDate(d30.getDate() - 30);
+
+  const { data: all } = await db
+    .from('achats_session').select('montant,created_at');
+
+  const rows = all || [];
+  const sum  = arr => arr.reduce((s,r) => s + (r.montant||0), 0);
+
+  const todayRows = rows.filter(r => r.created_at?.slice(0,10) === today);
+  const week7     = rows.filter(r => new Date(r.created_at) >= d7);
+  const month30   = rows.filter(r => new Date(r.created_at) >= d30);
+
+  return {
+    session: sum(allAchats),
+    today:   sum(todayRows),
+    week7:   sum(week7),
+    month30: sum(month30),
+    allTime: sum(rows),
+    count:   rows.length
+  };
+}
+
+async function renderPage() {
+  const ro    = isReadOnly();
+  const stats = await calcStats();
+  const today = todayISO();
+
+  let html = `
+    <div class="fond-card">
+      <div>
+        <div class="kpi-label">Achats — ${frDateShort(today)}</div>
+        <div style="font-size:15px;font-weight:600;margin-top:2px">${empNom}</div>
+      </div>
+      <span class="badge gold">Actif</span>
+    </div>`;
+
+  if (ro) html += `<div class="ro-banner"><span style="opacity:.5">👁</span>&nbsp; Lecture seule</div>`;
+
+  /* Stats */
+  html += `
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Session en cours</div>
+        <div class="stat-val purple">${fmtGnf(stats.session)}</div>
+        <div class="stat-sub">${allAchats.length} achat${allAchats.length>1?'s':''}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Aujourd'hui</div>
+        <div class="stat-val">${fmtGnf(stats.today)}</div>
+      </div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">7 derniers jours</div>
+        <div class="stat-val">${fmtGnf(stats.week7)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">30 derniers jours</div>
+        <div class="stat-val">${fmtGnf(stats.month30)}</div>
+      </div>
+    </div>
+    <div class="stats-row stats-full">
+      <div class="stat-card">
+        <div class="stat-label">Cumulé total (toutes sessions)</div>
+        <div class="stat-val purple">${fmtGnf(stats.allTime)}</div>
+        <div class="stat-sub">${stats.count} achat${stats.count>1?'s':''} enregistré${stats.count>1?'s':''}</div>
+      </div>
+    </div>`;
+
+  /* Formulaire ajout */
+  if (!ro) {
+    html += `
+      <div class="add-form">
+        <div class="s-head" style="margin-top:0">Enregistrer un achat</div>
+
+        <div class="field">
+          <label>Produit du catalogue</label>
+          <div id="f-produit-wrap">
+            <input type="text" id="f-produit-txt" placeholder="Rechercher un produit…"
+              autocomplete="off" oninput="onProduitInput()" onfocus="onProduitInput()">
+            <div class="produit-suggestions" id="f-produit-sugg"></div>
+          </div>
+        </div>
+
+        <div class="custom-prod-row" id="custom-prod-hint" style="display:none">
+          Produit hors catalogue — le stock ne sera pas mis à jour automatiquement.
+        </div>
+
+        <div class="field">
+          <label>Nom (si hors catalogue)</label>
+          <input type="text" id="f-produit-custom" placeholder="Ex: Sel, Papier aluminium…"
+            oninput="if(this.value){produitSelId=null;$('f-produit-txt').value='';updateMontant()}">
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="field">
+            <label>Quantité</label>
+            <input type="number" id="f-qty" min="1" value="1" inputmode="numeric"
+              oninput="updateMontant()">
+          </div>
+          <div class="field">
+            <label>Prix unitaire (GNF)</label>
+            <input type="number" id="f-prix" min="0" value="" inputmode="numeric"
+              placeholder="0" oninput="updateMontant()">
+          </div>
+        </div>
+
+        <div class="montant-preview" id="montant-preview">—</div>
+
+        <button class="btn-primary" onclick="addAchat()" style="margin-top:4px">+ ENREGISTRER L'ACHAT</button>
+      </div>`;
+  }
+
+  /* Liste filtrée */
+  html += `
+    <div class="s-head">Historique des achats</div>
+    <div class="filter-tabs">
+      <button class="filter-tab${activeFilter==='session'?' active':''}" onclick="setFilter('session')">Session</button>
+      <button class="filter-tab${activeFilter==='today'?' active':''}" onclick="setFilter('today')">Aujourd'hui</button>
+      <button class="filter-tab${activeFilter==='week'?' active':''}" onclick="setFilter('week')">7 jours</button>
+      <button class="filter-tab${activeFilter==='all'?' active':''}" onclick="setFilter('all')">Tout</button>
+    </div>
+    <div id="achats-list">${await renderAchatList()}</div>`;
+
+  $('main-body').innerHTML = html;
+
+  /* Stock badge init */
+  document.addEventListener('click', e => {
+    const sugg = $('f-produit-sugg');
+    const wrap = $('f-produit-wrap');
+    if (sugg && wrap && !wrap.contains(e.target)) {
+      sugg.classList.remove('open');
+    }
+  });
+}
+
+async function renderAchatList() {
+  let rows;
+  if (activeFilter === 'session') {
+    rows = allAchats;
+  } else {
+    const d = activeFilter === 'today' ? todayISO() :
+              activeFilter === 'week'  ? isoFromDaysAgo(7) : null;
+    const q = db.from('achats_session').select('*').order('created_at', {ascending:false});
+    if (d) q.gte('created_at', d + 'T00:00:00');
+    const { data } = await q;
+    rows = data || [];
+  }
+
+  if (!rows.length) return `<div class="state-msg" style="padding:20px;text-align:center;color:var(--muted)">
+    Aucun achat${activeFilter==='session'?' cette session':''}.
+  </div>`;
+
+  return rows.map(a => {
+    const d   = new Date(a.created_at);
+    const dt  = d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) + ' ' +
+                d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const ro  = isReadOnly();
+    return `
+      <div class="achat-item">
+        <div class="achat-icon">🛒</div>
+        <div class="achat-info">
+          <div class="achat-label">${a.produit_nom}</div>
+          <div class="achat-meta">×${a.qty} — ${dt}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <div class="achat-montant">${fmtGnf(a.montant)}</div>
+          ${!ro && a.session_id===sessionId ? `<button class="btn-icon" style="font-size:10px;padding:2px 8px" onclick="deleteAchat('${a.id}','${a.produit_id||''}',${a.qty})">×</button>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ────────────────────────────────────────────
+   PRODUIT AUTOCOMPLETE
+──────────────────────────────────────────── */
+function onProduitInput() {
+  const q     = ($('f-produit-txt')?.value || '').toLowerCase().trim();
+  const sugg  = $('f-produit-sugg');
+  if (!sugg) return;
+
+  let matches = q
+    ? produits.filter(p => p.nom.toLowerCase().includes(q)).slice(0,6)
+    : produits.slice(0,8);
+
+  if (!matches.length) {
+    sugg.classList.remove('open');
+    produitSelId = null;
+    $('custom-prod-hint')?.style && ($('custom-prod-hint').style.display = 'flex');
+    return;
+  }
+
+  $('custom-prod-hint') && ($('custom-prod-hint').style.display = 'none');
+
+  sugg.innerHTML = matches.map(p => {
+    const stockClass = p.quantite > 10 ? 'stock-ok' : p.quantite > 0 ? 'stock-low' : 'stock-zero';
+    return `
+      <div class="produit-sugg-item" onclick="selectProduit('${p.id}','${escHtml(p.nom)}',${p.prix_vente||0})">
+        <div>${escHtml(p.nom)}</div>
+        <div class="produit-sugg-meta">
+          ${p.categorie ? p.categorie + ' · ' : ''}
+          Stock : <span class="${stockClass}">${p.quantite}</span>
+        </div>
+      </div>`;
+  }).join('');
+  sugg.classList.add('open');
+}
+
+function selectProduit(id, nom, prix) {
+  produitSelId = id;
+  $('f-produit-txt').value = nom;
+  $('f-produit-custom').value = '';
+  if (prix > 0 && !$('f-prix').value) $('f-prix').value = prix;
+  $('f-produit-sugg')?.classList.remove('open');
+  $('custom-prod-hint') && ($('custom-prod-hint').style.display = 'none');
+  updateMontant();
+}
+
+function updateMontant() {
+  const qty  = parseFloat($('f-qty')?.value) || 0;
+  const prix = parseFloat($('f-prix')?.value) || 0;
+  const tot  = qty * prix;
+  const prev = $('montant-preview');
+  if (prev) prev.textContent = tot > 0 ? fmtGnf(tot) : '—';
+}
+
+/* ────────────────────────────────────────────
+   ACTIONS
+──────────────────────────────────────────── */
+async function addAchat() {
+  const prodNom   = produitSelId
+    ? ($('f-produit-txt')?.value || '').trim()
+    : ($('f-produit-custom')?.value || $('f-produit-txt')?.value || '').trim();
+  const qty       = parseInt($('f-qty')?.value) || 0;
+  const prixUnit  = parseFloat($('f-prix')?.value) || 0;
+  const montant   = qty * prixUnit;
+
+  if (!prodNom)      { toast('Nom du produit requis', 'ko'); return; }
+  if (qty < 1)       { toast('Quantité invalide', 'ko'); return; }
+  if (montant <= 0)  { toast('Prix unitaire requis', 'ko'); return; }
+
+  try {
+    const row = {
+      session_id:  sessionId,
+      employe_id:  empId,
+      produit_nom: prodNom,
+      produit_id:  produitSelId || null,
+      qty,
+      prix_unitaire: prixUnit,
+      montant
+    };
+    const { error } = await db.from('achats_session').insert(row);
+    if (error) throw error;
+
+    /* Mise à jour stock si produit catalogue */
+    if (produitSelId) {
+      await db.from('produits')
+        .update({ quantite: db.rpc ? undefined : undefined }) // via rpc n/a
+        .eq('id', produitSelId);
+      /* decrement direct */
+      const prod = produits.find(p => p.id === produitSelId);
+      if (prod) {
+        const newQty = Math.max(0, (prod.quantite || 0) - qty);
+        await db.from('produits').update({ quantite: newQty }).eq('id', produitSelId);
+        prod.quantite = newQty;
+      }
+    }
+
+    /* Reset form */
+    $('f-produit-txt').value  = '';
+    $('f-produit-custom').value = '';
+    $('f-qty').value          = '1';
+    $('f-prix').value         = '';
+    $('montant-preview').textContent = '—';
+    produitSelId = null;
+
+    ML.logAction(`🛒 Achat — ${prodNom} ×${qty} = ${gnf(montant)}`);
+    toast(`Achat enregistré : ${gnf(montant)} ✓`, 'ok');
+
+  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+}
+
+async function deleteAchat(id, produitId, qty) {
+  try {
+    await db.from('achats_session').delete().eq('id', id);
+    /* Remettre le stock */
+    if (produitId) {
+      const prod = produits.find(p => p.id === produitId);
+      if (prod) {
+        const newQty = (prod.quantite || 0) + qty;
+        await db.from('produits').update({ quantite: newQty }).eq('id', produitId);
+        prod.quantite = newQty;
+      }
+    }
+  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+}
+
+async function setFilter(f) {
+  activeFilter = f;
+  const el = $('achats-list');
+  if (el) el.innerHTML = await renderAchatList();
+  document.querySelectorAll('.filter-tab').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim().toLowerCase().startsWith(
+      f==='session'?'sess':f==='today'?'auj':f==='week'?'7':f==='all'?'tout':'x'
+    ));
+  });
+}
+
+/* ────────────────────────────────────────────
+   HELPERS
+──────────────────────────────────────────── */
+const fmtGnf = n => new Intl.NumberFormat('fr-FR').format(Math.round(n||0)) + ' GNF';
+
+function isoFromDaysAgo(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0,10);
+}
+
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.addEventListener('click', e => {
+  if (e.target === $('overlay')) $('overlay').classList.remove('on');
+});
+</script>
+</body>
+</html>

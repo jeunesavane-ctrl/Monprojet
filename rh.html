@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>RH — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--bg3);margin-bottom:4px}
+.tab-btn{flex:1;padding:11px 8px;text-align:center;font-size:13px;font-weight:500;
+  color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .15s;-webkit-tap-highlight-color:transparent}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold)}
+.panel{display:none}.panel.active{display:flex;flex-direction:column;gap:12px}
+.presence-grid{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+.statut-sel{background:var(--bg3);border:1px solid var(--bg4);border-radius:var(--rs);
+  color:var(--text);padding:6px 10px;font-size:13px;outline:none;-webkit-appearance:none}
+.avance-item{background:var(--bg2);border-radius:var(--rs);padding:11px 14px}
+.avance-montant{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--gold)}
+.avance-info{font-size:12px;color:var(--muted);margin-top:2px}
+.paie-card{background:var(--bg2);border-radius:var(--r);padding:14px 16px}
+.paie-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.paie-nom{font-size:15px;font-weight:600}
+.paie-poste{font-size:12px;color:var(--muted);text-transform:capitalize;margin-top:2px}
+.paie-net{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold)}
+.paie-details{display:flex;flex-direction:column;gap:5px;
+  border-top:1px solid var(--bg3);padding-top:8px}
+.paie-row{display:flex;justify-content:space-between;font-size:13px}
+.paie-row span:first-child{color:var(--muted)}
+.paie-row span:last-child{font-weight:500}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap">
+    <!-- Tabs internes -->
+    <div class="tab-bar">
+      <div class="tab-btn active" onclick="switchRhTab('staff')">Équipe</div>
+      <div class="tab-btn" onclick="switchRhTab('presence')">Présences</div>
+      <div class="tab-btn" onclick="switchRhTab('demandes')" id="tab-demandes">Demandes</div>
+      <div class="tab-btn" onclick="switchRhTab('avances')">Avances</div>
+      <div class="tab-btn" onclick="switchRhTab('paie')">Paie</div>
+    </div>
+
+    <!-- PANEL: Équipe -->
+    <div id="panel-staff" class="panel active">
+      <div class="sec-header">
+        <div class="sec-title">Membres de l'équipe</div>
+        <button class="btn-secondary" onclick="openAddStaff()">+ Ajouter</button>
+      </div>
+      <div id="staff-list"><div class="state-msg">Chargement…</div></div>
+    </div>
+
+    <!-- PANEL: Présences -->
+    <div id="panel-presence" class="panel">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Présences du jour</div>
+          <div class="card-sub" id="pres-date"></div>
+        </div>
+        <div class="card-body" id="presence-list">
+          <div class="state-msg">Chargement…</div>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="savePresences()">ENREGISTRER</button>
+    </div>
+
+    <!-- PANEL: Demandes d'avance -->
+    <div id="panel-demandes" class="panel">
+      <div class="sec-header">
+        <div class="sec-title">Demandes en attente</div>
+      </div>
+      <div id="demandes-list"><div class="state-msg">Chargement…</div></div>
+    </div>
+
+    <!-- PANEL: Avances -->
+    <div id="panel-avances" class="panel">
+      <div class="card">
+        <div class="card-head"><div class="card-title">Nouvelle avance</div></div>
+        <div class="card-body">
+          <div class="field"><label>Employé</label>
+            <select id="av-employe" class="field input">
+              <option value="">Sélectionner…</option>
+            </select>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Montant (GNF)</label>
+              <input id="av-montant" type="number" inputmode="numeric" placeholder="0"></div>
+            <div class="field"><label>Date</label>
+              <input id="av-date" type="date"></div>
+          </div>
+          <div class="field"><label>Motif</label>
+            <input id="av-obs" type="text" placeholder="Raison de l'avance"></div>
+          <button class="btn-primary" onclick="saveAvance()">ENREGISTRER</button>
+        </div>
+      </div>
+      <div class="sec-header">
+        <div class="sec-title">Avances en cours</div>
+      </div>
+      <div id="avances-list"><div class="state-msg">Chargement…</div></div>
+    </div>
+
+    <!-- PANEL: Paie -->
+    <div id="panel-paie" class="panel">
+      <div class="field">
+        <label>Mois</label>
+        <input type="month" id="paie-mois" onchange="loadPaie()">
+      </div>
+      <div id="paie-content"><div class="state-msg">Sélectionnez un mois</div></div>
+      <div id="paie-footer" style="display:none;flex-direction:column;gap:12px">
+        <div class="net-card">
+          <div class="net-title">MASSE SALARIALE</div>
+          <div id="paie-total" class="big" style="color:var(--gold)"></div>
+        </div>
+        <button class="btn-primary" id="btn-valider-paie" onclick="validerPaie()">
+          VALIDER ET ENREGISTRER COMME CHARGE
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal ajout staff -->
+  <div id="overlay">
+    <div class="sheet">
+      <div class="sheet-title">Nouvel employé</div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+        <div class="row2">
+          <div class="field"><label>Nom</label><input id="ns-nom" type="text" placeholder="Nom"></div>
+          <div class="field"><label>Prénom</label><input id="ns-prenom" type="text" placeholder="Prénom"></div>
+        </div>
+        <div class="field"><label>Poste</label>
+          <select id="ns-poste">
+            <option value="manager">Manager</option>
+            <option value="caissier">Caissier</option>
+            <option value="staff">Staff</option>
+            <option value="securite">Sécurité</option>
+            <option value="autre">Autre</option>
+          </select>
+        </div>
+        <div class="field"><label>Téléphone</label>
+          <input id="ns-tel" type="tel" placeholder="+224…"></div>
+        <div class="row2">
+          <div class="field"><label>Date embauche</label>
+            <input id="ns-date" type="date"></div>
+          <div class="field"><label>Salaire base (GNF)</label>
+            <input id="ns-salaire" type="number" inputmode="numeric" placeholder="0"></div>
+        </div>
+      </div>
+      <div class="sheet-btns">
+        <button class="btn-cancel" onclick="closeOverlay()">Annuler</button>
+        <button class="btn-ok" onclick="saveStaff()">ENREGISTRER</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast"></div>
+
+<script>
+let employes = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['owner','manager'])) return;
+  $('pres-date').textContent = frDateShort(todayISO());
+  $('av-date').value = todayISO();
+  const moisDef = todayISO().slice(0,7);
+  $('paie-mois').value = moisDef;
+
+  /* Le manager voit Présences + Demandes */
+  const isManager = ML.getRole() === 'manager';
+  if (isManager) {
+    document.querySelectorAll('.tab-btn').forEach((b,i) => {
+      if (i !== 1 && i !== 2) b.style.display = 'none';
+    });
+    switchRhTab('presence');
+  }
+
+  loadStaff();
+});
+
+function switchRhTab(tab) {
+  ['staff','presence','demandes','avances','paie'].forEach(t => {
+    $('panel-'+t)?.classList.toggle('active', t===tab);
+    document.querySelectorAll('.tab-btn').forEach((b,i) => {
+      b.classList.toggle('active', ['staff','presence','demandes','avances','paie'][i]===tab);
+    });
+  });
+  if (tab==='presence') loadPresence();
+  if (tab==='demandes') loadDemandes();
+  if (tab==='avances')  { loadAvances(); populateAvEmploye(); }
+  if (tab==='paie')     loadPaie();
+}
+
+async function loadStaff() {
+  try {
+    const { data, error } = await db.from('employes').select('*').eq('actif',true).order('nom');
+    if (error) throw error;
+    employes = data || [];
+    renderStaffList();
+  } catch(e) { $('staff-list').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`; }
+}
+
+function renderStaffList() {
+  if (!employes.length) {
+    $('staff-list').innerHTML = '<div class="state-msg">Aucun membre d\'équipe.</div>'; return;
+  }
+  $('staff-list').innerHTML = employes.map(e => `
+    <div class="list-item">
+      <div class="list-info">
+        <div class="list-name">${e.nom} ${e.prenom||''}</div>
+        <div class="list-sub">${e.poste} · ${gnf(e.salaire_base||0)}/mois</div>
+      </div>
+      <div class="list-actions">
+        <span class="badge muted">${e.poste}</span>
+        <button class="btn-icon" onclick="archiveStaff('${e.id}')" title="Désactiver">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+async function loadPresence() {
+  if (!employes.length) await loadStaff();
+  const today = todayISO();
+  let existing = {};
+  try {
+    const { data } = await db.from('presences').select('*').eq('date',today);
+    (data||[]).forEach(p => { existing[p.employe_id] = p.statut; });
+  } catch {}
+
+  if (!employes.length) {
+    $('presence-list').innerHTML = '<div class="state-msg">Ajoutez des employés d\'abord.</div>'; return;
+  }
+  const statuts = ['present','absent','retard','conge'];
+  $('presence-list').innerHTML = employes.map(e => `
+    <div class="presence-grid">
+      <div>
+        <div style="font-size:14px;font-weight:500">${e.nom} ${e.prenom||''}</div>
+        <div style="font-size:12px;color:var(--muted)">${e.poste}</div>
+      </div>
+      <select class="statut-sel" id="pres-${e.id}">
+        ${statuts.map(s=>`<option value="${s}"${(existing[e.id]||'present')===s?' selected':''}>${
+          s==='present'?'✅ Présent':s==='absent'?'❌ Absent':s==='retard'?'⚠ Retard':'🏖 Congé'
+        }</option>`).join('')}
+      </select>
+    </div>`).join('');
+}
+
+async function savePresences() {
+  const today = todayISO();
+  try {
+    for (const e of employes) {
+      const statut = $('pres-'+e.id)?.value || 'present';
+      await db.from('presences').upsert({
+        employe_id:e.id, date:today, statut
+      }, { onConflict:'employe_id,date' });
+    }
+    toast('Présences enregistrées ✓','ok');
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+async function loadDemandes() {
+  try {
+    const { data } = await db.from('avances')
+      .select('*, employes(nom,prenom)')
+      .eq('statut','en_attente')
+      .order('date',{ascending:false});
+    const list = data || [];
+    const el = $('demandes-list');
+
+    if (!list.length) {
+      el.innerHTML = '<div class="state-msg">✅ Aucune demande en attente.</div>'; return;
+    }
+
+    /* Badge sur l'onglet */
+    const tab = $('tab-demandes');
+    if (tab) tab.textContent = `Demandes (${list.length})`;
+
+    el.innerHTML = list.map(a => `
+      <div class="avance-item" style="border-left:3px solid var(--gold)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div style="font-size:14px;font-weight:600">
+              ${a.employes?.nom||'?'} ${a.employes?.prenom||''}</div>
+            <div class="avance-info">
+              ${frDateShort(a.date)} · ${a.note_demande||a.obs||'—'}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="avance-montant">${gnf(a.montant)}</div>
+            <div style="display:flex;gap:8px;margin-top:6px;justify-content:flex-end">
+              <button style="font-size:11px;color:var(--ok);background:none;
+                border:none;cursor:pointer" onclick="validerDemande('${a.id}',${a.montant||0},'${(a.employes?.nom||'?')+' '+(a.employes?.prenom||'')}')">
+                ✓ Approuver
+              </button>
+              <button style="font-size:11px;color:var(--danger);background:none;
+                border:none;cursor:pointer" onclick="refuserDemande('${a.id}',${a.montant||0},'${(a.employes?.nom||'?')+' '+(a.employes?.prenom||'')}')">
+                ✕ Refuser
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    $('demandes-list').innerHTML = `<div class="state-msg err">${e.message}</div>`;
+  }
+}
+
+async function validerDemande(id, montant = 0, nom = '') {
+  try {
+    await db.from('avances').update({ statut:'approuvee', rembourse:false }).eq('id',id);
+    ML.logAction(`✅ Avance approuvée — ${nom.trim()} · ${gnf(montant)}`);
+    toast('Demande approuvée ✓','ok');
+    loadDemandes();
+  } catch(e) { toast('Erreur','ko'); }
+}
+
+async function refuserDemande(id, montant = 0, nom = '') {
+  try {
+    await db.from('avances').update({ statut:'refusee', rembourse:true }).eq('id',id);
+    ML.logAction(`❌ Avance refusée — ${nom.trim()} · ${gnf(montant)}`);
+    toast('Demande refusée','ok');
+    loadDemandes();
+  } catch(e) { toast('Erreur','ko'); }
+}
+
+async function loadAvances() {
+  try {
+    const { data } = await db.from('avances')
+      .select('*, employes(nom,prenom)')
+      .eq('rembourse',false)
+      .order('date',{ascending:false});
+    const list = data || [];
+    if (!list.length) {
+      $('avances-list').innerHTML = '<div class="state-msg">Aucune avance en cours.</div>'; return;
+    }
+    $('avances-list').innerHTML = list.map(a => `
+      <div class="avance-item">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div style="font-size:14px;font-weight:500">
+              ${a.employes?.nom||'?'} ${a.employes?.prenom||''}</div>
+            <div class="avance-info">${frDateShort(a.date)} · ${a.obs||'—'}</div>
+          </div>
+          <div>
+            <div class="avance-montant">${gnf(a.montant)}</div>
+            <button style="font-size:11px;color:var(--ok);background:none;
+              border:none;cursor:pointer;margin-top:4px"
+              onclick="marquerRembourse('${a.id}')">Remboursé ✓</button>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch(e) { $('avances-list').innerHTML = `<div class="state-msg err">${e.message}</div>`; }
+}
+
+function populateAvEmploye() {
+  const sel = $('av-employe');
+  sel.innerHTML = '<option value="">Sélectionner…</option>' +
+    employes.map(e=>`<option value="${e.id}">${e.nom} ${e.prenom||''}</option>`).join('');
+}
+
+async function saveAvance() {
+  const empId   = $('av-employe').value;
+  const montant = parseFloat($('av-montant').value);
+  const date    = $('av-date').value;
+  if (!empId||!montant||!date) { toast('Remplissez tous les champs','ko'); return; }
+  try {
+    await db.from('avances').insert({
+      employe_id:empId, montant, date, obs:$('av-obs').value.trim()
+    });
+    toast('Avance enregistrée ✓','ok');
+    $('av-montant').value=''; $('av-obs').value='';
+    loadAvances();
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+async function marquerRembourse(id) {
+  try {
+    await db.from('avances').update({rembourse:true}).eq('id',id);
+    toast('Marqué remboursé ✓','ok');
+    loadAvances();
+  } catch(e) { toast('Erreur','ko'); }
+}
+
+function openAddStaff() {
+  $('ns-date').value = todayISO();
+  $('overlay').classList.add('on');
+}
+function closeOverlay() { $('overlay').classList.remove('on'); }
+
+async function saveStaff() {
+  const nom = $('ns-nom').value.trim();
+  if (!nom) { toast('Le nom est requis','ko'); return; }
+  try {
+    await db.from('employes').insert({
+      nom, prenom:$('ns-prenom').value.trim(),
+      poste:$('ns-poste').value,
+      telephone:$('ns-tel').value.trim(),
+      date_embauche:$('ns-date').value||null,
+      salaire_base:parseFloat($('ns-salaire').value)||0
+    });
+    toast('Employé ajouté ✓','ok');
+    closeOverlay();
+    loadStaff();
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+async function archiveStaff(id) {
+  if (!confirm('Désactiver cet employé ?')) return;
+  try {
+    await db.from('employes').update({actif:false}).eq('id',id);
+    toast('Employé désactivé','ok');
+    loadStaff();
+  } catch(e) { toast('Erreur','ko'); }
+}
+
+async function loadPaie() {
+  const mois = $('paie-mois').value;
+  if (!mois) return;
+  const el = $('paie-content');
+  el.innerHTML = '<div class="state-msg">Calcul en cours…</div>';
+  $('paie-footer').style.display = 'none';
+
+  try {
+    if (!employes.length) await loadStaff();
+    if (!employes.length) {
+      el.innerHTML = '<div class="state-msg">Aucun employé actif.</div>'; return;
+    }
+
+    const debut = mois + '-01';
+    const fin   = new Date(+mois.slice(0,4), +mois.slice(5,7), 0).toISOString().slice(0,10);
+
+    const [presRes, avRes] = await Promise.all([
+      db.from('presences').select('employe_id,statut,date').gte('date',debut).lte('date',fin),
+      db.from('avances').select('employe_id,montant').gte('date',debut).lte('date',fin)
+    ]);
+
+    const presences = presRes.data || [];
+    const avances   = avRes.data   || [];
+
+    /* Jours enregistrés dans le mois (dates distinctes présentes dans la table) */
+    const joursTotal = new Set(presences.map(p => p.date)).size || 30;
+
+    const paies = employes.map(e => {
+      const eP = presences.filter(p => p.employe_id === e.id);
+      const eA = avances.filter(a => a.employe_id === e.id);
+      const presents    = eP.filter(p => ['present','retard'].includes(p.statut)).length;
+      const absents     = eP.filter(p => p.statut === 'absent').length;
+      const conges      = eP.filter(p => p.statut === 'conge').length;
+      const totAvances  = eA.reduce((s,a) => s + (a.montant||0), 0);
+      const brut        = e.salaire_base || 0;
+      const net         = Math.max(0, brut - totAvances);
+      return { ...e, presents, absents, conges, joursTotal, totAvances, brut, net };
+    });
+
+    const totalMasse = paies.reduce((s,p) => s + p.net, 0);
+
+    el.innerHTML = paies.map(p => `
+      <div class="paie-card">
+        <div class="paie-head">
+          <div>
+            <div class="paie-nom">${p.nom} ${p.prenom||''}</div>
+            <div class="paie-poste">${p.poste}</div>
+          </div>
+          <div class="paie-net">${gnf(p.net)}</div>
+        </div>
+        <div class="paie-details">
+          <div class="paie-row">
+            <span>Salaire base</span><span>${gnf(p.brut)}</span>
+          </div>
+          <div class="paie-row">
+            <span>Présences</span>
+            <span style="color:var(--ok)">${p.presents} j / ${p.joursTotal} j</span>
+          </div>
+          ${p.absents ? `<div class="paie-row">
+            <span>Absences</span>
+            <span style="color:var(--danger)">${p.absents} j</span>
+          </div>` : ''}
+          ${p.conges ? `<div class="paie-row">
+            <span>Congés</span><span>${p.conges} j</span>
+          </div>` : ''}
+          ${p.totAvances ? `<div class="paie-row">
+            <span>Avances du mois</span>
+            <span style="color:var(--danger)">− ${gnf(p.totAvances)}</span>
+          </div>` : ''}
+        </div>
+      </div>`).join('');
+
+    $('paie-total').textContent = gnf(totalMasse);
+    $('paie-footer').style.display  = 'flex';
+    $('paie-footer').dataset.total  = totalMasse;
+    $('paie-footer').dataset.mois   = mois;
+
+  } catch(e) {
+    el.innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+
+async function validerPaie() {
+  const mois    = $('paie-footer').dataset.mois;
+  const montant = parseFloat($('paie-footer').dataset.total) || 0;
+  if (!mois || !montant) { toast('Aucune donnée à valider','ko'); return; }
+
+  const btn = $('btn-valider-paie');
+  btn.disabled = true;
+  try {
+    const label = new Date(mois+'-15').toLocaleDateString('fr-FR',
+      {month:'long', year:'numeric'});
+
+    /* Upsert : évite le doublon si on re-valide le même mois */
+    const { data: ex } = await db.from('charges').select('id')
+      .eq('mois',mois).eq('categorie','personnel').ilike('libelle','Salaires%');
+
+    if (ex?.length) {
+      await db.from('charges').update({montant, paye:false}).eq('id',ex[0].id);
+      toast('Charge salaires mise à jour ✓','ok');
+    } else {
+      await db.from('charges').insert({
+        libelle: `Salaires ${label}`,
+        categorie: 'personnel',
+        montant,
+        mois,
+        frequence: 'mensuel',
+        paye: false
+      });
+      toast('Masse salariale enregistrée dans les charges ✓','ok');
+    }
+  } catch(e) {
+    toast('Erreur : '+e.message,'ko');
+  }
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>

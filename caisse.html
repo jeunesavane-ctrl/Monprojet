@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Caisse — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+/* ── Lecture seule ── */
+.ro-banner{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.03);border:1px solid var(--b1);
+  border-radius:var(--rs);padding:9px 14px;
+  font-size:12px;color:var(--muted)}
+
+/* ── Session header ── */
+.sess-header{
+  background:var(--bg2);border-radius:var(--r);padding:14px 16px;
+  border:1px solid var(--b1);
+  box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 2px 10px rgba(0,0,0,.4);
+  display:flex;justify-content:space-between;align-items:center}
+.sess-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px}
+.sess-meta{margin-top:2px}
+.sess-count{text-align:right;flex-shrink:0}
+.sess-count-num{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--gold);line-height:1}
+.sess-count-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.live-badge{display:flex;align-items:center;gap:6px;font-size:10px;
+  color:var(--muted);text-transform:uppercase;letter-spacing:1.2px}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);
+  box-shadow:0 0 6px rgba(61,184,115,.6);
+  animation:pulse 1.8s ease-in-out infinite;flex-shrink:0}
+.live-dot-off{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(1.5)}}
+
+/* ── Fond de caisse ── */
+.fond-card{
+  background:var(--bg2);border:1px solid var(--b1);border-radius:var(--r);
+  padding:14px 16px;display:flex;justify-content:space-between;align-items:center;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 8px rgba(0,0,0,.3)}
+.fond-val{
+  font-family:'Bebas Neue',sans-serif;font-size:28px;
+  color:var(--gold);line-height:1;margin-top:4px}
+
+/* ── Mouvements ── */
+.mvt-header{display:flex;justify-content:space-between;align-items:center;margin:16px 0 8px}
+.mvt-btns{display:flex;gap:8px}
+.btn-entree{
+  padding:7px 14px;font-size:12px;font-weight:600;border-radius:var(--rs);cursor:pointer;
+  background:rgba(61,184,115,.1);border:1px solid rgba(61,184,115,.3);
+  color:var(--ok);letter-spacing:.5px;-webkit-tap-highlight-color:transparent}
+.btn-entree:active{background:rgba(61,184,115,.18)}
+.btn-sortie{
+  padding:7px 14px;font-size:12px;font-weight:600;border-radius:var(--rs);cursor:pointer;
+  background:rgba(201,73,74,.1);border:1px solid rgba(201,73,74,.3);
+  color:var(--danger);letter-spacing:.5px;-webkit-tap-highlight-color:transparent}
+.btn-sortie:active{background:rgba(201,73,74,.18)}
+.mvt-list{display:flex;flex-direction:column}
+.mvt-item{
+  display:flex;align-items:center;gap:10px;padding:10px 14px;
+  border-bottom:1px solid rgba(255,255,255,.04)}
+.mvt-item:last-child{border-bottom:none}
+.mvt-badge{
+  width:24px;height:24px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700}
+.mvt-badge.entree{background:rgba(61,184,115,.12);color:var(--ok);border:1px solid rgba(61,184,115,.25)}
+.mvt-badge.sortie{background:rgba(201,73,74,.12);color:var(--danger);border:1px solid rgba(201,73,74,.25)}
+.mvt-info{flex:1;min-width:0}
+.mvt-motif{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mvt-note{font-size:11px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mvt-time{font-size:11px;color:var(--muted)}
+.mvt-montant{font-family:'Bebas Neue',sans-serif;font-size:15px;flex-shrink:0;white-space:nowrap}
+.mvt-montant.entree{color:var(--ok)}
+.mvt-montant.sortie{color:var(--danger)}
+.mvt-del{
+  background:none;border:none;cursor:pointer;color:rgba(255,255,255,.2);
+  font-size:13px;padding:4px;flex-shrink:0;transition:color var(--t)}
+.mvt-del:active{color:var(--danger)}
+
+/* ── Crédits / Ardoises ── */
+.credit-list{display:flex;flex-direction:column}
+.credit-item{
+  display:flex;align-items:center;gap:10px;padding:11px 14px;
+  border-bottom:1px solid rgba(255,255,255,.04);transition:opacity var(--t)}
+.credit-item:last-child{border-bottom:none}
+.credit-item.done{opacity:.45}
+.credit-info{flex:1;min-width:0}
+.credit-nom{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.credit-note{font-size:11px;color:var(--muted);margin-top:1px}
+.credit-montant{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--gold);white-space:nowrap;flex-shrink:0}
+.credit-toggle{
+  width:28px;height:28px;border-radius:50%;font-size:13px;
+  cursor:pointer;flex-shrink:0;border:1px solid rgba(61,184,115,.3);
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(61,184,115,.1);color:var(--ok);
+  -webkit-tap-highlight-color:transparent;transition:all var(--t)}
+.credit-toggle.undo{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1);color:var(--muted)}
+.credit-badge{
+  font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;white-space:nowrap;flex-shrink:0}
+.credit-badge.doit{background:rgba(201,168,76,.1);color:var(--gold);border:1px solid rgba(201,168,76,.2)}
+.credit-badge.rembourse{background:rgba(61,184,115,.1);color:var(--ok);border:1px solid rgba(61,184,115,.2)}
+
+/* ── Staff cards ── */
+.staff-card{
+  background:var(--bg2);border-radius:var(--r);overflow:hidden;
+  border:1px solid var(--b1);
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 8px rgba(0,0,0,.35)}
+.staff-head{
+  padding:13px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;
+  transition:background var(--t);-webkit-tap-highlight-color:transparent;
+  background:linear-gradient(180deg,var(--bg3) 0%,rgba(15,15,18,.5) 100%);
+  border-bottom:1px solid var(--b1)}
+.staff-head:active{background:var(--bg4)}
+.staff-avatar{
+  width:36px;height:36px;border-radius:50%;background:var(--bg4);
+  border:1px solid var(--b1);display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;color:var(--text2);flex-shrink:0}
+.staff-info{flex:1;min-width:0}
+.staff-nom{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.staff-sub{font-size:12px;color:var(--muted);margin-top:1px}
+.staff-total{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--gold);flex-shrink:0}
+.staff-arrow{color:var(--muted);font-size:11px;transition:transform .2s;margin-left:8px}
+.staff-card.open .staff-arrow{transform:rotate(180deg)}
+.staff-body{display:none;padding:10px 14px;flex-direction:column;gap:4px}
+.staff-card.open .staff-body{display:flex}
+.cv-row{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.cv-row:last-of-type{border-bottom:none}
+.cv-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.cv-dot.chicha{background:var(--gold)}
+.cv-dot.boisson{background:#3A7BA8}
+.cv-dot.autre{background:var(--ok)}
+.cv-label{font-size:13px;font-weight:500;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cv-qty{font-size:12px;color:var(--muted);text-align:right;flex-shrink:0}
+.cv-pm{font-size:10px;flex-shrink:0}
+.cv-total{font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--gold);white-space:nowrap;flex-shrink:0}
+.tag-chip{
+  font-size:11px;padding:2px 8px;border-radius:10px;white-space:nowrap}
+.tag-chip.chicha{background:rgba(201,168,76,.12);color:var(--gold);border:1px solid rgba(201,168,76,.2)}
+.tag-chip.boisson{background:rgba(58,123,168,.12);color:#5BA3CC;border:1px solid rgba(58,123,168,.2)}
+.tag-chip.autre{background:rgba(61,184,115,.1);color:var(--ok);border:1px solid rgba(61,184,115,.2)}
+
+/* ── Recap ── */
+.recap-card{
+  background:var(--glow);border:1px solid var(--gring);
+  border-radius:var(--r);padding:18px;
+  box-shadow:0 0 0 1px var(--gring) inset,0 4px 20px rgba(201,168,76,.07)}
+.recap-row{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:13px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.recap-row:last-of-type{border-bottom:none}
+.recap-row span:last-child{
+  font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--gold)}
+.recap-sub-row{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:12px;padding:3px 0 3px 12px;color:var(--muted);
+  border-bottom:1px solid rgba(255,255,255,.03)}
+.recap-total{
+  display:flex;justify-content:space-between;align-items:baseline;
+  padding:12px 0 8px;margin-top:4px;border-top:1px solid var(--gring)}
+.recap-total-lbl{font-size:14px;font-weight:600}
+.recap-total-val{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--gold);line-height:1}
+.recap-sep{height:1px;background:rgba(255,255,255,.06);margin:8px 0}
+.reel-input{
+  width:100%;padding:13px;background:var(--bg3);border:1px solid var(--b2);
+  border-radius:var(--rs);font-size:22px;font-family:'Bebas Neue',sans-serif;
+  color:var(--text);text-align:right;letter-spacing:1px;outline:none;
+  transition:border-color var(--t)}
+.reel-input:focus{border-color:var(--gring)}
+.ecart-display{
+  font-size:13px;margin-top:7px;text-align:right;min-height:18px;font-weight:600}
+
+/* ── Validation ── */
+.btn-validate{
+  width:100%;padding:18px;
+  background:linear-gradient(180deg,var(--goldl) 0%,var(--gold) 100%);
+  border:none;border-radius:var(--r);
+  color:#060606;font-family:'Bebas Neue',sans-serif;
+  font-size:21px;letter-spacing:3px;cursor:pointer;
+  box-shadow:0 4px 24px rgba(201,168,76,.28),0 1px 0 rgba(255,255,255,.15) inset;
+  transition:opacity var(--t),transform var(--t);
+  -webkit-tap-highlight-color:transparent}
+.btn-validate:active{opacity:.85;transform:scale(.99)}
+.btn-validate:disabled{opacity:.2;cursor:not-allowed;box-shadow:none}
+.validated-card{
+  background:var(--okbg);border:1px solid var(--okb);
+  border-radius:var(--r);padding:22px;text-align:center}
+.validated-icon{font-size:32px;margin-bottom:8px}
+.validated-title{font-family:'Bebas Neue',sans-serif;font-size:20px;
+  letter-spacing:2px;color:var(--ok);margin-bottom:6px}
+.validated-sub{font-size:13px;color:var(--muted);line-height:1.7}
+.alert-warn{
+  background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.2);
+  border-radius:var(--rs);padding:10px 14px;font-size:13px;
+  color:rgba(255,255,255,.6);margin-bottom:10px}
+
+/* ── Notes caissier ── */
+.notes-card{
+  background:var(--bg2);border:1px solid var(--b1);border-radius:var(--r);
+  padding:14px;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 8px rgba(0,0,0,.3)}
+.notes-area{
+  width:100%;background:transparent;border:none;resize:none;
+  color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;
+  line-height:1.6;outline:none;min-height:90px}
+.notes-area::placeholder{color:var(--muted)}
+.notes-status{font-size:11px;color:var(--muted);margin-top:6px;text-align:right;min-height:14px}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap" id="main-body">
+    <div class="state-msg">Chargement…</div>
+  </div>
+  <div id="overlay"><div class="sheet" id="overlay-sheet"></div></div>
+  <div id="toast"></div>
+
+<script>
+let sessionData   = null;
+let allVentes     = [];
+let allMouvements = [];
+let allCredits    = [];
+let allAchats     = [];
+let employes      = [];
+let _realtimeSub  = false;
+let _noteSave;
+
+const isReadOnly  = () => ML.getRole() !== 'caissier';
+const caisseNoteKey = () => `ml_caisse_note_${todayISO()}`;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['caissier','manager','owner','associe'])) return;
+  await loadCaisse();
+});
+
+/* ════════════════════════════════════════════
+   CHARGEMENT
+════════════════════════════════════════════ */
+async function loadCaisse() {
+  const today = todayISO();
+  try {
+    /* ── Vérifier que les tables existent ── */
+    const { error: tableErr } = await db.from('sessions_caisse').select('id').limit(0);
+    if (tableErr) {
+      $('main-body').innerHTML = `
+        <div class="card">
+          <div class="card-head"><div class="card-title" style="color:var(--gold)">⚙ Configuration requise</div></div>
+          <div class="card-body" style="gap:10px">
+            <div style="font-size:13px;color:var(--muted);line-height:1.6">
+              Les tables de caisse n'ont pas encore été créées dans Supabase.<br>
+              Exécutez le SQL ci-dessous dans l'éditeur SQL de Supabase.
+            </div>
+            <div style="background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rs);
+              padding:12px;font-size:11px;font-family:monospace;line-height:1.8;
+              color:rgba(255,255,255,.6);white-space:pre-wrap;overflow-x:auto">CREATE TABLE sessions_caisse (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  date DATE UNIQUE NOT NULL,
+  statut TEXT DEFAULT 'ouvert',
+  fond_caisse INTEGER DEFAULT 0,
+  total_reel INTEGER,
+  note_caissier TEXT,
+  note_manager TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE mouvements_caisse (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  session_id UUID REFERENCES sessions_caisse(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  motif TEXT NOT NULL,
+  montant INTEGER NOT NULL DEFAULT 0,
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE ventes_session (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  session_id UUID REFERENCES sessions_caisse(id) ON DELETE CASCADE,
+  employe_id UUID REFERENCES employes(id),
+  label TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'chicha',
+  qty INTEGER NOT NULL DEFAULT 1,
+  prix_unit INTEGER NOT NULL DEFAULT 0,
+  total INTEGER NOT NULL DEFAULT 0,
+  paiement TEXT DEFAULT 'especes',
+  valide_staff BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE credits (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  session_id UUID REFERENCES sessions_caisse(id) ON DELETE CASCADE,
+  client_nom TEXT NOT NULL,
+  montant INTEGER NOT NULL DEFAULT 0,
+  note TEXT,
+  rembourse BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE sessions_caisse DISABLE ROW LEVEL SECURITY;
+ALTER TABLE mouvements_caisse DISABLE ROW LEVEL SECURITY;
+ALTER TABLE ventes_session DISABLE ROW LEVEL SECURITY;
+ALTER TABLE credits DISABLE ROW LEVEL SECURITY;</div>
+          </div>
+        </div>`;
+      return;
+    }
+
+    /* ── Session du jour ── */
+    let { data: sess } = await db
+      .from('sessions_caisse').select('*').eq('date', today).maybeSingle();
+
+    if (!sess) {
+      if (isReadOnly()) {
+        $('main-body').innerHTML = `
+          <div class="state-msg" style="padding:44px 0;text-align:center">
+            <div style="font-size:38px;margin-bottom:12px;opacity:.35">📋</div>
+            <div style="font-size:15px;font-weight:500;margin-bottom:6px">Aucune session ce soir</div>
+            <div style="font-size:13px;color:var(--muted)">
+              Le caissier n'a pas encore ouvert de session pour aujourd'hui.
+            </div>
+          </div>`;
+        return;
+      }
+      const { data: created, error: cErr } = await db
+        .from('sessions_caisse')
+        .insert({ date: today, statut:'ouvert' })
+        .select().single();
+      if (cErr) throw cErr;
+      sess = created;
+    }
+    sessionData = sess;
+
+    /* ── Charger données en parallèle ── */
+    const [ventesRes, mouvRes, empRes, credRes, achatsRes] = await Promise.all([
+      db.from('ventes_session').select('*').eq('session_id', sess.id).order('created_at'),
+      db.from('mouvements_caisse').select('*').eq('session_id', sess.id).order('created_at'),
+      db.from('employes').select('id,nom,prenom').eq('actif', true),
+      db.from('credits').select('*').eq('session_id', sess.id).order('created_at'),
+      db.from('achats_session').select('*').eq('session_id', sess.id).order('created_at')
+    ]);
+
+    allVentes     = ventesRes.data  || [];
+    allMouvements = mouvRes.data    || [];
+    employes      = empRes.data     || [];
+    allCredits    = credRes.data    || [];
+    allAchats     = achatsRes.data  || [];
+
+    renderCaisse();
+    subscribeRealtime(sess.id);
+
+  } catch(e) {
+    $('main-body').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+
+function subscribeRealtime(sessId) {
+  if (_realtimeSub) return;
+  _realtimeSub = true;
+
+  const refresh = async () => {
+    const [v, m, c, a] = await Promise.all([
+      db.from('ventes_session').select('*').eq('session_id', sessId).order('created_at'),
+      db.from('mouvements_caisse').select('*').eq('session_id', sessId).order('created_at'),
+      db.from('credits').select('*').eq('session_id', sessId).order('created_at'),
+      db.from('achats_session').select('*').eq('session_id', sessId).order('created_at')
+    ]);
+    allVentes     = v.data || [];
+    allMouvements = m.data || [];
+    allCredits    = c.data || [];
+    allAchats     = a.data || [];
+    renderCaisse();
+  };
+
+  db.channel('ml-caisse-v3')
+    .on('postgres_changes',{ event:'*',schema:'public',table:'ventes_session',
+      filter:`session_id=eq.${sessId}` }, refresh)
+    .on('postgres_changes',{ event:'*',schema:'public',table:'mouvements_caisse',
+      filter:`session_id=eq.${sessId}` }, refresh)
+    .on('postgres_changes',{ event:'*',schema:'public',table:'credits',
+      filter:`session_id=eq.${sessId}` }, refresh)
+    .on('postgres_changes',{ event:'*',schema:'public',table:'achats_session',
+      filter:`session_id=eq.${sessId}` }, refresh)
+    .subscribe();
+}
+
+/* ════════════════════════════════════════════
+   RENDER
+════════════════════════════════════════════ */
+function renderCaisse() {
+  if (!sessionData) return;
+  const ro    = isReadOnly();
+  const isVal = sessionData.statut === 'valide_caissier'
+             || sessionData.statut === 'valide_manager';
+
+  /* ── Totaux ── */
+  const fond       = sessionData.fond_caisse || 0;
+  const totVentes  = allVentes.reduce((s,v) => s+v.total, 0);
+  const totOM      = allVentes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
+  const totEsp     = totVentes - totOM;
+  const totEntrees = allMouvements.filter(m => m.type==='entree').reduce((s,m) => s+m.montant, 0);
+  const totSorties = allMouvements.filter(m => m.type==='sortie').reduce((s,m) => s+m.montant, 0);
+  const totAchats  = allAchats.reduce((s,a) => s+a.montant, 0);
+  const theorique  = fond + totVentes + totEntrees - totSorties - totAchats;
+  const reel       = sessionData.total_reel;
+  const ecart      = reel != null ? theorique - reel : null;
+
+  /* ── Par staff ── */
+  const byEmp = {};
+  allVentes.forEach(v => {
+    if (!byEmp[v.employe_id]) byEmp[v.employe_id] = [];
+    byEmp[v.employe_id].push(v);
+  });
+  const staffIds    = Object.keys(byEmp);
+  const closedCount = staffIds.filter(id => byEmp[id].every(v => v.valide_staff)).length;
+  const totalCount  = staffIds.length;
+  const allClosed   = totalCount > 0 && closedCount === totalCount;
+
+  /* ── 1. Header ── */
+  const header = `
+    <div class="sess-header">
+      <div>
+        <div class="sess-title">${frDate(sessionData.date)}</div>
+        <div class="sess-meta">
+          <span class="live-badge">
+            <span class="${isVal ? 'live-dot-off' : 'live-dot'}"></span>
+            ${isVal ? 'Session clôturée' : ro ? 'Consultation en direct' : 'Session ouverte'}
+          </span>
+        </div>
+      </div>
+      <div class="sess-count">
+        <div class="sess-count-num">${closedCount}/${totalCount}</div>
+        <div class="sess-count-lbl">staff clôturés</div>
+      </div>
+    </div>
+    ${ro ? `<div class="ro-banner"><span style="opacity:.5">👁</span>&nbsp; Lecture seule — seul le caissier peut modifier</div>` : ''}`;
+
+  /* ── 2. Fond de caisse ── */
+  const fondBlock = `
+    <div class="s-head">Fond de caisse</div>
+    <div class="fond-card">
+      <div>
+        <div class="kpi-label">Montant d'ouverture</div>
+        <div class="fond-val">${gnf(fond)}</div>
+      </div>
+      ${!ro && !isVal
+        ? `<button class="btn-secondary" onclick="openFondModal()" style="flex-shrink:0">
+             ${fond ? 'Modifier' : '+ Définir'}
+           </button>`
+        : ''}
+    </div>`;
+
+  /* ── 3. Mouvements de caisse ── */
+  const mvtRows = allMouvements.length ? allMouvements.map(m => {
+    const d   = new Date(m.created_at);
+    const hm  = d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    return `
+      <div class="mvt-item">
+        <div class="mvt-badge ${m.type}">${m.type==='entree'?'↑':'↓'}</div>
+        <div class="mvt-info">
+          <div class="mvt-motif">${m.motif}</div>
+          ${m.note ? `<div class="mvt-note">${m.note}</div>` : ''}
+        </div>
+        <div class="mvt-time">${hm}</div>
+        <div class="mvt-montant ${m.type}">
+          ${m.type==='entree'?'+':'−'} ${gnf(m.montant)}
+        </div>
+        ${!ro && !isVal
+          ? `<button class="mvt-del" onclick="deleteMouvement('${m.id}')" title="Supprimer">✕</button>`
+          : ''}
+      </div>`;
+  }).join('') : `<div class="state-msg" style="padding:14px 0">Aucun mouvement.</div>`;
+
+  const mouvBlock = `
+    <div class="mvt-header">
+      <div class="s-head" style="margin:0">Mouvements de caisse</div>
+      ${!ro && !isVal ? `
+        <div class="mvt-btns">
+          <button class="btn-entree" onclick="openMouvModal('entree')">+ Entrée</button>
+          <button class="btn-sortie" onclick="openMouvModal('sortie')">+ Sortie</button>
+        </div>` : ''}
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="mvt-list">${mvtRows}</div>
+    </div>`;
+
+  /* ── 4. Crédits / Ardoises ── */
+  const totalCredits    = allCredits.filter(c => !c.rembourse).reduce((s,c)=>s+c.montant, 0);
+  const creditRows = allCredits.length ? allCredits.map(c => `
+    <div class="credit-item${c.rembourse?' done':''}">
+      <div class="credit-info">
+        <div class="credit-nom">${c.client_nom}</div>
+        ${c.note ? `<div class="credit-note">${c.note}</div>` : ''}
+      </div>
+      <div class="credit-montant">${gnf(c.montant)}</div>
+      ${!ro && !isVal
+        ? `<button class="credit-toggle${c.rembourse?' undo':''}"
+             onclick="toggleCredit('${c.id}',${!c.rembourse})"
+             title="${c.rembourse?'Marquer non remboursé':'Marquer remboursé'}">
+             ${c.rembourse?'↩':'✓'}
+           </button>
+           <button class="mvt-del" onclick="deleteCredit('${c.id}')">✕</button>`
+        : `<span class="credit-badge ${c.rembourse?'rembourse':'doit'}">${c.rembourse?'Remb.':'Dû'}</span>`}
+    </div>`).join('')
+    : `<div class="state-msg" style="padding:14px 0">Aucun crédit noté.</div>`;
+
+  const creditsBlock = `
+    <div class="mvt-header">
+      <div class="s-head" style="margin:0">
+        Crédits / Ardoises
+        ${totalCredits > 0 ? `<span style="font-size:12px;color:var(--gold);font-family:'DM Sans',sans-serif;margin-left:8px">· ${gnf(totalCredits)} dus</span>` : ''}
+      </div>
+      ${!ro && !isVal
+        ? `<button class="btn-entree" onclick="openCreditModal()"
+             style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.25);color:var(--gold)">
+             + Crédit
+           </button>` : ''}
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="credit-list">${creditRows}</div>
+    </div>`;
+
+  /* ── 5. Rapports staff ── */
+  const staffCards = staffIds.length === 0
+    ? `<div class="state-msg" style="padding:20px">Aucune vente enregistrée ce soir.</div>`
+    : staffIds.map(empId => {
+        const emp   = employes.find(e => e.id === empId);
+        const nom   = emp ? [emp.prenom,emp.nom].filter(Boolean).join(' ') : 'Inconnu';
+        const init  = nom.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+        const vs    = byEmp[empId];
+        const close = vs.every(v => v.valide_staff);
+        const tot   = vs.reduce((s,v) => s+v.total, 0);
+        const totOM_s = vs.filter(v=>v.paiement==='om').reduce((s,v)=>s+v.total,0);
+        const totC  = vs.filter(v=>v.type==='chicha' ).reduce((s,v)=>s+v.total,0);
+        const totB  = vs.filter(v=>v.type==='boisson').reduce((s,v)=>s+v.total,0);
+        const totA  = vs.filter(v=>v.type==='autre'  ).reduce((s,v)=>s+v.total,0);
+        const rows  = vs.map(v => `
+          <div class="cv-row">
+            <div class="cv-dot ${v.type}"></div>
+            <div class="cv-label">${v.label}</div>
+            <div class="cv-qty">×${v.qty}</div>
+            <span class="cv-pm">${v.paiement==='om'?'📱':'💵'}</span>
+            <div class="cv-total">${gnf(v.total)}</div>
+          </div>`).join('');
+        return `
+          <div class="staff-card" id="sc-${empId}">
+            <div class="staff-head" onclick="toggleStaff('${empId}')">
+              <div class="staff-avatar">${init}</div>
+              <div class="staff-info">
+                <div class="staff-nom">${nom}</div>
+                <div class="staff-sub">${vs.length} vente${vs.length>1?'s':''} ·
+                  <span style="color:${close?'var(--ok)':'var(--gold)'}">
+                    ${close?'Clôturée':'En cours'}
+                  </span>
+                  ${totOM_s > 0 ? `<span style="color:#FF7800;font-size:10px"> · 📱 ${gnf(totOM_s)}</span>` : ''}
+                </div>
+              </div>
+              <div class="staff-total">${gnf(tot)}</div>
+              <span class="staff-arrow">▼</span>
+            </div>
+            <div class="staff-body">
+              ${rows}
+              <div style="display:flex;flex-wrap:wrap;gap:6px;padding-top:8px;
+                border-top:1px solid rgba(255,255,255,.05);margin-top:4px">
+                ${totC?`<span class="tag-chip chicha">Chicha ${gnf(totC)}</span>`:''}
+                ${totB?`<span class="tag-chip boisson">Boissons ${gnf(totB)}</span>`:''}
+                ${totA?`<span class="tag-chip autre">Autres ${gnf(totA)}</span>`:''}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+
+  /* ── 6. Récapitulatif ── */
+  const ecartColor = ecart === null ? 'var(--muted)'
+    : ecart === 0 ? 'var(--ok)'
+    : ecart > 0   ? 'var(--danger)'
+    : '#5BA3CC';
+  const ecartTxt = ecart === null ? '—'
+    : ecart === 0 ? '✓ Caisse exacte'
+    : ecart > 0   ? `Manque ${gnf(ecart)}`
+    : `Excédent de ${gnf(Math.abs(ecart))}`;
+
+  const reelSection = isVal
+    ? `<div class="recap-sep"></div>
+       <div class="recap-row">
+         <span>Total réel compté</span>
+         <span style="color:var(--text)">${reel != null ? gnf(reel) : '—'}</span>
+       </div>
+       <div class="recap-row">
+         <span>Écart</span>
+         <span style="color:${ecartColor};font-weight:600">${ecartTxt}</span>
+       </div>`
+    : ro
+    ? `<div class="recap-sep"></div>
+       <div class="recap-row">
+         <span style="color:var(--muted)">Total réel (non encore renseigné)</span>
+         <span>—</span>
+       </div>`
+    : `<div class="recap-sep"></div>
+       <div style="margin-bottom:6px">
+         <div class="kpi-label" style="margin-bottom:8px">Total réel compté (espèces en caisse)</div>
+         <input class="reel-input" id="reel-input" type="number" inputmode="numeric"
+           placeholder="0" value="${reel != null ? reel : ''}"
+           oninput="updateEcart(${theorique})">
+         <div class="ecart-display" id="ecart-display" style="color:${ecartColor}">
+           ${reel != null ? ecartTxt : ''}
+         </div>
+       </div>`;
+
+  const recap = `
+    <div class="s-head">Récapitulatif</div>
+    <div class="recap-card">
+      <div class="recap-row">
+        <span>Fond de caisse</span><span>${gnf(fond)}</span>
+      </div>
+      <div class="recap-row">
+        <span>Ventes staff</span><span>${gnf(totVentes)}</span>
+      </div>
+      ${totOM > 0 ? `
+      <div class="recap-sub-row">
+        <span>↳ 💵 Espèces</span>
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:var(--text)">${gnf(totEsp)}</span>
+      </div>
+      <div class="recap-sub-row">
+        <span>↳ 📱 Orange Money</span>
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:#FF7800">${gnf(totOM)}</span>
+      </div>` : ''}
+      ${totEntrees > 0
+        ? `<div class="recap-row">
+             <span style="color:var(--ok)">+ Entrées de caisse</span>
+             <span style="color:var(--ok) !important">${gnf(totEntrees)}</span>
+           </div>` : ''}
+      ${totSorties > 0
+        ? `<div class="recap-row">
+             <span style="color:var(--danger)">− Sorties de caisse</span>
+             <span style="color:var(--danger) !important">${gnf(totSorties)}</span>
+           </div>` : ''}
+      ${totAchats > 0
+        ? `<div class="recap-row">
+             <span style="color:var(--danger)">− Achats (${allAchats.length} article${allAchats.length>1?'s':''})</span>
+             <span style="color:var(--danger) !important">${gnf(totAchats)}</span>
+           </div>` : ''}
+      <div class="recap-total">
+        <span class="recap-total-lbl">Total théorique</span>
+        <span class="recap-total-val">${gnf(theorique)}</span>
+      </div>
+      ${reelSection}
+    </div>`;
+
+  /* ── 7. Clôture ── */
+  let clotureBlock;
+  if (isVal) {
+    clotureBlock = `
+      <div class="validated-card">
+        <div class="validated-icon">✓</div>
+        <div class="validated-title">
+          ${sessionData.statut==='valide_manager' ? 'Rapport créé' : 'Clôturée — en attente gestionnaire'}
+        </div>
+        <div class="validated-sub">
+          ${ro ? 'Caissier a clôturé la session.' : 'Votre clôture a été envoyée au gestionnaire.'}<br>
+          Théorique : <strong style="color:var(--gold)">${gnf(theorique)}</strong>
+          ${reel != null ? ` · Réel : <strong>${gnf(reel)}</strong>` : ''}
+          ${ecart !== null
+            ? `<br>Écart : <strong style="color:${ecartColor}">${ecartTxt}</strong>` : ''}
+          ${sessionData.note_caissier
+            ? `<br><em style="opacity:.55;font-style:italic">"${sessionData.note_caissier}"</em>` : ''}
+        </div>
+      </div>`;
+  } else if (ro) {
+    clotureBlock = `
+      <div class="validated-card" style="background:rgba(255,255,255,.03);border-color:var(--b1)">
+        <div style="font-size:26px;opacity:.3;margin-bottom:8px">⏳</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;
+          color:var(--muted);margin-bottom:4px">En attente du caissier</div>
+        <div style="font-size:13px;color:var(--muted)">
+          ${totalCount===0 ? 'Aucun rapport staff.'
+            : allClosed   ? 'Tous les staff ont clôturé.'
+            : `${totalCount-closedCount} staff encore en cours.`}
+        </div>
+      </div>`;
+  } else {
+    clotureBlock = `
+      <div class="field">
+        <label>Note de clôture (optionnel)</label>
+        <textarea id="f-note" placeholder="Observations, écarts, remarques…" rows="2">${sessionData.note_caissier||''}</textarea>
+      </div>
+      ${!allClosed && totalCount > 0
+        ? `<div class="alert-warn">
+             ⏳ ${totalCount-closedCount} staff encore en cours — vous pouvez clôturer quand même
+           </div>` : ''}
+      <button class="btn-validate" onclick="confirmValidate(${theorique})"
+        ${totalCount===0?'disabled':''}>
+        CLÔTURER LA CAISSE
+      </button>`;
+  }
+
+  /* ── 8. Notes de service (caissier seulement) ── */
+  const notesBlock = !ro ? `
+    <div class="s-head">Notes de service</div>
+    <div class="notes-card">
+      <textarea class="notes-area" id="caisse-note-area"
+        placeholder="Notes de travail : observations, produits manquants, rappels…"
+        rows="4" oninput="onCaisseNoteInput()"></textarea>
+      <div class="notes-status" id="caisse-note-status"></div>
+    </div>` : '';
+
+  $('main-body').innerHTML =
+    header + fondBlock + mouvBlock + creditsBlock +
+    `<div class="s-head">Rapports staff</div>` +
+    staffCards + recap +
+    `<div class="s-head">${ro ? 'État' : 'Clôture'}</div>` +
+    clotureBlock + notesBlock;
+
+  /* Init notes */
+  const noteArea = document.getElementById('caisse-note-area');
+  if (noteArea) noteArea.value = localStorage.getItem(caisseNoteKey()) || '';
+}
+
+function toggleStaff(id) {
+  document.getElementById('sc-' + id)?.classList.toggle('open');
+}
+
+/* ════════════════════════════════════════════
+   FOND DE CAISSE
+════════════════════════════════════════════ */
+function openFondModal() {
+  $('overlay-sheet').innerHTML = `
+    <div class="sheet-title">Fond de caisse</div>
+    <div class="sheet-text" style="margin-bottom:14px">
+      Montant présent en caisse à l'ouverture de la session.
+    </div>
+    <div class="field" style="margin-bottom:16px">
+      <label>Montant (GNF)</label>
+      <input id="fond-input" type="number" inputmode="numeric" placeholder="0"
+        value="${sessionData.fond_caisse || ''}"
+        style="font-size:22px;font-family:'Bebas Neue',sans-serif;
+               text-align:right;letter-spacing:1px;padding:13px">
+    </div>
+    <div class="sheet-btns">
+      <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
+      <button class="btn-ok" onclick="saveFond()">ENREGISTRER</button>
+    </div>`;
+  $('overlay').classList.add('on');
+  setTimeout(() => document.getElementById('fond-input')?.focus(), 80);
+}
+
+async function saveFond() {
+  const val = parseInt(document.getElementById('fond-input')?.value) || 0;
+  try {
+    await db.from('sessions_caisse').update({ fond_caisse:val }).eq('id', sessionData.id);
+    sessionData.fond_caisse = val;
+    $('overlay').classList.remove('on');
+    toast('Fond de caisse enregistré ✓', 'ok');
+    renderCaisse();
+  } catch(e) { toast('Erreur : '+e.message, 'ko'); }
+}
+
+/* ════════════════════════════════════════════
+   MOUVEMENTS
+════════════════════════════════════════════ */
+const MOTIFS_ENTREE = ['Versement espèces','Remise en caisse','Remboursement reçu',
+                       'Correction','Prêt rendu','Autre'];
+const MOTIFS_SORTIE = ['Achat / Dépense','Retrait','Remboursement client',
+                       'Avance employé','Frais divers','Autre'];
+
+function openMouvModal(type) {
+  const motifs = type === 'entree' ? MOTIFS_ENTREE : MOTIFS_SORTIE;
+  const color  = type === 'entree' ? 'var(--ok)' : 'var(--danger)';
+  const titre  = type === 'entree' ? '↑ ENTRÉE DE CAISSE' : '↓ SORTIE DE CAISSE';
+  $('overlay-sheet').innerHTML = `
+    <div class="sheet-title" style="color:${color}">${titre}</div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+      <div class="field">
+        <label>Motif</label>
+        <select id="mv-sel" onchange="onMotifSel()">
+          ${motifs.map(m=>`<option>${m}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" id="mv-custom-wrap" style="display:none">
+        <label>Préciser</label>
+        <input id="mv-custom" type="text" placeholder="Description…">
+      </div>
+      <div class="field">
+        <label>Montant (GNF)</label>
+        <input id="mv-montant" type="number" inputmode="numeric" placeholder="0"
+          style="font-size:20px;font-family:'Bebas Neue',sans-serif;
+                 text-align:right;letter-spacing:1px">
+      </div>
+      <div class="field">
+        <label>Note (optionnel)</label>
+        <input id="mv-note" type="text" placeholder="Détail…">
+      </div>
+    </div>
+    <div class="sheet-btns">
+      <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
+      <button class="btn-ok" onclick="saveMouvement('${type}')">ENREGISTRER</button>
+    </div>`;
+  $('overlay').classList.add('on');
+  setTimeout(() => document.getElementById('mv-montant')?.focus(), 80);
+}
+
+function onMotifSel() {
+  const sel  = document.getElementById('mv-sel');
+  const wrap = document.getElementById('mv-custom-wrap');
+  if (wrap) wrap.style.display = sel?.value === 'Autre' ? '' : 'none';
+}
+
+async function saveMouvement(type) {
+  const sel     = document.getElementById('mv-sel');
+  const custom  = document.getElementById('mv-custom');
+  const motif   = (sel?.value === 'Autre' && custom?.value.trim())
+    ? custom.value.trim() : sel?.value;
+  const montant = parseInt(document.getElementById('mv-montant')?.value) || 0;
+  const note    = document.getElementById('mv-note')?.value.trim() || null;
+
+  if (!motif)   { toast('Motif requis', 'ko'); return; }
+  if (!montant) { toast('Montant requis', 'ko'); return; }
+
+  try {
+    const { data, error } = await db.from('mouvements_caisse').insert({
+      session_id: sessionData.id, type, motif, montant, note
+    }).select().single();
+    if (error) throw error;
+    $('overlay').classList.remove('on');
+    toast(`${type==='entree'?'Entrée':'Sortie'} enregistrée ✓`, 'ok');
+    ML.logAction(`${type==='entree'?'↑ Entrée caisse':'↓ Sortie caisse'} · ${motif} · ${gnf(montant)}`);
+    allMouvements.push(data);
+    renderCaisse();
+  } catch(e) { toast('Erreur : '+e.message, 'ko'); }
+}
+
+async function deleteMouvement(id) {
+  try {
+    await db.from('mouvements_caisse').delete().eq('id', id);
+    allMouvements = allMouvements.filter(m => m.id !== id);
+    renderCaisse();
+    toast('Mouvement supprimé', 'ok');
+  } catch { toast('Erreur', 'ko'); }
+}
+
+/* ════════════════════════════════════════════
+   CRÉDITS / ARDOISES
+════════════════════════════════════════════ */
+function openCreditModal() {
+  $('overlay-sheet').innerHTML = `
+    <div class="sheet-title" style="color:var(--gold)">💳 NOUVEAU CRÉDIT</div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+      <div class="field">
+        <label>Nom du client</label>
+        <input id="cr-nom" type="text" placeholder="Nom ou description…">
+      </div>
+      <div class="field">
+        <label>Montant (GNF)</label>
+        <input id="cr-montant" type="number" inputmode="numeric" placeholder="0"
+          style="font-size:20px;font-family:'Bebas Neue',sans-serif;
+                 text-align:right;letter-spacing:1px">
+      </div>
+      <div class="field">
+        <label>Note (optionnel)</label>
+        <input id="cr-note" type="text" placeholder="Commande, détails…">
+      </div>
+    </div>
+    <div class="sheet-btns">
+      <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
+      <button class="btn-ok" onclick="saveCredit()">ENREGISTRER</button>
+    </div>`;
+  $('overlay').classList.add('on');
+  setTimeout(() => document.getElementById('cr-nom')?.focus(), 80);
+}
+
+async function saveCredit() {
+  const client_nom = document.getElementById('cr-nom')?.value.trim() || '';
+  const montant    = parseInt(document.getElementById('cr-montant')?.value) || 0;
+  const note       = document.getElementById('cr-note')?.value.trim() || null;
+
+  if (!client_nom) { toast('Nom du client requis', 'ko'); return; }
+  if (!montant)    { toast('Montant requis', 'ko'); return; }
+
+  try {
+    const { data, error } = await db.from('credits').insert({
+      session_id: sessionData.id, client_nom, montant, note, rembourse: false
+    }).select().single();
+    if (error) throw error;
+    $('overlay').classList.remove('on');
+    toast(`Crédit noté : ${client_nom} · ${gnf(montant)} ✓`, 'ok');
+    ML.logAction(`💳 Crédit · ${client_nom} · ${gnf(montant)}`);
+    allCredits.push(data);
+    renderCaisse();
+  } catch(e) { toast('Erreur : '+e.message, 'ko'); }
+}
+
+async function toggleCredit(id, rembourse) {
+  try {
+    await db.from('credits').update({ rembourse }).eq('id', id);
+    allCredits = allCredits.map(c => c.id===id ? {...c, rembourse} : c);
+    renderCaisse();
+    toast(rembourse ? 'Marqué remboursé ✓' : 'Remise en ardoise', 'ok');
+    if (rembourse) ML.logAction(`✅ Crédit remboursé · ${allCredits.find(c=>c.id===id)?.client_nom}`);
+  } catch { toast('Erreur', 'ko'); }
+}
+
+async function deleteCredit(id) {
+  try {
+    await db.from('credits').delete().eq('id', id);
+    allCredits = allCredits.filter(c => c.id !== id);
+    renderCaisse();
+    toast('Crédit supprimé', 'ok');
+  } catch { toast('Erreur', 'ko'); }
+}
+
+/* ════════════════════════════════════════════
+   NOTES DE SERVICE
+════════════════════════════════════════════ */
+function onCaisseNoteInput() {
+  clearTimeout(_noteSave);
+  const status = document.getElementById('caisse-note-status');
+  if (status) status.textContent = '…';
+  _noteSave = setTimeout(() => {
+    const val = document.getElementById('caisse-note-area')?.value || '';
+    localStorage.setItem(caisseNoteKey(), val);
+    if (status) { status.textContent = 'Sauvegardé ✓'; setTimeout(() => { status.textContent=''; }, 1500); }
+  }, 600);
+}
+
+/* ════════════════════════════════════════════
+   RÉCAPITULATIF ÉCART
+════════════════════════════════════════════ */
+function updateEcart(theorique) {
+  const input   = document.getElementById('reel-input');
+  const display = document.getElementById('ecart-display');
+  if (!input || !display) return;
+  if (!input.value) { display.textContent=''; return; }
+  const reel  = parseInt(input.value) || 0;
+  const ecart = theorique - reel;
+  if (ecart === 0) {
+    display.textContent = '✓ Caisse exacte';
+    display.style.color = 'var(--ok)';
+  } else if (ecart > 0) {
+    display.textContent = `Manque ${gnf(ecart)} en caisse`;
+    display.style.color = 'var(--danger)';
+  } else {
+    display.textContent = `Excédent de ${gnf(Math.abs(ecart))}`;
+    display.style.color = '#5BA3CC';
+  }
+}
+
+/* ════════════════════════════════════════════
+   CLÔTURE / VALIDATION
+════════════════════════════════════════════ */
+function confirmValidate(theorique) {
+  const reelInput = document.getElementById('reel-input');
+  const reel  = reelInput?.value ? parseInt(reelInput.value) : null;
+  const note  = ($('f-note')?.value || '').trim();
+  const ecart = reel != null ? theorique - reel : null;
+
+  const ecartLine = ecart !== null
+    ? `<br>Écart : <strong style="color:${ecart===0?'var(--ok)':ecart>0?'var(--danger)':'#5BA3CC'}">
+         ${ecart===0 ? '±0 (caisse exacte)' : ecart>0 ? `− ${gnf(ecart)}` : `+ ${gnf(Math.abs(ecart))}`}
+       </strong>` : '';
+
+  $('overlay-sheet').innerHTML = `
+    <div class="sheet-title">Clôturer la caisse ?</div>
+    <div class="sheet-text">
+      Total théorique : <strong style="color:var(--gold)">${gnf(theorique)}</strong>
+      ${reel != null ? `<br>Total réel compté : <strong>${gnf(reel)}</strong>` : ''}
+      ${ecartLine}
+      <br><br>Cette action envoie les données au gestionnaire pour la validation finale.
+      Vous ne pourrez plus modifier après confirmation.
+    </div>
+    <div class="sheet-btns">
+      <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
+      <button class="btn-ok" onclick="validateSession(${theorique},${reel??'null'},'${note.replace(/'/g,"\\'")}')">
+        CONFIRMER
+      </button>
+    </div>`;
+  $('overlay').classList.add('on');
+}
+
+async function validateSession(theorique, reel, note) {
+  $('overlay').classList.remove('on');
+  try {
+    const { error } = await db.from('sessions_caisse').update({
+      statut:        'valide_caissier',
+      note_caissier: note || null,
+      total_reel:    reel ?? null
+    }).eq('id', sessionData.id);
+    if (error) throw error;
+
+    sessionData.statut        = 'valide_caissier';
+    sessionData.note_caissier = note;
+    sessionData.total_reel    = reel;
+
+    ML.logAction(`💰 Caisse clôturée · Ventes ${gnf(allVentes.reduce((s,v)=>s+v.total,0))} · Théorique ${gnf(theorique)}`);
+    toast('Caisse clôturée — gestionnaire notifié ✓', 'ok');
+    renderCaisse();
+  } catch(e) { toast('Erreur : '+e.message, 'ko'); }
+}
+
+document.addEventListener('click', e => {
+  if (e.target === $('overlay')) $('overlay').classList.remove('on');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="manifest" href="manifest.json">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{
+  height:100%;background:#09090B;color:#EDEBE3;
+  font-family:'DM Sans',sans-serif;
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+
+/* ── Atmospheric background ── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 70% 40% at 50% -5%, rgba(201,168,76,.07) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 50% 100%, rgba(201,168,76,.03) 0%, transparent 50%);
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(
+    0deg,transparent,transparent 39px,rgba(255,255,255,.012) 40px),
+    repeating-linear-gradient(
+    90deg,transparent,transparent 39px,rgba(255,255,255,.012) 40px);
+}
+
+/* ── Layout ── */
+.pin-wrap{
+  position:relative;z-index:1;
+  width:100%;max-width:312px;
+  display:flex;flex-direction:column;align-items:center;
+  padding:0 20px;
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
+
+/* ── Brand ── */
+.brand{text-align:center;margin-bottom:36px}
+.brand-name{
+  font-family:'Bebas Neue',sans-serif;font-size:60px;
+  line-height:.88;letter-spacing:7px;
+  background:linear-gradient(180deg,#EDD070 0%,#C9A84C 45%,#9A7830 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;display:block}
+.brand-line{
+  width:64px;height:1px;margin:14px auto 12px;
+  background:linear-gradient(90deg,transparent,rgba(201,168,76,.55),transparent)}
+.brand-sub{
+  font-size:10px;color:rgba(255,255,255,.22);
+  letter-spacing:4.5px;text-transform:uppercase}
+
+/* ── Dots ── */
+.dots-wrap{
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:16px;padding:18px 32px;
+  margin-bottom:10px;
+  box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 8px 32px rgba(0,0,0,.4)}
+.dots{display:flex;gap:20px}
+.dot{
+  width:13px;height:13px;border-radius:50%;
+  background:rgba(255,255,255,.07);
+  border:1.5px solid rgba(255,255,255,.14);
+  transition:all .15s ease}
+.dot.on{
+  background:#C9A84C;border-color:#E0C060;
+  box-shadow:0 0 14px rgba(201,168,76,.55);
+  transform:scale(1.12)}
+
+/* ── Error ── */
+.pin-err{
+  font-size:13px;color:#C9494A;min-height:22px;
+  text-align:center;margin-bottom:16px;font-weight:500;
+  letter-spacing:.3px}
+
+/* ── Keypad ── */
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;width:100%}
+.key{
+  height:64px;
+  background:linear-gradient(180deg,rgba(255,255,255,.07) 0%,rgba(255,255,255,.03) 100%);
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:14px;
+  font-size:22px;font-weight:400;
+  color:#EDEBE3;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .12s ease;
+  -webkit-tap-highlight-color:transparent;user-select:none;
+  box-shadow:0 1px 0 rgba(255,255,255,.07) inset,0 2px 8px rgba(0,0,0,.35)}
+.key:active{
+  background:rgba(201,168,76,.10);
+  border-color:rgba(201,168,76,.32);
+  box-shadow:0 0 18px rgba(201,168,76,.14);
+  transform:scale(.91)}
+.key.del{font-size:18px;color:rgba(255,255,255,.35)}
+.key.void{visibility:hidden;pointer-events:none}
+
+/* ── Setup screen ── */
+.setup-info{
+  font-size:13px;color:rgba(255,255,255,.3);text-align:center;
+  max-width:240px;line-height:1.7;margin-bottom:16px}
+  </style>
+</head>
+<body>
+
+<!-- PIN SCREEN -->
+<div id="screen-pin" class="pin-wrap">
+  <div class="brand">
+    <span class="brand-name">MEDELLIN</span>
+    <div class="brand-line"></div>
+    <div class="brand-sub">Lounge · Conakry</div>
+  </div>
+
+  <div class="dots-wrap">
+    <div class="dots">
+      <div class="dot" id="d0"></div>
+      <div class="dot" id="d1"></div>
+      <div class="dot" id="d2"></div>
+      <div class="dot" id="d3"></div>
+    </div>
+  </div>
+
+  <div class="pin-err" id="pin-err"></div>
+
+  <div class="keypad">
+    <div class="key" onclick="kp('1')">1</div>
+    <div class="key" onclick="kp('2')">2</div>
+    <div class="key" onclick="kp('3')">3</div>
+    <div class="key" onclick="kp('4')">4</div>
+    <div class="key" onclick="kp('5')">5</div>
+    <div class="key" onclick="kp('6')">6</div>
+    <div class="key" onclick="kp('7')">7</div>
+    <div class="key" onclick="kp('8')">8</div>
+    <div class="key" onclick="kp('9')">9</div>
+    <div class="key void"></div>
+    <div class="key" onclick="kp('0')">0</div>
+    <div class="key del" onclick="kdel()">⌫</div>
+  </div>
+</div>
+
+<!-- SETUP SCREEN -->
+<div id="screen-setup" class="pin-wrap" style="display:none">
+  <div class="brand">
+    <span class="brand-name">MEDELLIN</span>
+    <div class="brand-line"></div>
+    <div class="brand-sub">Premier lancement</div>
+  </div>
+
+  <div class="dots-wrap">
+    <div class="dots">
+      <div class="dot" id="sd0"></div>
+      <div class="dot" id="sd1"></div>
+      <div class="dot" id="sd2"></div>
+      <div class="dot" id="sd3"></div>
+    </div>
+  </div>
+
+  <p class="setup-info" id="setup-info">Créez votre PIN propriétaire (4 chiffres).</p>
+  <div class="pin-err" id="setup-err"></div>
+
+  <div class="keypad">
+    <div class="key" onclick="skp('1')">1</div>
+    <div class="key" onclick="skp('2')">2</div>
+    <div class="key" onclick="skp('3')">3</div>
+    <div class="key" onclick="skp('4')">4</div>
+    <div class="key" onclick="skp('5')">5</div>
+    <div class="key" onclick="skp('6')">6</div>
+    <div class="key" onclick="skp('7')">7</div>
+    <div class="key" onclick="skp('8')">8</div>
+    <div class="key" onclick="skp('9')">9</div>
+    <div class="key void"></div>
+    <div class="key" onclick="skp('0')">0</div>
+    <div class="key del" onclick="sdel()">⌫</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const H_STAFF_DEF   = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
+const H_MANAGER_DEF = 'b8dc2c143be8994682b08461f46487e05874e59dd9ab65cf973e3a3c67a763aa';
+
+let pinBuf     = '';
+let hOwner     = null;
+let hStaff     = H_STAFF_DEF;
+let hManager   = H_MANAGER_DEF;
+let setupBuf   = '';
+let setupFirst = null;
+let associesList = [];
+let employesList  = [];
+
+function kp(k) {
+  if (pinBuf.length >= 4) return;
+  pinBuf += k;
+  renderDots();
+  if (pinBuf.length === 4) setTimeout(checkPin, 120);
+}
+function kdel() { pinBuf = pinBuf.slice(0,-1); renderDots(); }
+function renderDots() {
+  for (let i=0;i<4;i++)
+    document.getElementById('d'+i)?.classList.toggle('on', i < pinBuf.length);
+}
+
+async function checkPin() {
+  const h = await sha256(pinBuf);
+  let matched = null, extra = null;
+
+  if (h === hOwner) {
+    matched = 'owner';
+  } else if (h === hManager) {
+    matched = 'manager';
+  } else {
+    const emp = employesList.find(e => e.pin_hash === h && e.actif !== false);
+    if (emp) {
+      matched = emp.role || 'staff';
+      extra   = { nom: [emp.prenom, emp.nom].filter(Boolean).join(' '), employe_id: emp.id };
+    }
+  }
+
+  if (!matched) {
+    const assoc = associesList.find(a => a.pin_hash === h && a.actif !== false);
+    if (assoc) {
+      matched = 'associe';
+      extra   = { nom: assoc.nom, pourcentage: assoc.pourcentage, id: assoc.id };
+    }
+  }
+
+  if (matched) {
+    ML.setSession(matched, { hOwner, hStaff, hManager }, extra);
+    window.location.href =
+      matched === 'staff'    ? 'saisie.html'   :
+      matched === 'caissier' ? 'caisse.html'   :
+      'dashboard.html';
+  } else {
+    document.getElementById('pin-err').textContent = 'Code incorrect';
+    pinBuf = ''; renderDots();
+    setTimeout(() => document.getElementById('pin-err').textContent = '', 1500);
+  }
+}
+
+function skp(k) {
+  if (setupBuf.length >= 4) return;
+  setupBuf += k;
+  renderSDots();
+  if (setupBuf.length === 4) setTimeout(setupNext, 120);
+}
+function sdel() { setupBuf = setupBuf.slice(0,-1); renderSDots(); }
+function renderSDots() {
+  for (let i=0;i<4;i++)
+    document.getElementById('sd'+i)?.classList.toggle('on', i < setupBuf.length);
+}
+async function setupNext() {
+  if (!setupFirst) {
+    setupFirst = setupBuf;
+    setupBuf = '';
+    renderSDots();
+    document.getElementById('setup-info').textContent = 'Confirmez votre PIN propriétaire.';
+    document.getElementById('setup-err').textContent = '';
+  } else {
+    if (setupBuf !== setupFirst) {
+      document.getElementById('setup-err').textContent = 'Les codes ne correspondent pas.';
+      setupBuf = ''; setupFirst = null; renderSDots();
+      document.getElementById('setup-info').textContent = 'Créez votre PIN propriétaire (4 chiffres).';
+      return;
+    }
+    const h = await sha256(setupBuf);
+    try {
+      await db.from('config').upsert([
+        { key:'pin_owner', value:h },
+        { key:'pin_staff', value:H_STAFF_DEF },
+        { key:'pin_manager', value:H_MANAGER_DEF }
+      ]);
+      hOwner = h;
+      ML.setSession('owner', { hOwner:h, hStaff:H_STAFF_DEF, hManager:H_MANAGER_DEF });
+      window.location.href = 'dashboard.html';
+    } catch(e) {
+      document.getElementById('setup-err').textContent = 'Erreur : '+e.message;
+      setupBuf = ''; setupFirst = null; renderSDots();
+    }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!db) return;
+  try {
+    const { data } = await db.from('config').select('key,value');
+    const cfg = {};
+    (data||[]).forEach(r => cfg[r.key] = r.value);
+
+    if (!cfg.pin_owner) {
+      document.getElementById('screen-pin').style.display = 'none';
+      document.getElementById('screen-setup').style.display = 'flex';
+      return;
+    }
+    hOwner   = cfg.pin_owner;
+    hStaff   = cfg.pin_staff   || H_STAFF_DEF;
+    hManager = cfg.pin_manager || H_MANAGER_DEF;
+
+    try {
+      const [assocRes, empRes] = await Promise.all([
+        db.from('associes').select('id,nom,pin_hash,pourcentage,actif').eq('actif',true),
+        db.from('employes').select('id,nom,prenom,pin_hash,role,actif').not('pin_hash','is',null)
+      ]);
+      associesList = assocRes.data || [];
+      employesList  = empRes.data   || [];
+    } catch { associesList = []; employesList = []; }
+
+  } catch(e) { console.warn('Config:', e.message); }
+});
+
+document.addEventListener('keydown', e => {
+  const active = document.getElementById('screen-setup').style.display !== 'none' ? 'setup' : 'pin';
+  if (e.key >= '0' && e.key <= '9') active === 'pin' ? kp(e.key) : skp(e.key);
+  if (e.key === 'Backspace') active === 'pin' ? kdel() : sdel();
+});
+</script>
+</body>
+</html>

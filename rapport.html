@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Rapport — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+.report-meta{background:var(--bg2);border-radius:var(--r);padding:14px 16px;
+  display:flex;justify-content:space-between;align-items:center}
+.meta-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:1px;margin-bottom:3px}
+.meta-date{font-size:14px;font-weight:500}
+.meta-num{font-family:'Bebas Neue',sans-serif;font-size:22px;
+  color:var(--gold);letter-spacing:2px}
+.stock-row{display:flex;justify-content:space-between;align-items:center;
+  padding:9px 0;border-bottom:1px solid var(--bg3)}
+.stock-row:last-child{border-bottom:none}
+.stock-nom{font-size:14px;font-weight:500}
+.stock-cur{font-size:12px;color:var(--muted);margin-top:2px}
+.stock-new{background:var(--bg3);border:1px solid var(--bg4);
+  border-radius:var(--rs);color:var(--text);padding:7px 10px;
+  width:80px;text-align:right;outline:none;font-size:14px;
+  -webkit-appearance:none;transition:border-color .15s}
+.stock-new:focus{border-color:var(--gold)}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap">
+
+    <!-- Récap J-1 -->
+    <div id="j1-recap" style="display:none;background:var(--bg2);border-radius:var(--rs);
+      padding:10px 14px;font-size:13px;border-left:3px solid var(--gold)">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Hier</div>
+      <div id="j1-data" style="display:flex;justify-content:space-between;gap:8px"></div>
+    </div>
+
+    <!-- Méta rapport -->
+    <div class="report-meta">
+      <div>
+        <div class="meta-lbl">Date</div>
+        <div class="meta-date" id="r-date"></div>
+      </div>
+      <div class="meta-num" id="r-num">N°—</div>
+    </div>
+
+    <!-- Infos -->
+    <div class="card">
+      <div class="card-head"><div class="card-title">Équipe</div></div>
+      <div class="card-body">
+        <div class="row2">
+          <div class="field"><label>Manager</label>
+            <input id="f-manager" type="text" placeholder="Nom du manager"></div>
+          <div class="field"><label>Caissier</label>
+            <input id="f-caissier" type="text" placeholder="Nom du caissier"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chicha -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Ventes Chicha</div>
+        <div class="card-sub" id="h-chicha">0 GNF</div>
+      </div>
+      <div class="card-body">
+        <datalist id="dl-chicha"></datalist>
+        <div class="row-labels sale">
+          <span>Produit</span><span>Qté</span><span>Prix unit.</span>
+          <span>Total</span><span></span>
+        </div>
+        <div id="rows-chicha"></div>
+        <button class="btn-add-row" onclick="addRow('chicha')">+ Ajouter une ligne</button>
+        <div class="sec-sum">
+          <span>Total chicha</span>
+          <span class="val" id="tot-chicha">0 GNF</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Boissons -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Ventes Boissons</div>
+        <div class="card-sub" id="h-boissons">0 GNF</div>
+      </div>
+      <div class="card-body">
+        <datalist id="dl-boisson"></datalist>
+        <div class="row-labels sale">
+          <span>Produit</span><span>Qté</span><span>Prix unit.</span>
+          <span>Total</span><span></span>
+        </div>
+        <div id="rows-boissons"></div>
+        <button class="btn-add-row" onclick="addRow('boissons')">+ Ajouter une ligne</button>
+        <div class="sec-sum">
+          <span>Total boissons</span>
+          <span class="val" id="tot-boissons">0 GNF</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Achats / Dépenses -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Achats &amp; Dépenses</div>
+        <div class="card-sub" id="h-achats">0 GNF</div>
+      </div>
+      <div class="card-body">
+        <div class="row-labels buy">
+          <span>Article</span><span>Qté</span><span>Montant</span><span></span>
+        </div>
+        <div id="rows-achats"></div>
+        <button class="btn-add-row" onclick="addRow('achats')">+ Ajouter une ligne</button>
+        <div class="sec-sum">
+          <span>Total dépenses</span>
+          <span class="val" id="tot-achats">0 GNF</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Caisse -->
+    <div class="card">
+      <div class="card-head"><div class="card-title">Caisse</div></div>
+      <div class="card-body">
+        <div class="row3">
+          <div class="field"><label>Ouverture</label>
+            <input id="f-ouverture" type="number" inputmode="numeric" placeholder="0"></div>
+          <div class="field"><label>Clôture</label>
+            <input id="f-cloture" type="number" inputmode="numeric" placeholder="0"></div>
+          <div class="field"><label>Remis direction</label>
+            <input id="f-remis" type="number" inputmode="numeric" placeholder="0"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Net -->
+    <div class="net-card">
+      <div class="net-title">BILAN DU JOUR</div>
+      <div class="net-row"><span>Recettes chicha</span>
+        <span class="v" id="s-chicha">0 GNF</span></div>
+      <div class="net-row"><span>Recettes boissons</span>
+        <span class="v" id="s-boissons">0 GNF</span></div>
+      <div class="net-row"><span>Achats / dépenses</span>
+        <span class="v neg" id="s-achats">- 0 GNF</span></div>
+      <hr class="divider">
+      <div class="net-total">
+        <span>NET DU JOUR</span>
+        <span class="big" id="s-net">0 GNF</span>
+      </div>
+    </div>
+
+    <!-- Stock fin de journée -->
+    <div class="card" id="stock-section" style="display:none">
+      <div class="card-head">
+        <div class="card-title">Stock fin de journée</div>
+        <div class="card-sub">Quantités restantes</div>
+      </div>
+      <div class="card-body">
+        <div id="stock-rows"></div>
+      </div>
+    </div>
+
+    <!-- Observations -->
+    <div class="card">
+      <div class="card-head"><div class="card-title">Observations</div></div>
+      <div class="card-body">
+        <div class="field">
+          <label>Observations / incidents</label>
+          <textarea id="f-obs" placeholder="Incidents, remarques…"></textarea>
+        </div>
+        <div class="field">
+          <label>À réapprovisionner</label>
+          <textarea id="f-reap" placeholder="Produits à commander…" style="min-height:60px"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dépense exceptionnelle -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Dépense exceptionnelle</div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="exc-toggle" onchange="toggleExc()"
+            style="width:16px;height:16px;accent-color:var(--gold)">
+          <span style="font-size:13px;color:var(--muted)">Ce soir</span>
+        </label>
+      </div>
+      <div id="exc-body" style="display:none" class="card-body">
+        <div class="row2">
+          <div class="field"><label>Montant (GNF)</label>
+            <input id="exc-montant" type="number" inputmode="numeric" placeholder="0"></div>
+          <div class="field"><label>Nature</label>
+            <input id="exc-note" type="text" placeholder="Ex: Réparation climatiseur…"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Demande d'avance (staff avec compte individuel) -->
+    <div id="avance-section" style="display:none">
+      <button class="btn-secondary" style="width:100%" onclick="openAvanceDemande()">
+        💸 Demander une avance sur salaire
+      </button>
+    </div>
+
+    <button class="btn-primary" id="btn-submit" onclick="openConfirm()">
+      SOUMETTRE LE RAPPORT
+    </button>
+  </div>
+
+  <!-- Modal demande d'avance -->
+  <div id="overlay-avance" style="display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,.85);z-index:100;align-items:flex-end;justify-content:center">
+    <div class="sheet" style="width:100%;max-width:480px;padding:24px 20px 32px">
+      <div class="sheet-title">Demande d'avance</div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+        <div class="field"><label>Montant souhaité (GNF)</label>
+          <input id="da-montant" type="number" inputmode="numeric" placeholder="0"></div>
+        <div class="field"><label>Motif</label>
+          <input id="da-motif" type="text" placeholder="Raison de la demande"></div>
+      </div>
+      <div class="sheet-btns">
+        <button class="btn-cancel" onclick="closeAvanceDemande()">Annuler</button>
+        <button class="btn-ok" onclick="soumettreAvance()">ENVOYER</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay confirmation -->
+  <div id="overlay">
+    <div class="sheet">
+      <div class="sheet-title">Soumettre le rapport ?</div>
+      <p class="sheet-text">Vérifiez bien tous les chiffres.<br>Un rapport soumis ne peut pas être modifié.</p>
+      <div class="sheet-btns">
+        <button class="btn-cancel" onclick="closeOverlay()">Annuler</button>
+        <button class="btn-ok" id="btn-ok" onclick="doSubmit()">CONFIRMER</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast"></div>
+
+<script>
+let rowCt = { chicha:0, boissons:0, achats:0 };
+let nextNum = 1;
+let prodCache = { chicha:[], boisson:[] };
+
+/* Afficher le bouton demande d'avance si compte individuel */
+document.addEventListener('DOMContentLoaded', () => {
+  const extra = ML.getExtra ? ML.getExtra() : {};
+  if (extra?.employe_id && ML.getRole && ML.getRole() === 'staff') {
+    const sec = document.getElementById('avance-section');
+    if (sec) sec.style.display = 'block';
+  }
+}, { once: true });
+
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['staff','manager','owner'])) return;
+
+  /* Bloquer si le rapport du jour précédent est manquant */
+  const check = await checkJourPrecedent();
+  if (!check.ok) {
+    document.querySelector('.body-wrap').innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;
+        gap:16px;padding:48px 20px;text-align:center">
+        <div style="font-size:48px">🚫</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;
+          color:var(--danger);letter-spacing:1px">Rapport manquant</div>
+        <div style="font-size:14px;color:var(--muted);line-height:1.7;max-width:280px">
+          Le rapport du<br>
+          <strong style="color:var(--text)">${check.dateDisplay}</strong><br>
+          n'a pas été soumis.<br>
+          Vous ne pouvez pas enregistrer celui d'aujourd'hui avant de combler ce manque.
+        </div>
+      </div>`;
+    return;
+  }
+
+  $('r-date').textContent = frDate();
+
+  /* Pré-remplir nom si compte individuel */
+  const extra = ML.getExtra();
+  if (extra?.nom) {
+    const role = ML.getRole();
+    if (role === 'staff')   $('f-manager').value = extra.nom;
+    if (role === 'manager') $('f-manager').value = extra.nom;
+  }
+
+  await Promise.all([fetchNextNum(), loadProducts(), loadJ1(), checkDejaEnvoye()]);
+  loadStockForm();
+  addRow('chicha'); addRow('boissons'); addRow('achats');
+});
+
+async function checkJourPrecedent() {
+  if (!db) return { ok: true };
+  try {
+    const yISO = (() => {
+      const d = new Date(); d.setDate(d.getDate()-1);
+      return d.toISOString().slice(0,10);
+    })();
+
+    /* Si aucun rapport en base → premier jour, on laisse passer */
+    const { data: total } = await db.from('rapports').select('date').limit(1);
+    if (!total?.length) return { ok: true };
+
+    /* Vérifier si hier a un rapport */
+    const { data: hier } = await db.from('rapports').select('num').eq('date', yISO);
+    if (hier?.length) return { ok: true };
+
+    /* Rapport d'hier manquant */
+    const dateDisplay = new Date(yISO+'T12:00:00')
+      .toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    return { ok: false, date: yISO, dateDisplay };
+
+  } catch { return { ok: true }; } /* En cas d'erreur réseau, ne pas bloquer */
+}
+
+async function checkDejaEnvoye() {
+  if (!db) return;
+  try {
+    const { data } = await db.from('rapports').select('num').eq('date', todayISO());
+    if (data?.length) {
+      $('j1-recap').style.borderLeftColor = 'var(--ok)';
+      $('j1-recap').style.display = 'block';
+      $('j1-data').innerHTML = `
+        <div style="font-size:13px;color:var(--ok);font-weight:500">
+          ✓ Rapport N°${data.map(r=>r.num).join(', ')} déjà soumis aujourd'hui
+        </div>`;
+      $('btn-submit').style.opacity = '0.5';
+      $('btn-submit').title = 'Un rapport a déjà été soumis aujourd\'hui';
+    }
+  } catch {}
+}
+
+async function loadJ1() {
+  if (!db) return;
+  try {
+    const yISO = (() => { const d=new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })();
+    const { data } = await db.from('rapports').select('net,total_chicha,total_boissons,total_achats').eq('date',yISO);
+    if (!data?.length) return;
+    const rec = data.reduce((s,r)=>s+(r.total_chicha||0)+(r.total_boissons||0),0);
+    const dep = data.reduce((s,r)=>s+(r.total_achats||0),0);
+    const net = data.reduce((s,r)=>s+(r.net||0),0);
+    $('j1-data').innerHTML = `
+      <div style="text-align:center">
+        <div style="color:var(--muted);font-size:11px">Recettes</div>
+        <div style="color:var(--gold);font-weight:600">${gnf(rec)}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="color:var(--muted);font-size:11px">Dépenses</div>
+        <div style="color:var(--danger);font-weight:600">${gnf(dep)}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="color:var(--muted);font-size:11px">Net</div>
+        <div style="color:${net>=0?'var(--ok)':'var(--danger)'};font-weight:600">${gnf(net)}</div>
+      </div>`;
+    $('j1-recap').style.display = 'block';
+  } catch {}
+}
+
+async function fetchNextNum() {
+  if (!db) return;
+  try {
+    const { data } = await db.from('rapports').select('num').order('timestamp',{ascending:false}).limit(1);
+    nextNum = data?.length ? parseInt(data[0].num||'0',10)+1 : 1;
+  } catch {}
+  $('r-num').textContent = 'N°'+pad3(nextNum);
+}
+
+async function loadProducts() {
+  if (!db) return;
+  try {
+    const { data } = await db.from('produits').select('*').eq('actif',true).order('nom');
+    if (!data) return;
+    prodCache.chicha  = data.filter(p=>p.type==='chicha');
+    prodCache.boisson = data.filter(p=>p.type==='boisson');
+    updateDL('chicha'); updateDL('boisson');
+  } catch {}
+}
+
+function updateDL(type) {
+  const dl = $(type==='chicha'?'dl-chicha':'dl-boisson');
+  if (!dl) return;
+  dl.innerHTML = prodCache[type].map(p=>`<option value="${p.nom}" data-prix="${p.prix_defaut||0}">`).join('');
+}
+
+function addRow(type) {
+  const id  = `${type}-${++rowCt[type]}`;
+  const isSale = type !== 'achats';
+  const row = document.createElement('div');
+  row.className = `drow ${isSale?'sale':'buy'}`;
+  row.id = id;
+  const dl = type==='chicha' ? 'dl-chicha' : type==='boissons' ? 'dl-boisson' : '';
+  row.innerHTML = isSale
+    ? `<input class="lbl" list="${dl}" placeholder="Produit" oninput="onProdInput(this,'${type}')">
+       <input class="qty" type="number" inputmode="decimal" placeholder="0" oninput="calcRow(this,'${type}')">
+       <input class="prc" type="number" inputmode="decimal" placeholder="0" oninput="calcRow(this,'${type}')">
+       <input class="tot ro" readonly placeholder="0 GNF">
+       <button class="btn-del" onclick="removeRow('${id}','${type}')">✕</button>`
+    : `<input class="lbl" placeholder="Article">
+       <input class="qty" type="number" inputmode="decimal" placeholder="0" oninput="calcRow(this,'${type}')">
+       <input class="prc" type="number" inputmode="decimal" placeholder="0" oninput="calcRow(this,'${type}')">
+       <button class="btn-del" onclick="removeRow('${id}','${type}')">✕</button>`;
+  $('rows-'+type).appendChild(row);
+}
+
+function removeRow(id, type) { $(id)?.remove(); calcSection(type); }
+
+function onProdInput(el, type) {
+  const cache = type==='chicha' ? prodCache.chicha : prodCache.boisson;
+  const found = cache.find(p=>p.nom.toLowerCase()===el.value.toLowerCase());
+  if (found) {
+    const row = el.closest('.drow');
+    const prc = row?.querySelector('.prc');
+    if (prc && !prc.value) { prc.value = found.prix_defaut||0; calcRow(prc,type); }
+  }
+}
+
+function calcRow(el, type) {
+  const row = el.closest('.drow');
+  const qty = parseFloat(row?.querySelector('.qty')?.value)||0;
+  const prc = parseFloat(row?.querySelector('.prc')?.value)||0;
+  const tot = row?.querySelector('.tot');
+  if (tot) tot.value = gnf(qty*prc);
+  calcSection(type);
+}
+
+function calcSection(type) {
+  const total = getSectionTotal(type);
+  $('tot-'+type).textContent = gnf(total);
+  $('h-'+type).textContent   = gnf(total);
+  refreshNet();
+}
+
+function getSectionTotal(type) {
+  let t = 0;
+  $('rows-'+type)?.querySelectorAll('.drow').forEach(row => {
+    t += (parseFloat(row.querySelector('.qty')?.value)||0)
+       * (parseFloat(row.querySelector('.prc')?.value)||0);
+  });
+  return t;
+}
+
+function refreshNet() {
+  const tC = getSectionTotal('chicha');
+  const tB = getSectionTotal('boissons');
+  const tA = getSectionTotal('achats');
+  const net = tC+tB-tA;
+  $('s-chicha').textContent   = gnf(tC);
+  $('s-boissons').textContent = gnf(tB);
+  $('s-achats').textContent   = '- '+gnf(tA);
+  const el = $('s-net');
+  el.textContent = gnf(net);
+  el.className   = 'big'+(net<0?' neg':'');
+}
+
+function getRows(type) {
+  const rows = [];
+  $('rows-'+type)?.querySelectorAll('.drow').forEach(row => {
+    const lbl = (row.querySelector('.lbl')?.value||'').trim();
+    const qty = parseFloat(row.querySelector('.qty')?.value)||0;
+    const prc = parseFloat(row.querySelector('.prc')?.value)||0;
+    if (lbl||qty||prc) rows.push({label:lbl,qty,price:prc,total:qty*prc});
+  });
+  return rows;
+}
+
+async function loadStockForm() {
+  if (!db) return;
+  try {
+    const { data } = await db.from('produits').select('*').eq('actif',true).order('type').order('nom');
+    if (!data?.length) return;
+    $('stock-section').style.display = 'block';
+    $('stock-rows').innerHTML = data.map(p=>`
+      <div class="stock-row">
+        <div>
+          <div class="stock-nom">${p.nom}</div>
+          <div class="stock-cur">Actuel : ${p.stock_actuel??0}</div>
+        </div>
+        <input type="number" class="stock-new" data-id="${p.id}"
+               placeholder="Nouveau" inputmode="numeric" min="0">
+      </div>`).join('');
+  } catch {}
+}
+
+function getStockUpdates() {
+  const updates = [];
+  $('stock-rows')?.querySelectorAll('.stock-new').forEach(inp => {
+    if (inp.value!=='') updates.push({id:inp.dataset.id, val:parseFloat(inp.value)||0});
+  });
+  return updates;
+}
+
+function toggleExc() {
+  $('exc-body').style.display = $('exc-toggle').checked ? 'flex' : 'none';
+}
+
+function openAvanceDemande() {
+  $('da-montant').value = ''; $('da-motif').value = '';
+  $('overlay-avance').style.display = 'flex';
+}
+function closeAvanceDemande() { $('overlay-avance').style.display = 'none'; }
+
+async function soumettreAvance() {
+  const montant = parseFloat($('da-montant').value);
+  const motif   = $('da-motif').value.trim();
+  if (!montant || montant <= 0) { toast('Montant invalide','ko'); return; }
+  const extra = ML.getExtra();
+  try {
+    await db.from('avances').insert({
+      employe_id:  extra.employe_id,
+      montant,
+      date:        todayISO(),
+      obs:         motif,
+      statut:      'en_attente',
+      demandeur_id: extra.employe_id,
+      note_demande: motif
+    });
+    toast('Demande envoyée ✓ — en attente de validation','ok');
+    closeAvanceDemande();
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+function openConfirm() {
+  if (!$('f-manager').value.trim()||!$('f-caissier').value.trim()) {
+    toast('Saisissez le manager et le caissier','ko'); return;
+  }
+  $('overlay').classList.add('on');
+}
+function closeOverlay() { $('overlay').classList.remove('on'); }
+
+async function doSubmit() {
+  $('btn-ok').disabled = true;
+  $('btn-submit').disabled = true;
+  closeOverlay();
+  try {
+    if (!db) throw new Error('Supabase non configuré');
+    const now      = new Date();
+    const manager  = $('f-manager').value.trim();
+    const caissier = $('f-caissier').value.trim();
+    const chR = getRows('chicha'), bR = getRows('boissons'), aR = getRows('achats');
+    const tC  = chR.reduce((s,r)=>s+r.total,0);
+    const tB  = bR.reduce((s,r)=>s+r.total,0);
+    const tA  = aR.reduce((s,r)=>s+r.total,0);
+    const qC  = chR.reduce((s,r)=>s+r.qty,0);
+    const net = tC+tB-tA;
+    const part= net*0.21;
+
+    const hashStr = [nextNum,now.toISOString().slice(0,10),manager,caissier,
+      tC,tB,tA,net].join('|');
+    const hash = await sha256(hashStr);
+
+    const extra    = ML.getExtra();
+    const excActif = $('exc-toggle')?.checked;
+    const { error } = await db.from('rapports').insert({
+      num:pad3(nextNum), date:now.toISOString().slice(0,10),
+      date_display:frDate(), timestamp:now.toISOString(),
+      manager, caissier,
+      chicha_rows:chR, boissons_rows:bR, achats_rows:aR,
+      total_chicha:tC, total_boissons:tB, total_achats:tA,
+      total_qty_chicha:qC,
+      ouverture:parseFloat($('f-ouverture').value)||0,
+      cloture:parseFloat($('f-cloture').value)||0,
+      remis:parseFloat($('f-remis').value)||0,
+      net, part, obs:$('f-obs').value.trim(),
+      reap:$('f-reap').value.trim(), hash,
+      role:ML.getRole(),
+      employe_id: extra?.employe_id || null,
+      montant_exceptionnel: excActif ? (parseFloat($('exc-montant').value)||0) : 0,
+      note_exception: excActif ? ($('exc-note').value.trim()||null) : null
+    });
+    if (error) throw error;
+
+    /* Mise à jour stock */
+    const stockUpdates = getStockUpdates();
+    for (const u of stockUpdates) {
+      await db.from('produits').update({stock_actuel:u.val}).eq('id',u.id);
+    }
+
+    ML.logAction(`📋 Rapport N°${pad3(nextNum)} soumis — Net ${gnf(net)}`);
+    toast('Rapport N°'+pad3(nextNum)+' soumis ✓','ok');
+    setTimeout(() => window.location.href = 'dashboard.html', 1500);
+  } catch(e) {
+    toast('Erreur : '+e.message,'ko');
+    $('btn-ok').disabled = false;
+    $('btn-submit').disabled = false;
+  }
+}
+</script>
+</body>
+</html>

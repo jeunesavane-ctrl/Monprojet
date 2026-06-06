@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Saisie — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+/* ── Type tabs ── */
+.type-tabs{display:flex;gap:6px;margin-bottom:10px}
+.type-btn{
+  flex:1;padding:10px 4px;border-radius:var(--rs);border:1px solid var(--b1);
+  background:transparent;color:var(--muted);font-size:11px;font-weight:600;
+  letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all var(--t);
+  -webkit-tap-highlight-color:transparent}
+.type-btn.active{color:#060606;border-color:transparent}
+.type-btn[data-t="chicha"].active{background:var(--gold)}
+.type-btn[data-t="boisson"].active{background:#3A7BA8}
+.type-btn[data-t="autre"].active{background:var(--ok)}
+
+/* ── Paiement toggle ── */
+.pay-tabs{display:flex;gap:6px;margin-bottom:10px}
+.pay-btn{
+  flex:1;padding:9px 6px;border-radius:var(--rs);border:1px solid var(--b1);
+  background:transparent;color:var(--muted);font-size:12px;font-weight:600;
+  cursor:pointer;transition:all var(--t);-webkit-tap-highlight-color:transparent;
+  display:flex;align-items:center;justify-content:center;gap:5px}
+.pay-btn.active.especes{background:rgba(61,184,115,.15);border-color:rgba(61,184,115,.4);color:var(--ok)}
+.pay-btn.active.om{background:rgba(255,120,0,.15);border-color:rgba(255,120,0,.4);color:#FF7800}
+
+/* ── Add form ── */
+.add-form{
+  background:var(--bg2);border-radius:var(--r);padding:16px;
+  border:1px solid var(--b1);
+  box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 2px 10px rgba(0,0,0,.4)}
+.add-row{display:grid;grid-template-columns:1fr 64px 88px;gap:8px;align-items:end}
+
+/* ── Ventes list ── */
+.vente-item{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 14px;
+  background:var(--bg2);border-radius:var(--r);
+  border:1px solid var(--b1);
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 1px 5px rgba(0,0,0,.28)}
+.vente-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.vente-dot.chicha{background:var(--gold)}
+.vente-dot.boisson{background:#3A7BA8}
+.vente-dot.autre{background:var(--ok)}
+.vente-info{flex:1;min-width:0}
+.vente-label{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vente-meta{font-size:11px;color:var(--muted);margin-top:1px}
+.pay-badge{
+  font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;
+  flex-shrink:0;letter-spacing:.5px}
+.pay-badge.especes{background:rgba(61,184,115,.12);color:var(--ok);border:1px solid rgba(61,184,115,.2)}
+.pay-badge.om{background:rgba(255,120,0,.12);color:#FF7800;border:1px solid rgba(255,120,0,.2)}
+.vente-total{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--gold);white-space:nowrap;flex-shrink:0}
+
+/* ── Total bar ── */
+.total-bar{
+  background:var(--glow);border:1px solid var(--gring);border-radius:var(--r);
+  padding:14px 16px;
+  box-shadow:0 0 0 1px var(--gring) inset}
+.total-bar-row{display:flex;justify-content:space-between;align-items:center;
+  font-size:12px;color:var(--muted);margin-bottom:6px}
+.total-bar-row:last-child{margin-bottom:0}
+.total-bar-main{display:flex;justify-content:space-between;align-items:baseline;
+  padding-top:10px;margin-top:6px;border-top:1px solid var(--gring)}
+.total-bar-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px}
+.total-bar-val{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--gold);line-height:1}
+
+/* ── Close CTA ── */
+.close-cta{
+  background:linear-gradient(180deg,var(--goldl) 0%,var(--gold) 100%);
+  border:none;border-radius:var(--r);padding:18px;width:100%;
+  font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;
+  color:#060606;cursor:pointer;
+  box-shadow:0 4px 24px rgba(201,168,76,.28),0 1px 0 rgba(255,255,255,.15) inset;
+  transition:opacity var(--t),transform var(--t);
+  -webkit-tap-highlight-color:transparent}
+.close-cta:active{opacity:.85;transform:scale(.99)}
+.close-cta:disabled{opacity:.25;cursor:not-allowed;box-shadow:none}
+
+/* ── Closed state ── */
+.session-done{
+  background:var(--okbg);border:1px solid var(--okb);
+  border-radius:var(--r);padding:24px;text-align:center}
+.session-done-icon{font-size:36px;margin-bottom:10px}
+.session-done-title{font-family:'Bebas Neue',sans-serif;font-size:22px;
+  letter-spacing:2px;color:var(--ok);margin-bottom:6px}
+.session-done-sub{font-size:13px;color:var(--muted);line-height:1.6}
+
+/* ── Session banner ── */
+.sess-banner{
+  display:flex;align-items:center;gap:10px;
+  background:var(--bg2);border:1px solid var(--b1);
+  border-radius:var(--r);padding:12px 16px;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset}
+.sess-date{font-size:15px;font-weight:600}
+.sess-meta{font-size:12px;color:var(--muted);margin-top:1px}
+
+/* ── Notes ── */
+.notes-card{
+  background:var(--bg2);border:1px solid var(--b1);border-radius:var(--r);
+  padding:14px;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 8px rgba(0,0,0,.3)}
+.notes-area{
+  width:100%;background:transparent;border:none;resize:none;
+  color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;
+  line-height:1.6;outline:none;min-height:100px}
+.notes-area::placeholder{color:var(--muted)}
+.notes-status{font-size:11px;color:var(--muted);margin-top:6px;text-align:right;min-height:14px}
+
+input[list]::-webkit-calendar-picker-indicator{opacity:.4}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap" id="main-body">
+    <div class="state-msg">Chargement…</div>
+  </div>
+  <div id="overlay"><div class="sheet" id="overlay-sheet"></div></div>
+  <div id="toast"></div>
+
+<script>
+let sessionId  = null;
+let empId      = null;
+let empNom     = '';
+let produits   = [];
+let ventes     = [];
+let closed     = false;
+let activeType = 'chicha';
+let paiement   = 'especes';
+let _noteSave;
+
+const noteKey = () => `ml_note_${empId}_${todayISO()}`;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['staff'])) return;
+
+  const extra = ML.getExtra();
+  empId  = extra.employe_id || null;
+  empNom = extra.nom || 'Staff';
+
+  if (!empId) {
+    $('main-body').innerHTML = '<div class="state-msg err">Compte employé non configuré.</div>';
+    return;
+  }
+
+  await Promise.all([loadProduits(), initSession()]);
+});
+
+async function loadProduits() {
+  try {
+    const { data } = await db.from('produits').select('nom,type,prix').eq('actif',true).order('nom');
+    produits = data || [];
+  } catch {}
+}
+
+async function initSession() {
+  const today = todayISO();
+  try {
+    let { data: existing } = await db
+      .from('sessions_caisse').select('id,statut').eq('date', today).maybeSingle();
+
+    if (!existing) {
+      const { data: created, error } = await db
+        .from('sessions_caisse').insert({ date: today, statut:'ouvert' }).select().single();
+      if (error) throw error;
+      existing = created;
+    }
+    sessionId = existing.id;
+
+    const { data: myVentes } = await db
+      .from('ventes_session').select('*')
+      .eq('session_id', sessionId).eq('employe_id', empId).order('created_at');
+
+    ventes = myVentes || [];
+    closed = ventes.length > 0 && ventes.every(v => v.valide_staff);
+
+    renderPage();
+    subscribeRealtime();
+
+  } catch(e) {
+    $('main-body').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+
+function subscribeRealtime() {
+  if (!sessionId) return;
+  db.channel('ml-saisie-' + empId)
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'ventes_session',
+      filter: `session_id=eq.${sessionId}`
+    }, async () => {
+      const { data } = await db.from('ventes_session').select('*')
+        .eq('session_id', sessionId).eq('employe_id', empId).order('created_at');
+      ventes = data || [];
+      closed = ventes.length > 0 && ventes.every(v => v.valide_staff);
+      renderPage();
+    }).subscribe();
+}
+
+/* ════════════════════════════════════════════
+   RENDER
+════════════════════════════════════════════ */
+function renderPage() {
+  const today     = todayISO();
+  const total     = ventes.reduce((s, v) => s + (v.total || 0), 0);
+  const totOM     = ventes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
+  const totEsp    = ventes.filter(v => v.paiement !== 'om').reduce((s,v) => s+v.total, 0);
+
+  const banner = `
+    <div class="sess-banner">
+      <div style="flex:1">
+        <div class="sess-date">${frDate(today)}</div>
+        <div class="sess-meta">${empNom}</div>
+      </div>
+      <span class="badge ${closed ? 'ok' : 'gold'}">${closed ? 'Clôturée' : 'En service'}</span>
+    </div>`;
+
+  if (closed) {
+    $('main-body').innerHTML = banner + `
+      <div class="session-done">
+        <div class="session-done-icon">✓</div>
+        <div class="session-done-title">Session clôturée</div>
+        <div class="session-done-sub">
+          Rapport envoyé à la caisse.<br>
+          Total : <strong style="color:var(--gold)">${gnf(total)}</strong>
+          ${totOM ? `<br>OM : <strong style="color:#FF7800">${gnf(totOM)}</strong> · Espèces : <strong>${gnf(totEsp)}</strong>` : ''}
+        </div>
+      </div>
+      ${renderVentesList(false)}
+      ${renderNotes()}`;
+    initNotes();
+    return;
+  }
+
+  const dlOpts = produits.map(p =>
+    `<option value="${p.nom}" data-prix="${p.prix||0}" data-type="${p.type||'chicha'}">`
+  ).join('');
+
+  $('main-body').innerHTML = banner + `
+
+    <!-- Formulaire ajout -->
+    <div class="add-form">
+      <div class="type-tabs">
+        <button class="type-btn${activeType==='chicha'?' active':''}" data-t="chicha" onclick="setType('chicha')">CHICHA</button>
+        <button class="type-btn${activeType==='boisson'?' active':''}" data-t="boisson" onclick="setType('boisson')">BOISSON</button>
+        <button class="type-btn${activeType==='autre'?' active':''}" data-t="autre" onclick="setType('autre')">AUTRE</button>
+      </div>
+      <div class="pay-tabs">
+        <button class="pay-btn${paiement==='especes'?' active especes':''}" onclick="setPaiement('especes')">
+          💵 Espèces
+        </button>
+        <button class="pay-btn${paiement==='om'?' active om':''}" onclick="setPaiement('om')">
+          📱 Orange Money
+        </button>
+      </div>
+      <datalist id="dl-prod">${dlOpts}</datalist>
+      <div class="add-row">
+        <div class="field">
+          <label>Produit</label>
+          <input type="text" id="f-label" list="dl-prod" placeholder="Nom du produit"
+            oninput="onProdInput(this)" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Qté</label>
+          <input type="number" id="f-qty" min="1" value="1" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label>Prix</label>
+          <input type="number" id="f-prix" min="0" placeholder="0" inputmode="numeric">
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <button class="btn-primary" onclick="addVente()">+ AJOUTER</button>
+      </div>
+    </div>
+
+    <div class="s-head">Mes ventes</div>
+    ${renderVentesList(true)}
+
+    ${ventes.length > 0 ? `
+      <div class="total-bar">
+        ${totOM > 0 ? `
+          <div class="total-bar-row">
+            <span>💵 Espèces</span><span>${gnf(totEsp)}</span>
+          </div>
+          <div class="total-bar-row">
+            <span style="color:#FF7800">📱 Orange Money</span>
+            <span style="color:#FF7800">${gnf(totOM)}</span>
+          </div>` : ''}
+        <div class="total-bar-main">
+          <div>
+            <div class="total-bar-label">Total du soir</div>
+          </div>
+          <div class="total-bar-val">${gnf(total)}</div>
+        </div>
+      </div>
+      <button class="close-cta" onclick="confirmClose()">
+        CLÔTURER MA SESSION →
+      </button>` : `
+      <div class="state-msg" style="padding:24px">
+        Aucune vente — ajoutez ci-dessus.
+      </div>`}
+
+    ${renderNotes()}
+  `;
+  initNotes();
+}
+
+function renderVentesList(canDelete) {
+  if (!ventes.length) return '';
+  return ventes.map(v => {
+    const pm = v.paiement || 'especes';
+    return `
+      <div class="vente-item">
+        <div class="vente-dot ${v.type}"></div>
+        <div class="vente-info">
+          <div class="vente-label">${v.label}</div>
+          <div class="vente-meta">${v.type} · ×${v.qty} · ${gnf(v.prix_unit)}</div>
+        </div>
+        <span class="pay-badge ${pm}">${pm==='om'?'OM':'💵'}</span>
+        <div class="vente-total">${gnf(v.total)}</div>
+        ${canDelete ? `<button class="btn-icon" onclick="deleteVente('${v.id}')" style="flex-shrink:0">×</button>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function renderNotes() {
+  return `
+    <div class="s-head">Notes de service</div>
+    <div class="notes-card">
+      <textarea class="notes-area" id="note-area"
+        placeholder="Notez ici : commandes spéciales, clients, rappels, observations…"
+        rows="5" oninput="onNoteInput()"></textarea>
+      <div class="notes-status" id="note-status"></div>
+    </div>`;
+}
+
+function initNotes() {
+  const area = document.getElementById('note-area');
+  if (area) {
+    area.value = localStorage.getItem(noteKey()) || '';
+  }
+}
+
+function onNoteInput() {
+  clearTimeout(_noteSave);
+  const status = document.getElementById('note-status');
+  if (status) status.textContent = '…';
+  _noteSave = setTimeout(() => {
+    const val = document.getElementById('note-area')?.value || '';
+    localStorage.setItem(noteKey(), val);
+    if (status) { status.textContent = 'Sauvegardé ✓'; setTimeout(() => { status.textContent = ''; }, 1500); }
+  }, 600);
+}
+
+/* ── Type + Paiement ── */
+function setType(t) {
+  activeType = t;
+  document.querySelectorAll('.type-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.t === t);
+  });
+}
+
+function setPaiement(p) {
+  paiement = p;
+  document.querySelectorAll('.pay-btn').forEach(b => {
+    const isActive = (p === 'especes' && b.textContent.includes('Espèces'))
+                  || (p === 'om'      && b.textContent.includes('Orange'));
+    b.className = `pay-btn${isActive ? ` active ${p}` : ''}`;
+  });
+}
+
+function onProdInput(el) {
+  const val  = el.value.toLowerCase().trim();
+  const prod = produits.find(p => p.nom.toLowerCase() === val);
+  if (prod) {
+    $('f-prix').value = prod.prix || '';
+    setType(prod.type || 'chicha');
+  }
+}
+
+/* ── Ajouter vente ── */
+async function addVente() {
+  const label = ($('f-label').value || '').trim();
+  const qty   = parseInt($('f-qty').value) || 1;
+  const prix  = parseInt($('f-prix').value) || 0;
+  const total = qty * prix;
+
+  if (!label) { toast('Entrez le nom du produit', 'ko'); return; }
+  if (qty < 1) { toast('Quantité invalide', 'ko'); return; }
+
+  try {
+    const { error } = await db.from('ventes_session').insert({
+      session_id: sessionId, employe_id: empId,
+      label, type: activeType, qty, prix_unit: prix, total,
+      paiement, valide_staff: false
+    });
+    if (error) throw error;
+
+    $('f-label').value = '';
+    $('f-qty').value   = '1';
+    $('f-prix').value  = '';
+    $('f-label').focus();
+
+    ML.logAction(`🛒 Vente — ${label} ×${qty} ${paiement==='om'?'📱OM':'💵'} · ${gnf(total)}`);
+  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+}
+
+async function deleteVente(id) {
+  try {
+    await db.from('ventes_session').delete().eq('id', id);
+  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+}
+
+/* ── Clôture ── */
+function confirmClose() {
+  const total  = ventes.reduce((s, v) => s + (v.total || 0), 0);
+  const totOM  = ventes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
+  const totEsp = total - totOM;
+  $('overlay-sheet').innerHTML = `
+    <div class="sheet-title">Clôturer la session ?</div>
+    <div class="sheet-text">
+      <strong style="color:var(--text)">${ventes.length} vente${ventes.length>1?'s':''}</strong>
+      pour un total de <strong style="color:var(--gold)">${gnf(total)}</strong>.<br>
+      ${totOM > 0 ? `💵 Espèces : <strong>${gnf(totEsp)}</strong> · 📱 OM : <strong style="color:#FF7800">${gnf(totOM)}</strong><br>` : ''}
+      <br>Une fois clôturée, vous ne pouvez plus modifier.
+    </div>
+    <div class="sheet-btns">
+      <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
+      <button class="btn-ok" onclick="closeSession()">CLÔTURER</button>
+    </div>`;
+  $('overlay').classList.add('on');
+}
+
+async function closeSession() {
+  $('overlay').classList.remove('on');
+  try {
+    const ids = ventes.map(v => v.id);
+    const { error } = await db.from('ventes_session').update({ valide_staff: true }).in('id', ids);
+    if (error) throw error;
+
+    const total = ventes.reduce((s, v) => s + (v.total || 0), 0);
+    ML.logAction(`✅ Session clôturée — ${empNom} · ${gnf(total)} · ${ventes.length} ventes`);
+    toast('Session clôturée — envoyé à la caisse ✓', 'ok');
+
+    closed = true;
+    ventes = ventes.map(v => ({...v, valide_staff: true}));
+    renderPage();
+  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+}
+
+document.addEventListener('click', e => {
+  if (e.target === $('overlay')) $('overlay').classList.remove('on');
+});
+</script>
+</body>
+</html>

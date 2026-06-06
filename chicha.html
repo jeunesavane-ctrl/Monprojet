@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Chicha — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+/* ── Shared layout ── */
+.kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:1.4px;margin-bottom:4px;font-weight:500}
+.fond-card{
+  background:var(--bg2);border:1px solid var(--b1);border-radius:var(--r);
+  padding:14px 16px;display:flex;justify-content:space-between;align-items:center;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 8px rgba(0,0,0,.3)}
+.add-form{
+  background:var(--bg2);border-radius:var(--r);padding:16px;
+  border:1px solid var(--b1);
+  box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 2px 10px rgba(0,0,0,.4)}
+
+/* ── Arome tabs ── */
+.arome-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.arome-btn{
+  padding:9px 4px;border-radius:var(--rs);border:1px solid var(--b1);
+  background:transparent;color:var(--muted);font-size:12px;font-weight:500;
+  cursor:pointer;transition:all var(--t);text-align:center;
+  -webkit-tap-highlight-color:transparent}
+.arome-btn.active{
+  background:rgba(255,120,0,.15);border-color:rgba(255,120,0,.4);color:#FF7A00}
+
+/* ── Sortie item ── */
+.sortie-item{
+  display:flex;align-items:center;gap:10px;padding:11px 14px;
+  background:var(--bg2);border-radius:var(--r);
+  border:1px solid var(--b1);
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 1px 5px rgba(0,0,0,.28)}
+.sortie-icon{
+  width:32px;height:32px;border-radius:50%;background:rgba(255,120,0,.12);
+  border:1px solid rgba(255,120,0,.25);display:flex;align-items:center;
+  justify-content:center;font-size:16px;flex-shrink:0}
+.sortie-info{flex:1;min-width:0}
+.sortie-arome{font-size:14px;font-weight:600}
+.sortie-meta{font-size:11px;color:var(--muted);margin-top:1px}
+.sortie-qty{font-family:'Bebas Neue',sans-serif;font-size:22px;color:#FF7A00;flex-shrink:0}
+
+/* ── Totaux chicha ── */
+.chicha-recap{
+  background:rgba(255,120,0,.07);border:1px solid rgba(255,120,0,.2);
+  border-radius:var(--r);padding:16px;
+  box-shadow:0 0 0 1px rgba(255,120,0,.1) inset}
+.chicha-recap-total{
+  font-family:'Bebas Neue',sans-serif;font-size:36px;color:#FF7A00;line-height:1}
+.arome-tag{
+  display:inline-block;font-size:11px;padding:3px 10px;border-radius:10px;
+  background:rgba(255,120,0,.1);color:#FF7A00;border:1px solid rgba(255,120,0,.2);margin:3px}
+
+/* ── RO banner ── */
+.ro-banner{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.03);border:1px solid var(--b1);
+  border-radius:var(--rs);padding:9px 14px;font-size:12px;color:var(--muted)}
+
+/* ── Close CTA ── */
+.close-cta{
+  background:linear-gradient(180deg,rgba(255,140,0,.85) 0%,rgba(220,100,0,.95) 100%);
+  border:none;border-radius:var(--r);padding:18px;width:100%;
+  font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;
+  color:#fff;cursor:pointer;
+  box-shadow:0 4px 20px rgba(255,100,0,.25),0 1px 0 rgba(255,255,255,.15) inset;
+  transition:opacity var(--t),transform var(--t);
+  -webkit-tap-highlight-color:transparent}
+.close-cta:active{opacity:.85;transform:scale(.99)}
+.close-cta:disabled{opacity:.25;cursor:not-allowed;box-shadow:none}
+
+/* ── Notes ── */
+.notes-card{background:var(--bg2);border:1px solid var(--b1);border-radius:var(--r);padding:14px}
+.notes-area{width:100%;background:transparent;border:none;resize:none;
+  color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;
+  line-height:1.6;outline:none;min-height:80px}
+.notes-area::placeholder{color:var(--muted)}
+.notes-status{font-size:11px;color:var(--muted);margin-top:6px;text-align:right;min-height:14px}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap" id="main-body">
+    <div class="state-msg">Chargement…</div>
+  </div>
+  <div id="overlay"><div class="sheet" id="overlay-sheet"></div></div>
+  <div id="toast"></div>
+
+<script>
+const AROMES_PRESET = [
+  'Double Pomme','Menthe','Citron-Menthe','Mangue','Fraise',
+  'Pastèque','Raisin','Bubble Gum','Caramel','Vanille','Cola','Multifruits'
+];
+
+let sessionId  = null;
+let empId      = null;
+let empNom     = '';
+let sorties    = [];
+let closed     = false;
+let aromeActif = 'Double Pomme';
+let _noteSave;
+
+const isReadOnly  = () => ML.getRole() !== 'chicha';
+const noteKey     = () => `ml_chicha_note_${empId}_${todayISO()}`;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['chicha','manager','owner'])) return;
+
+  const extra = ML.getExtra();
+  empId  = extra.employe_id || null;
+  empNom = extra.nom || 'Chicha';
+
+  if (!empId && !isReadOnly()) {
+    $('main-body').innerHTML = '<div class="state-msg err">Compte employé non configuré.</div>';
+    return;
+  }
+  await initSession();
+});
+
+async function initSession() {
+  const today = todayISO();
+  try {
+    let { data: existing } = await db
+      .from('sessions_caisse').select('id,statut').eq('date', today).maybeSingle();
+
+    if (!existing) {
+      if (isReadOnly()) {
+        $('main-body').innerHTML = `
+          <div class="state-msg" style="padding:44px 0;text-align:center">
+            <div style="font-size:38px;opacity:.35;margin-bottom:12px">🌿</div>
+            <div style="font-size:15px;font-weight:500">Pas de session ouverte ce soir</div>
+          </div>`;
+        return;
+      }
+      const { data: created, error } = await db
+        .from('sessions_caisse').insert({ date: today, statut:'ouvert' }).select().single();
+      if (error) throw error;
+      existing = created;
+    }
+    sessionId = existing.id;
+
+    const { data: rows } = await db
+      .from('sorties_chicha').select('*')
+      .eq('session_id', sessionId)
+      .order('created_at');
+
+    sorties = rows || [];
+    closed  = sorties.length > 0 && sorties.every(s => s.valide);
+
+    renderPage();
+    subscribeRealtime();
+
+  } catch(e) {
+    $('main-body').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+
+function subscribeRealtime() {
+  if (!sessionId) return;
+  db.channel('ml-chicha-' + (empId || 'ro'))
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'sorties_chicha',
+      filter: `session_id=eq.${sessionId}`
+    }, async () => {
+      const { data } = await db.from('sorties_chicha').select('*')
+        .eq('session_id', sessionId).order('created_at');
+      sorties = data || [];
+      closed  = sorties.length > 0 && sorties.every(s => s.valide);
+      renderPage();
+    }).subscribe();
+}
+
+/* ════════════════════════════════════════════
+   RENDER
+════════════════════════════════════════════ */
+function renderPage() {
+  const today  = todayISO();
+  const ro     = isReadOnly();
+  const total  = sorties.reduce((s, v) => s + (v.qty || 0), 0);
+
+  /* Totaux par arome */
+  const byArome = {};
+  sorties.forEach(s => {
+    byArome[s.arome] = (byArome[s.arome] || 0) + s.qty;
+  });
+
+  const banner = `
+    <div class="fond-card">
+      <div>
+        <div class="kpi-label">Session du ${frDateShort(today)}</div>
+        <div style="font-size:15px;font-weight:600;margin-top:2px">${empNom}</div>
+      </div>
+      <span class="badge ${closed ? 'ok' : 'gold'}">${closed ? 'Clôturé' : 'En service'}</span>
+    </div>`;
+
+  if (closed && !ro) {
+    $('main-body').innerHTML = banner + `
+      <div style="background:var(--okbg);border:1px solid var(--okb);border-radius:var(--r);
+        padding:22px;text-align:center">
+        <div style="font-size:32px;margin-bottom:8px">✓</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;
+          color:var(--ok);margin-bottom:6px">SESSION CLÔTURÉE</div>
+        <div style="font-size:13px;color:var(--muted)">
+          ${total} chicha${total>1?'s':''} sortie${total>1?'s':''} ce soir.
+        </div>
+      </div>
+      ${renderRecap(byArome, total)}
+      ${renderList(false)}
+      ${renderNotes()}`;
+    initNotes();
+    return;
+  }
+
+  let html = banner;
+  if (ro) html += `<div class="ro-banner"><span style="opacity:.5">👁</span>&nbsp; Lecture seule</div>`;
+
+  if (!ro) {
+    html += `
+      <div class="add-form">
+        <div class="s-head" style="margin-top:0">Arome</div>
+        <div class="arome-grid" id="arome-grid">
+          ${AROMES_PRESET.map(a => `
+            <button class="arome-btn${aromeActif===a?' active':''}"
+              onclick="setArome('${a}')">${a}</button>`).join('')}
+        </div>
+        <div class="field">
+          <label>Autre arome</label>
+          <input type="text" id="f-arome-custom" placeholder="Saisir manuellement…"
+            oninput="if(this.value.trim())setArome(this.value.trim())">
+        </div>
+        <div class="field" style="margin-top:4px">
+          <label>Quantité</label>
+          <input type="number" id="f-qty" min="1" value="1" inputmode="numeric"
+            style="font-size:22px;font-family:'Bebas Neue',sans-serif;text-align:center;letter-spacing:1px">
+        </div>
+        <button class="btn-primary" onclick="addSortie()" style="margin-top:4px">+ ENREGISTRER</button>
+      </div>`;
+  }
+
+  html += `<div class="s-head">Sorties du soir</div>`;
+  html += renderRecap(byArome, total);
+  html += renderList(!ro && !closed);
+
+  if (!ro && !closed && sorties.length > 0) {
+    html += `<button class="close-cta" onclick="confirmClose()">CLÔTURER MA SESSION →</button>`;
+  } else if (!ro && sorties.length === 0) {
+    html += `<div class="state-msg" style="padding:20px;text-align:center;color:var(--muted)">
+      Aucune sortie — enregistrez ci-dessus.
+    </div>`;
+  }
+
+  html += renderNotes();
+  $('main-body').innerHTML = html;
+  initNotes();
+}
+
+function renderRecap(byArome, total) {
+  if (!total) return '';
+  const tags = Object.entries(byArome)
+    .sort((a,b) => b[1]-a[1])
+    .map(([a,n]) => `<span class="arome-tag">${a} ×${n}</span>`).join('');
+  return `
+    <div class="chicha-recap">
+      <div class="kpi-label">Total sorties</div>
+      <div class="chicha-recap-total">${total}</div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted);text-transform:uppercase;
+        letter-spacing:1px;margin-bottom:6px">Par arome</div>
+      <div>${tags}</div>
+    </div>`;
+}
+
+function renderList(canDelete) {
+  if (!sorties.length) return '';
+  return sorties.map(s => {
+    const d  = new Date(s.created_at);
+    const hm = d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    return `
+      <div class="sortie-item">
+        <div class="sortie-icon">🌿</div>
+        <div class="sortie-info">
+          <div class="sortie-arome">${s.arome}</div>
+          <div class="sortie-meta">${hm}${s.note ? ' · ' + s.note : ''}</div>
+        </div>
+        <div class="sortie-qty">×${s.qty}</div>
+        ${canDelete ? `<button class="btn-icon" onclick="deleteSortie('${s.id}')">×</button>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function renderNotes() {
+  return `
+    <div class="s-head">Notes de service</div>
+    <div class="notes-card">
+      <textarea class="notes-area" id="note-area"
+        placeholder="Aromes demandés, stocks bas, observations…"
+        rows="4" oninput="onNoteInput()"></textarea>
+      <div class="notes-status" id="note-status"></div>
+    </div>`;
+}
+
+function initNotes() {
+  const area = document.getElementById('note-area');
+  if (area) area.value = localStorage.getItem(noteKey()) || '';
+}
+
+function onNoteInput() {
+  clearTimeout(_noteSave);
+  const status = document.getElementById('note-status');
+  if (status) status.textContent = '…';
+  _noteSave = setTimeout(() => {
+    const val = document.getElementById('note-area')?.value || '';
+    localStorage.setItem(noteKey(), val);
+    if (status) { status.textContent = 'Sauvegardé ✓'; setTimeout(() => { status.textContent=''; }, 1500); }
+  }, 600);
+}
+
+/* ── Actions ── */
+function setArome(a) {
+  aromeActif = a;
+  document.querySelectorAll('.arome-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === a);
+  });
+}
+
+async function addSortie() {
+  const qty   = parseInt($('f-qty')?.value) || 1;
+  const arome = aromeActif || 'Double Pomme';
+  if (qty < 1) { toast('Quantité invalide', 'ko'); return; }
+
+  try {
+    const { error } = await db.from('sorties_chicha').insert({
+      session_id: sessionId, employe_id: empId,
+      arome, qty, valide: false
+    });
+    if (error) throw error;
+
+    $('f-qty').value = '1';
+    ML.logAction(`🌿 Chicha sortie — ${arome} ×${qty}`);
+  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+}
+
+async function deleteSortie(id) {
+  try {
+    await db.from('sorties_chicha').delete().eq('id', id);
+  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+}
+
+function confirmClose() {
+  const total = sorties.reduce((s, v) => s + (v.qty || 0), 0);
+  $('overlay-sheet').innerHTML = `
+    <div class="sheet-title">Clôturer la session ?</div>
+    <div class="sheet-text">
+      <strong style="color:var(--text)">${total} chicha${total>1?'s':''}</strong> enregistrée${total>1?'s':''} ce soir.<br>
+      <br>Cette trace sera visible par le caissier et le gestionnaire.
+    </div>
+    <div class="sheet-btns">
+      <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
+      <button class="btn-ok" style="background:linear-gradient(180deg,rgba(255,140,0,.9),rgba(220,100,0,.95));color:#fff"
+        onclick="closeSession()">CLÔTURER</button>
+    </div>`;
+  $('overlay').classList.add('on');
+}
+
+async function closeSession() {
+  $('overlay').classList.remove('on');
+  try {
+    const ids = sorties.map(s => s.id);
+    await db.from('sorties_chicha').update({ valide: true }).in('id', ids);
+    const total = sorties.reduce((s, v) => s + (v.qty || 0), 0);
+    ML.logAction(`✅ Session chicha clôturée — ${total} sorties`);
+    toast('Session clôturée — visible par la caisse ✓', 'ok');
+    closed = true;
+    sorties = sorties.map(s => ({...s, valide: true}));
+    renderPage();
+  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+}
+
+document.addEventListener('click', e => {
+  if (e.target === $('overlay')) $('overlay').classList.remove('on');
+});
+</script>
+</body>
+</html>

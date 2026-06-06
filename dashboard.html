@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Dashboard — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+/* ── KPI ── */
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi-card{
+  background:var(--bg2);border-radius:var(--r);padding:16px;
+  border:1px solid var(--b1);
+  box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 2px 10px rgba(0,0,0,.4)}
+.kpi-card.wide{grid-column:1/-1}
+.kpi-card.accent{border-color:var(--gring);background:var(--glow);
+  box-shadow:0 0 0 1px var(--gring) inset,0 4px 20px rgba(201,168,76,.07)}
+.kpi-label{
+  font-size:10px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:1.4px;margin-bottom:9px;font-weight:500}
+.kpi-val{
+  font-family:'Bebas Neue',sans-serif;font-size:26px;
+  letter-spacing:.5px;line-height:1}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:7px;line-height:1.4}
+.kpi-trend{font-size:11px;font-weight:600}
+.kpi-trend.up{color:var(--ok)}
+.kpi-trend.dn{color:var(--danger)}
+
+/* ── Charts ── */
+.chart-full{
+  background:var(--bg2);border-radius:var(--r);padding:16px;
+  border:1px solid var(--b1);
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 10px rgba(0,0,0,.4)}
+.chart-half{
+  background:var(--bg2);border-radius:var(--r);padding:13px;
+  border:1px solid var(--b1);
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 8px rgba(0,0,0,.35)}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:380px){.chart-row{grid-template-columns:1fr}}
+.ch-name{
+  font-family:'Bebas Neue',sans-serif;font-size:13px;
+  letter-spacing:2.5px;color:var(--gold);margin-bottom:2px}
+.ch-desc{
+  font-size:10px;color:var(--muted);margin-bottom:12px;
+  text-transform:uppercase;letter-spacing:.8px}
+.ch-tall{position:relative;height:200px}
+.ch-med{position:relative;height:165px}
+.ch-sm{position:relative;height:148px}
+
+/* ── Status ── */
+.live-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--gold);box-shadow:0 0 8px rgba(201,168,76,.7);
+  display:inline-block;animation:pulse 1.8s ease-in-out infinite;flex-shrink:0}
+
+/* ── Objectif ── */
+.obj-bar{height:4px;background:var(--bg4);border-radius:3px;overflow:hidden;margin:8px 0 4px}
+.obj-fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.obj-meta{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+
+/* ── Lines ── */
+.lr{display:flex;justify-content:space-between;align-items:center;font-size:14px}
+.lr span:last-child{font-weight:500;color:var(--gold)}
+.lr.neg span:last-child{color:var(--danger)}
+.lr.big{padding-top:10px;border-top:1px solid rgba(255,255,255,.05)}
+.lr.big span:first-child{font-weight:600}
+.lr.big span:last-child{font-family:'Bebas Neue',sans-serif;font-size:22px}
+
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(1.5)}}
+@keyframes rappel{0%,100%{border-color:rgba(201,168,76,.25);box-shadow:0 0 0 0 rgba(201,168,76,0)}50%{border-color:rgba(201,168,76,.65);box-shadow:0 0 16px rgba(201,168,76,.12)}}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap" id="main-body">
+    <div class="state-msg">Chargement…</div>
+  </div>
+  <div id="overlay"><div class="sheet" id="overlay-sheet"></div></div>
+  <div id="toast"></div>
+
+<script>
+const CH = {};
+let _realtimeSubbed = false;
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['manager','owner','associe'])) return;
+  document.addEventListener('click', e => {
+    if (e.target === $('overlay')) $('overlay').classList.remove('on');
+  });
+  const role = ML.getRole();
+  if (role === 'associe') loadDashAssoc();
+  else {
+    loadDash();
+    setInterval(loadDash, 5 * 60 * 1000);
+  }
+});
+
+function destroyCharts() {
+  Object.values(CH).forEach(c => { try { c?.destroy(); } catch{} });
+  Object.keys(CH).forEach(k => delete CH[k]);
+}
+
+/* ═══════════════════════════════════════════
+   DASHBOARD OWNER / MANAGER
+═══════════════════════════════════════════ */
+async function loadDash() {
+  const body = $('main-body');
+  if (!body.querySelector('.kpi-grid'))
+    body.innerHTML = '<div class="state-msg">Chargement…</div>';
+
+  try {
+    const [rapRes, prodRes, cfgRes, assocRes, sessRes] = await Promise.all([
+      db.from('rapports').select('*').order('date',{ascending:false}),
+      db.from('produits').select('*').eq('actif',true),
+      db.from('config').select('key,value'),
+      db.from('associes').select('pourcentage').eq('actif',true),
+      db.from('sessions_caisse').select('id,date,statut,note_caissier')
+        .eq('statut','valide_caissier').order('date',{ascending:false})
+    ]);
+    if (rapRes.error) throw rapRes.error;
+    const pendingSessions = sessRes.data || [];
+
+    const data    = rapRes.data || [];
+    const prods   = prodRes.data || [];
+    const cfg     = {};
+    (cfgRes.data||[]).forEach(r => cfg[r.key] = r.value);
+    const assocPct = (assocRes.data||[]).reduce((s,a) => s+(a.pourcentage||0), 0);
+    const ownerPct = Math.max(0, 100 - assocPct);
+    const role     = ML.getRole();
+
+    const btnRapPasse = role !== 'associe' ? `
+      <button onclick="openManualRapport()"
+        style="width:100%;margin-top:10px;padding:14px;border-radius:var(--r);
+          border:1px dashed rgba(201,168,76,.25);background:rgba(201,168,76,.04);
+          color:var(--muted);font-size:12px;font-weight:600;letter-spacing:1.5px;
+          cursor:pointer;-webkit-tap-highlight-color:transparent">
+        + RAPPORT JOUR PASSÉ
+      </button>` : '';
+
+    if (!data.length && !pendingSessions.length) {
+      body.innerHTML = '<div class="state-msg">Aucun rapport enregistré.</div>' + btnRapPasse;
+      return;
+    }
+    if (!data.length) {
+      destroyCharts();
+      body.innerHTML = pendingSessions.map(s => `
+        <div class="kpi-card wide" style="border-color:rgba(201,168,76,.3);background:rgba(201,168,76,.06);animation:rappel 2.5s ease-in-out infinite" id="pend-${s.id}">
+          <div style="display:flex;align-items:flex-start;gap:12px">
+            <div style="font-size:26px;line-height:1;flex-shrink:0">💰</div>
+            <div style="flex:1">
+              <div style="font-weight:600;color:var(--gold);font-size:14px;margin-bottom:2px">Session caisse en attente — ${frDateShort(s.date)}</div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${s.note_caissier||'Le caissier a validé — en attente de votre confirmation.'}</div>
+              <button onclick="openValidation('${s.id}','${s.date}')"
+                style="padding:8px 18px;background:linear-gradient(180deg,var(--goldl),var(--gold));border:none;border-radius:var(--rs);color:#060606;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;cursor:pointer;">
+                VALIDER → CRÉER RAPPORT
+              </button>
+            </div>
+          </div>
+        </div>`).join('') + btnRapPasse;
+      return;
+    }
+
+    /* ── KPIs globaux ── */
+    const totRec = data.reduce((s,r) => s+(r.total_chicha||0)+(r.total_boissons||0), 0);
+    const totDep = data.reduce((s,r) => s+(r.total_achats||0), 0);
+    const netAll = totRec - totDep;
+    const avgNet = Math.round(netAll / data.length);
+    const totQC  = data.reduce((s,r) => s+(r.total_qty_chicha||0), 0);
+    const best   = data.reduce((p,r) => (r.net||0)>(p.net||0) ? r : p, data[0]);
+
+    /* ── Ce mois / mois précédent ── */
+    const mNow  = todayISO().slice(0,7);
+    const mPrev = (() => {
+      const d = new Date(mNow+'-01'); d.setMonth(d.getMonth()-1);
+      return d.toISOString().slice(0,7);
+    })();
+    const thisMo    = data.filter(r => r.date?.startsWith(mNow));
+    const prevMo    = data.filter(r => r.date?.startsWith(mPrev));
+    const netMois   = thisMo.reduce((s,r) => s+(r.net||0), 0);
+    const netPrevM  = prevMo.reduce((s,r) => s+(r.net||0), 0);
+    const trendMois = netPrevM ? Math.round((netMois-netPrevM)/Math.abs(netPrevM)*100) : null;
+
+    /* ── Part gestionnaire ── */
+    const partOwnerAll  = netAll  * ownerPct / 100;
+    const partOwnerMois = netMois * ownerPct / 100;
+
+    /* ── Objectif ── */
+    const objJour = parseFloat(cfg.objectif_journalier) || 0;
+    const last    = data[0];
+    const lastNet = last?.net || 0;
+    const objPct  = objJour ? Math.min(100, Math.round(lastNet/objJour*100)) : null;
+    const objOk   = lastNet >= objJour;
+
+    /* ── Stock bas ── */
+    const low = prods.filter(p => (p.stock_min||p.seuil_bas||0) > 0 &&
+      (p.stock_actuel??p.quantite??0) <= (p.stock_min||p.seuil_bas||0));
+
+    /* ── Semaine ── */
+    const getMon = d => {
+      const c = new Date(d+'T12:00:00');
+      c.setDate(c.getDate()-((c.getDay()+6)%7));
+      return c.toISOString().slice(0,10);
+    };
+    const monCur  = getMon(todayISO());
+    const monPrev = getMon(new Date(new Date(monCur)-7*864e5).toISOString().slice(0,10));
+    const sunPrev = new Date(new Date(monCur)-1).toISOString().slice(0,10);
+    const wkCur   = data.filter(r => r.date >= monCur && r.date <= todayISO());
+    const wkPrev  = data.filter(r => r.date >= monPrev && r.date <= sunPrev);
+    const wkCurN  = wkCur.reduce((s,r) => s+(r.net||0), 0);
+    const wkPrevN = wkPrev.reduce((s,r) => s+(r.net||0), 0);
+    const wkTend  = wkPrevN ? Math.round((wkCurN-wkPrevN)/Math.abs(wkPrevN)*100) : null;
+
+    /* ── Top produits ── */
+    const pmap = {};
+    data.forEach(r => {
+      [...(r.chicha_rows||[]),...(r.boissons_rows||[])].forEach(row => {
+        if (!row?.label) return;
+        const k = row.label.trim().toLowerCase();
+        if (!pmap[k]) pmap[k] = { nom:row.label.trim(), qty:0, total:0 };
+        pmap[k].qty   += row.qty||0;
+        pmap[k].total += row.total||0;
+      });
+    });
+    const top5 = Object.values(pmap).sort((a,b)=>b.qty-a.qty).slice(0,5);
+
+    /* ── Status ── */
+    const h        = new Date().getHours();
+    const enSvc    = h >= 20 || h < 4;
+    const todayStr = todayISO();
+    const aRap     = data.some(r => r.date === todayStr);
+
+    /* Notification navigateur */
+    if (!aRap && h >= 20 && 'Notification' in window && Notification.permission === 'granted') {
+      const nk = 'ml_notif_'+todayStr;
+      if (!sessionStorage.getItem(nk)) {
+        sessionStorage.setItem(nk,'1');
+        new Notification('⚠️ Rapport manquant — Medellin',{
+          body:`Il est ${h}h — aucun rapport ce soir.`, tag:'rapport-manquant'
+        });
+      }
+    }
+
+    /* ── HTML BLOCS ── */
+
+    const svcBadge = enSvc ? `
+      <div class="kpi-card wide" style="background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.18);padding:10px 15px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="live-dot"></div>
+          <span style="font-family:'Bebas Neue',sans-serif;letter-spacing:2px;color:var(--gold);font-size:15px">EN SERVICE</span>
+          <span style="font-size:12px;color:var(--muted);margin-left:2px">Lounge actif ce soir</span>
+        </div>
+      </div>` : '';
+
+    const alerteRap = !aRap && h >= 20 ? `
+      <div class="kpi-card wide" style="background:rgba(217,84,84,.1);
+        border:1px solid rgba(217,84,84,.4);animation:rappel 2s ease-in-out infinite;padding:12px 15px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:22px">⚠️</div>
+          <div>
+            <div style="font-weight:600;color:var(--danger);font-size:14px">Rapport non soumis ce soir</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:1px">Il est ${h}h — aucun rapport enregistré</div>
+          </div>
+        </div>
+      </div>` : '';
+
+    const noteCard = role === 'manager' && cfg.note_manager ? `
+      <div class="kpi-card wide" style="background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.22)">
+        <div class="kpi-label">📋 Note du gestionnaire</div>
+        <div style="font-size:14px;line-height:1.65;white-space:pre-wrap">${cfg.note_manager}</div>
+      </div>` : '';
+
+    const objCard = objJour ? `
+      <div class="kpi-card wide" style="${objOk?'border:1px solid rgba(72,192,122,.22)':'border:1px solid rgba(217,84,84,.2)'}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="kpi-label" style="margin-bottom:0">Objectif — dernier soir</div>
+          <span class="badge ${objOk?'ok':'ko'}">${objPct}%</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px">
+          <div class="kpi-val" style="color:${objOk?'var(--ok)':'var(--danger)'}">${gnf(lastNet)}</div>
+          <div style="font-size:12px;color:var(--muted)">/ ${gnf(objJour)}</div>
+        </div>
+        <div class="obj-bar">
+          <div class="obj-fill" style="width:${objPct}%;background:${objOk?'var(--ok)':'var(--danger)'}"></div>
+        </div>
+        <div class="obj-meta">
+          <span>${objOk?'✓ Objectif atteint':gnf(objJour-lastNet)+' manquant'}</span>
+          <span>${last?.date?frDateShort(last.date):''}</span>
+        </div>
+      </div>` : '';
+
+    const ownerCard = role === 'owner' ? `
+      <div class="kpi-card wide" style="background:var(--gdim);border:1px solid var(--gring)">
+        <div class="kpi-label">Votre part — ${ownerPct.toFixed(1)}%</div>
+        <div style="display:flex;gap:28px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:3px">CE MOIS</div>
+            <div class="kpi-val" style="color:var(--gold);font-size:26px">${gnf(partOwnerMois)}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:3px">CUMULÉ TOTAL</div>
+            <div class="kpi-val" style="color:var(--muted);font-size:20px">${gnf(partOwnerAll)}</div>
+          </div>
+        </div>
+      </div>` : '';
+
+    const stockCard = low.length ? `
+      <div class="kpi-card wide" style="background:rgba(217,84,84,.07);border:1px solid rgba(217,84,84,.2)">
+        <div class="kpi-label">⚠ Stock bas · ${low.length} produit${low.length>1?'s':''}</div>
+        <div style="font-size:13px;color:var(--danger);line-height:1.6">
+          ${low.map(p=>`${p.nom}`).join(' · ')}
+        </div>
+      </div>` : '';
+
+    const weekCard = `
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Cette semaine</div>
+          <div class="card-sub">${wkCur.length} soir${wkCur.length!==1?'s':''}${
+            wkTend!==null?` · <span style="color:${wkTend>=0?'var(--ok)':'var(--danger)'}">${wkTend>=0?'↑':'↓'}${Math.abs(wkTend)}% vs sem. passée</span>`:''}</div>
+        </div>
+        <div class="card-body">
+          <div class="lr"><span>Net semaine en cours</span>
+            <span style="color:${wkCurN>=0?'var(--ok)':'var(--danger)'}">${gnf(wkCurN)}</span></div>
+          ${wkPrevN?`<div class="lr"><span style="color:var(--muted)">Semaine passée</span>
+            <span style="color:var(--muted)">${gnf(wkPrevN)}</span></div>`:''}
+        </div>
+      </div>`;
+
+    const topBlock = top5.length ? `
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Top Produits</div>
+          <div class="card-sub">quantité · tous rapports</div>
+        </div>
+        <div class="card-body" style="padding-bottom:6px">
+          ${top5.map((p,i)=>`
+            <div class="top-item">
+              <div class="top-rank${i===0?' gold':''}">${i+1}</div>
+              <div class="top-info"><div class="top-name">${p.nom}</div></div>
+              <div class="top-stats">
+                <div class="top-qty">${p.qty}</div>
+                <div class="top-total">${gnf(p.total)}</div>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>` : '';
+
+    const lastCard = last ? `
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Dernier rapport</div>
+          <div class="card-sub">N°${last.num||'—'} · ${last.date_display||frDateShort(last.date)}</div>
+        </div>
+        <div class="card-body">
+          <div class="lr"><span>Manager</span><span>${last.manager||'—'}</span></div>
+          <div class="lr"><span>Ventes chicha</span><span>${gnf(last.total_chicha)}</span></div>
+          <div class="lr"><span>Ventes boissons</span><span>${gnf(last.total_boissons)}</span></div>
+          <div class="lr neg"><span>Achats / dépenses</span><span>- ${gnf(last.total_achats)}</span></div>
+          <div class="lr big"><span>Net du jour</span>
+            <span style="color:${(last.net||0)>=0?'var(--ok)':'var(--danger)'}">${gnf(last.net)}</span></div>
+          ${last.obs?`<div style="font-size:13px;color:var(--muted);line-height:1.6;margin-top:2px">${last.obs}</div>`:''}
+        </div>
+      </div>` : '';
+
+    /* ── Sessions caisse en attente ── */
+    const pendingCards = pendingSessions.map(s => `
+      <div class="kpi-card wide" style="border-color:rgba(201,168,76,.3);background:rgba(201,168,76,.06);animation:rappel 2.5s ease-in-out infinite" id="pend-${s.id}">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="font-size:26px;line-height:1;flex-shrink:0">💰</div>
+          <div style="flex:1">
+            <div style="font-weight:600;color:var(--gold);font-size:14px;margin-bottom:2px">
+              Session caisse en attente — ${frDateShort(s.date)}
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+              ${s.note_caissier ? `Note caissier : ${s.note_caissier}` : 'Le caissier a validé — en attente de votre confirmation.'}
+            </div>
+            <button onclick="openValidation('${s.id}','${s.date}')"
+              style="padding:8px 18px;background:linear-gradient(180deg,var(--goldl),var(--gold));border:none;border-radius:var(--rs);color:#060606;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;cursor:pointer;">
+              VALIDER → CRÉER RAPPORT
+            </button>
+          </div>
+        </div>
+      </div>`).join('');
+
+    /* ── INJECTION HTML ── */
+    destroyCharts();
+    body.innerHTML = `
+      ${pendingCards}
+      ${svcBadge}${alerteRap}${noteCard}${objCard}${ownerCard}
+
+      <div class="s-head">Performance</div>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Bénéfice net total</div>
+          <div class="kpi-val" style="color:${netAll>=0?'var(--ok)':'var(--danger)'}">
+            ${netAll>=1e6?(netAll/1e6).toFixed(2)+'M':gnf(netAll)}
+          </div>
+          <div class="kpi-sub">${data.length} soirées · ${gnf(avgNet)}/soir moy.</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Ce mois</div>
+          <div class="kpi-val" style="color:${netMois>=0?'var(--ok)':'var(--danger)'}">
+            ${netMois>=1e6?(netMois/1e6).toFixed(2)+'M':gnf(netMois)}
+          </div>
+          <div class="kpi-sub">
+            ${trendMois!==null
+              ?`<span class="kpi-trend ${trendMois>=0?'up':'dn'}">${trendMois>=0?'↑':'↓'}${Math.abs(trendMois)}%</span> vs mois dernier`
+              :'Premier mois enregistré'}
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Net moyen / soirée</div>
+          <div class="kpi-val" style="color:var(--gold)">${gnf(avgNet)}</div>
+          <div class="kpi-sub">${data.length} rapports au total</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Record soirée</div>
+          <div class="kpi-val" style="color:var(--gold)">${gnf(best?.net||0)}</div>
+          <div class="kpi-sub">${best?.date?frDateShort(best.date):''}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Chichas servies</div>
+          <div class="kpi-val">${totQC}</div>
+          <div class="kpi-sub">toutes soirées confondues</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Recettes totales</div>
+          <div class="kpi-val" style="color:var(--gold)">
+            ${totRec>=1e6?(totRec/1e6).toFixed(2)+'M':gnf(totRec)}
+          </div>
+          <div class="kpi-sub">Dépenses : ${totDep>=1e6?(totDep/1e6).toFixed(1)+'M':gnf(totDep)}</div>
+        </div>
+      </div>
+
+      ${stockCard}
+
+      <div class="s-head">Analyses</div>
+
+      <!-- Graphique 1 : Area — Net 30 derniers rapports -->
+      <div class="chart-full">
+        <div class="ch-name">Net par soirée</div>
+        <div class="ch-desc">30 derniers rapports</div>
+        <div class="ch-tall"><canvas id="ch-area"></canvas></div>
+      </div>
+
+      <!-- Graphiques 2 + 3 -->
+      <div class="chart-row">
+        <div class="chart-half">
+          <div class="ch-name">Par semaine</div>
+          <div class="ch-desc">8 dernières semaines</div>
+          <div class="ch-med"><canvas id="ch-week"></canvas></div>
+        </div>
+        <div class="chart-half">
+          <div class="ch-name">Chicha / Boissons</div>
+          <div class="ch-desc">Répartition recettes</div>
+          <div class="ch-med"><canvas id="ch-donut"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Graphique 4 : Bar — Rentabilité par jour de semaine -->
+      <div class="chart-full">
+        <div class="ch-name">Rentabilité par jour</div>
+        <div class="ch-desc">Net moyen · tous rapports — jour le plus fort en or</div>
+        <div class="ch-sm"><canvas id="ch-day"></canvas></div>
+      </div>
+
+      <div class="s-head">Activité récente</div>
+      ${weekCard}
+      ${topBlock}
+      ${lastCard}
+      ${role !== 'associe' ? `
+        <button onclick="openManualRapport()"
+          style="width:100%;margin-top:8px;padding:14px;border-radius:var(--r);
+            border:1px dashed rgba(201,168,76,.25);background:rgba(201,168,76,.04);
+            color:var(--muted);font-size:12px;font-weight:600;letter-spacing:1.5px;
+            cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all var(--t)"
+          onmouseover="this.style.borderColor='rgba(201,168,76,.5)';this.style.color='var(--gold)'"
+          onmouseout="this.style.borderColor='rgba(201,168,76,.25)';this.style.color='var(--muted)'">
+          + RAPPORT JOUR PASSÉ
+        </button>` : ''}`;
+
+    renderCharts(data);
+
+    if (!_realtimeSubbed) {
+      _realtimeSubbed = true;
+      db.channel('ml-dash-v5')
+        .on('postgres_changes',{event:'INSERT',schema:'public',table:'rapports'},loadDash)
+        .subscribe();
+    }
+
+  } catch(e) {
+    $('main-body').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   VALIDATION SESSION CAISSE (MANAGER)
+═══════════════════════════════════════════ */
+async function openValidation(sessId, sessDate) {
+  const overlay = $('overlay');
+  const sheet   = $('overlay-sheet');
+  if (!sheet) return;
+
+  sheet.innerHTML = '<div class="sheet-title">Chargement…</div>';
+  overlay.classList.add('on');
+
+  try {
+    const [ventesRes, mouvRes, sessRes, rapRes, achatsRes] = await Promise.all([
+      db.from('ventes_session').select('*,employes(nom,prenom)')
+        .eq('session_id', sessId).order('employe_id,created_at'),
+      db.from('mouvements_caisse').select('*').eq('session_id', sessId).order('created_at'),
+      db.from('sessions_caisse').select('fond_caisse,total_reel,note_caissier').eq('id', sessId).single(),
+      db.from('rapports').select('num').order('num',{ascending:false}).limit(1),
+      db.from('achats_session').select('montant,produit_nom').eq('session_id', sessId)
+    ]);
+    const achatsTrackes = achatsRes.data || [];
+    const totAchatsTrackes = achatsTrackes.reduce((s,a) => s+a.montant, 0);
+
+    const ventes    = ventesRes.data || [];
+    const mouvs     = mouvRes.data   || [];
+    const sessInfo  = sessRes.data   || {};
+    const nextNum   = ((rapRes.data?.[0]?.num) || 0) + 1;
+
+    /* Totaux */
+    const fond       = sessInfo.fond_caisse || 0;
+    const totC       = ventes.filter(v=>v.type==='chicha' ).reduce((s,v)=>s+v.total,0);
+    const totB       = ventes.filter(v=>v.type==='boisson').reduce((s,v)=>s+v.total,0);
+    const totA       = ventes.filter(v=>v.type==='autre'  ).reduce((s,v)=>s+v.total,0);
+    const totVentes  = totC + totB + totA;
+    const totEntrees = mouvs.filter(m=>m.type==='entree').reduce((s,m)=>s+m.montant,0);
+    const totSorties = mouvs.filter(m=>m.type==='sortie').reduce((s,m)=>s+m.montant,0);
+    const theorique  = fond + totVentes + totEntrees - totSorties;
+    const reel       = sessInfo.total_reel;
+    const ecart      = reel != null ? theorique - reel : null;
+    const ecartColor = ecart===null?'var(--muted)':ecart===0?'var(--ok)':ecart>0?'var(--danger)':'#5BA3CC';
+    const ecartTxt   = ecart===null?'—':ecart===0?'✓ Exacte':ecart>0?`− ${gnf(ecart)}`:`+ ${gnf(Math.abs(ecart))}`;
+
+    /* Par staff */
+    const byEmp = {};
+    ventes.forEach(v => {
+      const nom = v.employes ? [v.employes.prenom,v.employes.nom].filter(Boolean).join(' ') : '—';
+      if (!byEmp[nom]) byEmp[nom] = { total:0, count:0 };
+      byEmp[nom].total += v.total;
+      byEmp[nom].count++;
+    });
+    const staffLines = Object.entries(byEmp)
+      .map(([nom,d]) => `
+        <div style="display:flex;justify-content:space-between;font-size:13px;
+          padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)">
+          <span>${nom} <span style="color:var(--muted);font-size:11px">(${d.count} vente${d.count>1?'s':''})</span></span>
+          <span style="color:var(--gold);font-weight:500">${gnf(d.total)}</span>
+        </div>`).join('');
+
+    /* Mouvements rows */
+    const mouvLines = mouvs.length ? mouvs.map(m=>`
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0">
+        <span style="color:${m.type==='entree'?'var(--ok)':'var(--danger)'}">
+          ${m.type==='entree'?'↑':'↓'} ${m.motif}
+        </span>
+        <span style="color:${m.type==='entree'?'var(--ok)':'var(--danger)'};font-weight:500">
+          ${m.type==='entree'?'+':'-'} ${gnf(m.montant)}
+        </span>
+      </div>`).join('')
+    : `<div style="font-size:12px;color:var(--muted)">Aucun mouvement</div>`;
+
+    /* Note caissier */
+    const noteCaissier = sessInfo.note_caissier
+      ? `<div style="background:rgba(255,255,255,.03);border:1px solid var(--b1);
+           border-radius:var(--rs);padding:10px 12px;font-size:12px;
+           color:var(--muted);font-style:italic;margin-bottom:14px">
+           "${sessInfo.note_caissier}"
+         </div>` : '';
+
+    sheet.innerHTML = `
+      <div class="sheet-title">Validation — ${frDateShort(sessDate)}</div>
+
+      ${noteCaissier}
+
+      <!-- Détail ventes -->
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;
+        letter-spacing:1.2px;margin-bottom:6px">Ventes staff</div>
+      <div style="margin-bottom:12px">
+        ${staffLines || '<div style="color:var(--muted);font-size:13px">Aucune vente</div>'}
+      </div>
+
+      <!-- Mouvements caisse -->
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;
+        letter-spacing:1.2px;margin-bottom:6px">Mouvements de caisse</div>
+      <div style="margin-bottom:14px">${mouvLines}</div>
+
+      <!-- Bilan caisse complet -->
+      <div style="background:var(--glow);border:1px solid var(--gring);
+        border-radius:var(--rs);padding:12px 14px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;
+          padding:3px 0;color:var(--muted)">
+          <span>Fond de caisse</span><span>${gnf(fond)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0">
+          <span>Ventes</span>
+          <span style="color:var(--gold)">${gnf(totVentes)}</span>
+        </div>
+        ${totEntrees>0?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0">
+          <span style="color:var(--ok)">+ Entrées</span>
+          <span style="color:var(--ok)">${gnf(totEntrees)}</span>
+        </div>`:''}
+        ${totSorties>0?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0">
+          <span style="color:var(--danger)">− Sorties caisse</span>
+          <span style="color:var(--danger)">${gnf(totSorties)}</span>
+        </div>`:''}
+        <div style="display:flex;justify-content:space-between;align-items:baseline;
+          padding-top:8px;margin-top:4px;border-top:1px solid var(--gring)">
+          <span style="font-size:12px;font-weight:600">Total théorique</span>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--gold)">${gnf(theorique)}</span>
+        </div>
+        ${reel != null ? `
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;margin-top:4px">
+          <span>Réel compté</span><span>${gnf(reel)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600">
+          <span>Écart</span>
+          <span style="color:${ecartColor}">${ecartTxt}</span>
+        </div>` : ''}
+      </div>
+
+      <!-- Dépenses manager -->
+      <div class="field" style="margin-bottom:10px">
+        <label>Achats / Charges du soir (GNF)</label>
+        <input type="number" id="v-achats" min="0" placeholder="0" inputmode="numeric">
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <label>Note manager (optionnel)</label>
+        <textarea id="v-note" placeholder="Validation, observations…" style="min-height:50px"></textarea>
+      </div>
+
+      <div id="v-net-preview" style="text-align:right;font-family:'Bebas Neue',sans-serif;
+        font-size:24px;color:var(--ok);margin-bottom:14px;padding:10px 0;
+        border-top:1px solid rgba(255,255,255,.06)">
+        NET : ${gnf(totVentes)}
+      </div>
+
+      <div class="sheet-btns">
+        <button class="btn-cancel" onclick="document.getElementById('overlay').classList.remove('on')">
+          Annuler
+        </button>
+        <button class="btn-ok"
+          onclick="finalizeSession('${sessId}','${sessDate}',${totVentes},${nextNum},${totC},${totB},${fond},${totEntrees},${totSorties},${reel??'null'},${ecart??'null'})">
+          VALIDER N°${pad3(nextNum)}
+        </button>
+      </div>`;
+
+    /* Pré-remplir avec les achats trackés */
+    if (totAchatsTrackes > 0) {
+      $('v-achats').value = totAchatsTrackes;
+      const net0 = totVentes - totAchatsTrackes;
+      $('v-net-preview').textContent = 'NET : ' + gnf(net0);
+      $('v-net-preview').style.color = net0 >= 0 ? 'var(--ok)' : 'var(--danger)';
+    }
+    $('v-achats').addEventListener('input', () => {
+      const dep = parseInt($('v-achats').value)||0;
+      const net = totVentes - dep;
+      $('v-net-preview').textContent = 'NET : ' + gnf(net);
+      $('v-net-preview').style.color = net >= 0 ? 'var(--ok)' : 'var(--danger)';
+    });
+
+  } catch(e) {
+    sheet.innerHTML = `<div class="sheet-text" style="color:var(--danger)">Erreur : ${e.message}</div>`;
+  }
+}
+
+async function finalizeSession(sessId, sessDate, totVentes, nextNum, totC, totB,
+                               fond, totEntrees, totSorties, reel, ecart) {
+  const achats = parseInt($('v-achats')?.value) || 0;
+  const note   = ($('v-note')?.value || '').trim();
+  const net    = totVentes - achats;
+
+  $('overlay').classList.remove('on');
+
+  try {
+    const { data: emp } = await db.from('employes')
+      .select('nom,prenom').eq('role','manager').limit(1);
+    const manager = emp?.[0] ? [emp[0].prenom,emp[0].nom].filter(Boolean).join(' ') : 'Caisse';
+
+    await Promise.all([
+      db.from('rapports').insert({
+        date:           sessDate,
+        num:            nextNum,
+        date_display:   frDateShort(sessDate),
+        manager,
+        total_chicha:   totC,
+        total_boissons: totB,
+        total_achats:   achats,
+        recettes:       totVentes,
+        depenses:       totSorties + achats,
+        net,
+        obs:            note || null,
+        session_id:     sessId,
+        fond_caisse:    fond      || 0,
+        entrees_caisse: totEntrees|| 0,
+        sorties_caisse: totSorties|| 0,
+        total_reel:     reel      ?? null,
+        ecart:          ecart     ?? null
+      }),
+      db.from('sessions_caisse').update({
+        statut:       'valide_manager',
+        note_manager: note || null
+      }).eq('id', sessId)
+    ]);
+
+    ML.logAction(`✅ Rapport N°${pad3(nextNum)} validé — Net ${gnf(net)}`);
+    toast(`Rapport N°${pad3(nextNum)} créé — Net ${gnf(net)}`, 'ok');
+    loadDash();
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'ko');
+  }
+}
+
+/* ═══════════════════════════════════════════
+   RAPPORT JOUR PASSÉ (saisie manuelle)
+═══════════════════════════════════════════ */
+function openManualRapport() {
+  const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0,10);
+  $('overlay-sheet').innerHTML = `
+    <div class="sheet-title">Rapport jour passé</div>
+    <div class="field">
+      <label>Date du soir</label>
+      <input type="date" id="mr-date" max="${yesterday}" value="${yesterday}">
+    </div>
+    <div class="field">
+      <label>Fond de caisse (GNF)</label>
+      <input type="number" id="mr-fond" placeholder="0" inputmode="numeric" oninput="mrCalc()">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field">
+        <label>Ventes chicha</label>
+        <input type="number" id="mr-chicha" placeholder="0" inputmode="numeric" oninput="mrCalc()">
+      </div>
+      <div class="field">
+        <label>Ventes boissons</label>
+        <input type="number" id="mr-boissons" placeholder="0" inputmode="numeric" oninput="mrCalc()">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field">
+        <label>Entrées caisse</label>
+        <input type="number" id="mr-entrees" placeholder="0" inputmode="numeric" oninput="mrCalc()">
+      </div>
+      <div class="field">
+        <label>Sorties caisse</label>
+        <input type="number" id="mr-sorties" placeholder="0" inputmode="numeric" oninput="mrCalc()">
+      </div>
+    </div>
+    <div class="field">
+      <label>Achats / dépenses (GNF)</label>
+      <input type="number" id="mr-achats" placeholder="0" inputmode="numeric" oninput="mrCalc()">
+    </div>
+    <div class="field">
+      <label>Réel compté (optionnel)</label>
+      <input type="number" id="mr-reel" placeholder="—" inputmode="numeric" oninput="mrCalc()">
+    </div>
+    <div class="field">
+      <label>Note (optionnel)</label>
+      <textarea id="mr-note" placeholder="Observations…" style="min-height:50px"></textarea>
+    </div>
+    <div id="mr-preview" style="background:var(--glow);border:1px solid var(--gring);
+      border-radius:var(--rs);padding:12px 14px;margin:4px 0 14px;font-size:13px;
+      display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><div style="color:var(--muted);font-size:10px;text-transform:uppercase;
+        letter-spacing:1px">Théorique</div>
+        <div id="mr-prev-theo" style="font-family:'Bebas Neue',sans-serif;font-size:20px;
+          color:var(--gold)">—</div></div>
+      <div><div style="color:var(--muted);font-size:10px;text-transform:uppercase;
+        letter-spacing:1px">Net</div>
+        <div id="mr-prev-net" style="font-family:'Bebas Neue',sans-serif;font-size:20px;
+          color:var(--ok)">—</div></div>
+    </div>
+    <div class="sheet-btns">
+      <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
+      <button class="btn-ok" onclick="saveManualRapport()">ENREGISTRER</button>
+    </div>`;
+  $('overlay').classList.add('on');
+}
+
+function mrCalc() {
+  const v = id => parseInt($(id)?.value)||0;
+  const fond = v('mr-fond'), totC = v('mr-chicha'), totB = v('mr-boissons');
+  const achats = v('mr-achats'), entrees = v('mr-entrees'), sorties = v('mr-sorties');
+  const totV = totC + totB;
+  const theo = fond + totV + entrees - sorties;
+  const net  = totV - achats;
+  const reelVal = $('mr-reel')?.value;
+  const reel = reelVal ? parseInt(reelVal) : null;
+  const ecart = reel != null ? theo - reel : null;
+
+  if ($('mr-prev-theo')) $('mr-prev-theo').textContent = gnf(theo);
+  if ($('mr-prev-net')) {
+    $('mr-prev-net').textContent = gnf(net);
+    $('mr-prev-net').style.color = net >= 0 ? 'var(--ok)' : 'var(--danger)';
+  }
+  if (ecart !== null && $('mr-preview')) {
+    const ecartEl = document.getElementById('mr-prev-ecart');
+    if (!ecartEl) {
+      $('mr-preview').insertAdjacentHTML('beforeend',
+        `<div style="grid-column:1/-1"><div style="color:var(--muted);font-size:10px;
+          text-transform:uppercase;letter-spacing:1px">Écart caisse</div>
+          <div id="mr-prev-ecart" style="font-family:'Bebas Neue',sans-serif;font-size:16px"></div></div>`
+      );
+    }
+    const el = document.getElementById('mr-prev-ecart');
+    if (el) {
+      el.textContent = ecart === 0 ? '✓ Exacte' : ecart > 0 ? `− ${gnf(ecart)}` : `+ ${gnf(Math.abs(ecart))}`;
+      el.style.color = ecart === 0 ? 'var(--ok)' : ecart > 0 ? 'var(--danger)' : '#5BA3CC';
+    }
+  }
+}
+
+async function saveManualRapport() {
+  const date    = $('mr-date')?.value;
+  if (!date) { toast('Sélectionnez une date', 'ko'); return; }
+  if (date >= todayISO()) { toast('Date passée seulement', 'ko'); return; }
+
+  const fond    = parseInt($('mr-fond')?.value)    || 0;
+  const totC    = parseInt($('mr-chicha')?.value)  || 0;
+  const totB    = parseInt($('mr-boissons')?.value)|| 0;
+  const achats  = parseInt($('mr-achats')?.value)  || 0;
+  const entrees = parseInt($('mr-entrees')?.value) || 0;
+  const sorties = parseInt($('mr-sorties')?.value) || 0;
+  const reelRaw = $('mr-reel')?.value;
+  const reel    = reelRaw ? parseInt(reelRaw) : null;
+  const note    = ($('mr-note')?.value || '').trim();
+
+  const totV    = totC + totB;
+  const theo    = fond + totV + entrees - sorties;
+  const net     = totV - achats;
+  const depenses= sorties + achats;
+  const ecart   = reel != null ? theo - reel : null;
+
+  const btn = $('overlay-sheet').querySelector('.btn-ok');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  try {
+    /* Rapport déjà là ? */
+    const { data: existRap } = await db.from('rapports').select('id,num').eq('date', date).maybeSingle();
+    if (existRap) { toast(`Rapport déjà existant pour le ${frDateShort(date)}`, 'ko'); return; }
+
+    /* Session existante ou nouvelle */
+    let sessId;
+    const { data: existS } = await db.from('sessions_caisse').select('id').eq('date', date).maybeSingle();
+    if (existS) {
+      sessId = existS.id;
+      await db.from('sessions_caisse').update({
+        statut:'valide_manager', fond_caisse:fond, total_reel: reel ?? null
+      }).eq('id', sessId);
+    } else {
+      const { data: newS, error } = await db.from('sessions_caisse').insert({
+        date, statut:'valide_manager', fond_caisse:fond, total_reel: reel ?? null
+      }).select('id').single();
+      if (error) throw error;
+      sessId = newS.id;
+    }
+
+    /* Numéro suivant */
+    const { data: lastRap } = await db.from('rapports').select('num').order('num',{ascending:false}).limit(1);
+    const nextNum = ((lastRap?.[0]?.num) || 0) + 1;
+
+    /* Manager */
+    const { data: emp } = await db.from('employes').select('nom,prenom').eq('role','manager').limit(1);
+    const manager = emp?.[0] ? [emp[0].prenom,emp[0].nom].filter(Boolean).join(' ') : 'Gestionnaire';
+
+    await db.from('rapports').insert({
+      date, num:nextNum, date_display:frDateShort(date), manager, session_id:sessId,
+      total_chicha:totC, total_boissons:totB, total_achats:achats,
+      recettes:totV, depenses, net,
+      obs: note || null,
+      fond_caisse:fond, entrees_caisse:entrees, sorties_caisse:sorties,
+      total_reel: reel ?? null, ecart: ecart ?? null
+    });
+
+    ML.logAction(`📝 Rapport passé N°${pad3(nextNum)} — ${date} — Net ${gnf(net)}`);
+    toast(`Rapport N°${pad3(nextNum)} créé — ${frDateShort(date)} ✓`, 'ok');
+    $('overlay').classList.remove('on');
+    loadDash();
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'ko');
+    if (btn) { btn.disabled = false; btn.textContent = 'ENREGISTRER'; }
+  }
+}
+
+/* ═══════════════════════════════════════════
+   GRAPHIQUES
+═══════════════════════════════════════════ */
+function renderCharts(data) {
+  Chart.defaults.color = '#5C5854';
+  Chart.defaults.font.family = "'DM Sans', sans-serif";
+  Chart.defaults.font.size   = 11;
+
+  const fmtK = v => {
+    const a = Math.abs(v);
+    if (a >= 1e6) return (v/1e6).toFixed(1)+'M';
+    if (a >= 1e3) return (v/1e3).toFixed(0)+'k';
+    return String(v);
+  };
+  const tip = {
+    backgroundColor:'#0F0F12', borderColor:'rgba(255,255,255,.09)', borderWidth:1,
+    titleColor:'#EDEBE3', bodyColor:'#C9A84C', padding:11, cornerRadius:8
+  };
+  const grid = {color:'rgba(255,255,255,.04)'};
+
+  /* ── 1. Area : net 30 derniers rapports ── */
+  const last30 = [...data].reverse().slice(-30);
+  const ctxA   = $('ch-area')?.getContext('2d');
+  if (ctxA) {
+    const g = ctxA.createLinearGradient(0,0,0,200);
+    g.addColorStop(0,   'rgba(201,168,76,.38)');
+    g.addColorStop(0.6, 'rgba(201,168,76,.06)');
+    g.addColorStop(1,   'rgba(201,168,76,.00)');
+    CH.area = new Chart(ctxA, {
+      type:'line',
+      data:{
+        labels: last30.map(r => frDateShort(r.date)),
+        datasets:[{
+          data: last30.map(r => r.net||0),
+          borderColor: '#C9A84C',
+          backgroundColor: g,
+          borderWidth: 2.5,
+          pointBackgroundColor: last30.map(r => (r.net||0)>=0?'#C9A84C':'#D95454'),
+          pointBorderColor: 'transparent',
+          pointRadius: last30.length>18 ? 2 : 4,
+          pointHoverRadius: 6,
+          fill: true, tension: 0.38
+        }]
+      },
+      options:{
+        animation:{duration:700,easing:'easeOutQuart'},
+        plugins:{
+          legend:{display:false},
+          tooltip:{...tip, callbacks:{
+            title: ctx => ctx[0].label,
+            label: ctx => '  Net : '+gnf(ctx.parsed.y)
+          }}
+        },
+        scales:{
+          x:{grid,ticks:{maxTicksLimit:8,color:'#5C5854'}},
+          y:{grid,ticks:{color:'#5C5854',callback:fmtK}}
+        },
+        responsive:true, maintainAspectRatio:false
+      }
+    });
+  }
+
+  /* ── 2. Bar : net par semaine (8 semaines) ── */
+  const getMon = d => {
+    const c = new Date(d+'T12:00:00');
+    c.setDate(c.getDate()-((c.getDay()+6)%7));
+    return c.toISOString().slice(0,10);
+  };
+  const wMap = {};
+  data.forEach(r => {
+    if (!r.date) return;
+    const w = getMon(r.date);
+    wMap[w] = (wMap[w]||0) + (r.net||0);
+  });
+  const weeks = Object.keys(wMap).sort().slice(-8);
+  const wNets = weeks.map(w => wMap[w]);
+  const ctxW  = $('ch-week')?.getContext('2d');
+  if (ctxW && weeks.length) {
+    CH.week = new Chart(ctxW, {
+      type:'bar',
+      data:{
+        labels: weeks.map(w => {
+          const d = new Date(w+'T12:00:00');
+          return d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+        }),
+        datasets:[{
+          data: wNets,
+          backgroundColor: wNets.map(v => v>=0?'rgba(201,168,76,.75)':'rgba(217,84,84,.70)'),
+          borderColor:     wNets.map(v => v>=0?'#C9A84C':'#D95454'),
+          borderWidth:1, borderRadius:4, borderSkipped:false
+        }]
+      },
+      options:{
+        animation:{duration:500},
+        plugins:{legend:{display:false},tooltip:{...tip,callbacks:{label:ctx=>'  '+gnf(ctx.parsed.y)}}},
+        scales:{
+          x:{grid:{display:false},ticks:{color:'#5C5854',maxTicksLimit:6}},
+          y:{grid,ticks:{color:'#5C5854',callback:fmtK}}
+        },
+        responsive:true, maintainAspectRatio:false
+      }
+    });
+  }
+
+  /* ── 3. Donut : Chicha vs Boissons ── */
+  const ctxD = $('ch-donut')?.getContext('2d');
+  if (ctxD) {
+    const tC = data.reduce((s,r) => s+(r.total_chicha||0), 0);
+    const tB = data.reduce((s,r) => s+(r.total_boissons||0), 0);
+    const tot = tC+tB;
+    const pC  = tot ? Math.round(tC/tot*100) : 50;
+
+    const centerPlugin = {
+      id:'center',
+      afterDraw(chart) {
+        const {width:w, height:h, ctx:c} = chart;
+        const cx = w/2, cy = h/2 - 14;
+        c.save();
+        c.textAlign='center'; c.textBaseline='middle';
+        c.font = "500 10px 'DM Sans'";
+        c.fillStyle = '#6B6660';
+        c.fillText('TOTAL', cx, cy-9);
+        c.font = "bold 15px 'Bebas Neue'";
+        c.fillStyle = '#C9A84C';
+        c.fillText(tot>=1e6?(tot/1e6).toFixed(1)+'M':Math.round(tot/1000)+'k', cx, cy+8);
+        c.font = "500 9px 'DM Sans'";
+        c.fillStyle = '#4B4B4B';
+        c.fillText('GNF', cx, cy+22);
+        c.restore();
+      }
+    };
+
+    CH.donut = new Chart(ctxD, {
+      type:'doughnut',
+      plugins:[centerPlugin],
+      data:{
+        labels:[`Chicha ${pC}%`, `Boissons ${100-pC}%`],
+        datasets:[{
+          data:[tC,tB],
+          backgroundColor:['#C9A84C','#3A7BA8'],
+          borderColor:['#161616','#161616'],
+          borderWidth:2, hoverOffset:5, cutout:'65%'
+        }]
+      },
+      options:{
+        animation:{duration:800},
+        plugins:{
+          legend:{position:'bottom',labels:{color:'#EDEAE3',font:{size:11},padding:14,boxWidth:10,borderRadius:3}},
+          tooltip:{...tip,callbacks:{label:ctx=>'  '+gnf(ctx.parsed)}}
+        },
+        responsive:true, maintainAspectRatio:false
+      }
+    });
+  }
+
+  /* ── 4. Bar : net moyen par jour de semaine ── */
+  const DAYS = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  const dTot = [0,0,0,0,0,0,0], dCnt = [0,0,0,0,0,0,0];
+  data.forEach(r => {
+    if (!r.date) return;
+    const idx = (new Date(r.date+'T12:00:00').getDay()+6)%7;
+    dTot[idx] += r.net||0;
+    dCnt[idx]++;
+  });
+  const dAvg   = dTot.map((t,i) => dCnt[i] ? Math.round(t/dCnt[i]) : 0);
+  const maxDay = Math.max(...dAvg);
+  const ctxDy  = $('ch-day')?.getContext('2d');
+  if (ctxDy) {
+    CH.day = new Chart(ctxDy, {
+      type:'bar',
+      data:{
+        labels: DAYS,
+        datasets:[{
+          data: dAvg,
+          backgroundColor: dAvg.map(v =>
+            v===maxDay && v>0 ? '#C9A84C' :
+            v>0 ? 'rgba(201,168,76,.28)' : 'rgba(217,84,84,.45)'),
+          borderColor: dAvg.map(v => v===maxDay&&v>0?'#C9A84C':'transparent'),
+          borderWidth:2, borderRadius:5, borderSkipped:false
+        }]
+      },
+      options:{
+        animation:{duration:650},
+        plugins:{
+          legend:{display:false},
+          tooltip:{...tip,callbacks:{
+            label:ctx=>'  Moy: '+gnf(ctx.parsed.y),
+            afterLabel:ctx=>dCnt[ctx.dataIndex]?`  ${dCnt[ctx.dataIndex]} soir${dCnt[ctx.dataIndex]>1?'s':''} enregistrés`:''
+          }}
+        },
+        scales:{
+          x:{grid:{display:false},ticks:{color:'#5C5854'}},
+          y:{grid,ticks:{color:'#5C5854',callback:fmtK}}
+        },
+        responsive:true, maintainAspectRatio:false
+      }
+    });
+  }
+}
+
+/* ═══════════════════════════════════════════
+   DASHBOARD ASSOCIÉ
+═══════════════════════════════════════════ */
+async function loadDashAssoc() {
+  const body = $('main-body');
+  body.innerHTML = '<div class="state-msg">Chargement…</div>';
+  try {
+    const extra = ML.getExtra();
+    const pct   = parseFloat(extra.pourcentage) || 0;
+    const nom   = extra.nom || 'Associé';
+
+    const now = new Date();
+    const months = [];
+    for (let i=5; i>=0; i--) {
+      const d     = new Date(now.getFullYear(), now.getMonth()-i, 1);
+      const key   = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const debut = key+'-01';
+      const fin   = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().slice(0,10);
+      const label = d.toLocaleDateString('fr-FR',{month:'short'});
+      const labelLong = d.toLocaleDateString('fr-FR',{month:'long'});
+      months.push({key, debut, fin, label, labelLong});
+    }
+
+    const [rapRes, chargesRes] = await Promise.all([
+      db.from('rapports').select('date,net').gte('date',months[0].debut).lte('date',months[months.length-1].fin),
+      db.from('charges').select('mois,montant').gte('mois',months[0].key).lte('mois',months[months.length-1].key)
+    ]);
+
+    const raps    = rapRes.data    || [];
+    const charges = chargesRes.data || [];
+
+    const monthData = months.map(m => {
+      const mNet     = raps.filter(r=>r.date>=m.debut&&r.date<=m.fin).reduce((s,r)=>s+(r.net||0),0);
+      const mCharges = charges.filter(c=>c.mois===m.key).reduce((s,c)=>s+(c.montant||0),0);
+      const netFinal = mNet - mCharges;
+      const part     = Math.max(0, netFinal * pct / 100);
+      return {...m, mNet, mCharges, netFinal, part};
+    });
+
+    const totalPart   = monthData.reduce((s,m) => s+m.part, 0);
+    const currentPart = monthData[monthData.length-1].part;
+    const prevPart    = monthData[monthData.length-2]?.part || 0;
+    const tendA       = prevPart ? Math.round((currentPart-prevPart)/Math.abs(prevPart)*100) : null;
+
+    body.innerHTML = `
+      <div class="kpi-card wide" style="background:var(--gdim);border:1px solid var(--gring)">
+        <div class="kpi-label">Bienvenue</div>
+        <div class="kpi-val" style="color:var(--gold);font-size:28px">${nom}</div>
+        <div class="kpi-sub">Part : ${pct}% du bénéfice net mensuel</div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Ce mois</div>
+          <div class="kpi-val" style="color:var(--gold)">${gnf(currentPart)}</div>
+          <div class="kpi-sub">${tendA!==null
+            ?`<span class="kpi-trend ${tendA>=0?'up':'dn'}">${tendA>=0?'↑':'↓'}${Math.abs(tendA)}%</span> vs mois dernier`
+            :'—'}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Cumul 6 mois</div>
+          <div class="kpi-val" style="color:var(--ok)">${gnf(totalPart)}</div>
+          <div class="kpi-sub">${gnf(Math.round(totalPart/6))}/mois moy.</div>
+        </div>
+      </div>
+
+      <div class="chart-full">
+        <div class="ch-name">Votre part mensuelle</div>
+        <div class="ch-desc">${pct}% du net après charges · 6 derniers mois</div>
+        <div class="ch-tall"><canvas id="ch-assoc"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Détail mensuel</div>
+          <div class="card-sub">${pct}% net après charges</div>
+        </div>
+        <div class="card-body" style="gap:8px">
+          ${monthData.map(m => `
+            <div>
+              <div class="lr">
+                <span style="font-weight:500">${m.labelLong}</span>
+                <span style="color:${m.part>0?'var(--gold)':'var(--muted)'}">${gnf(m.part)}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:2px">
+                <span>Net lounge : ${gnf(m.mNet)} · Charges : ${gnf(m.mCharges)}</span>
+              </div>
+            </div>`).join('<hr class="divider">')}
+          <div class="lr big"><span>Total 6 mois</span><span>${gnf(totalPart)}</span></div>
+        </div>
+      </div>`;
+
+    /* Chart associé */
+    const ctxAs = $('ch-assoc')?.getContext('2d');
+    if (ctxAs) {
+      Chart.defaults.color = '#6B6660';
+      const gA = ctxAs.createLinearGradient(0,0,0,200);
+      gA.addColorStop(0,  'rgba(201,168,76,.35)');
+      gA.addColorStop(1,  'rgba(201,168,76,.00)');
+      new Chart(ctxAs, {
+        type:'line',
+        data:{
+          labels: monthData.map(m => m.label),
+          datasets:[{
+            data: monthData.map(m => m.part),
+            borderColor:'#C9A84C', backgroundColor:gA,
+            borderWidth:2.5,
+            pointBackgroundColor:'#C9A84C', pointBorderColor:'#161616',
+            pointBorderWidth:2, pointRadius:5, pointHoverRadius:7,
+            fill:true, tension:0.3
+          }]
+        },
+        options:{
+          animation:{duration:700,easing:'easeOutQuart'},
+          plugins:{
+            legend:{display:false},
+            tooltip:{
+              backgroundColor:'#0F0F12',borderColor:'rgba(255,255,255,.09)',borderWidth:1,
+              callbacks:{label:ctx=>'  Part : '+gnf(ctx.parsed.y)}
+            }
+          },
+          scales:{
+            x:{grid,ticks:{color:'#5C5854'}},
+            y:{grid,ticks:{color:'#5C5854',callback:v=>{
+              const a=Math.abs(v);
+              return a>=1e6?(v/1e6).toFixed(1)+'M':a>=1e3?(v/1e3).toFixed(0)+'k':v;
+            }}}
+          },
+          responsive:true, maintainAspectRatio:false
+        }
+      });
+    }
+
+  } catch(e) {
+    $('main-body').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+</script>
+</body>
+</html>

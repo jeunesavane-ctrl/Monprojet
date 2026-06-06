@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Finances — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+@media print {
+  #__header__,nav,.tab-bar,.field,#btn-exports,#toast,
+  #panel-charges,#panel-ajout,#panel-evolution,
+  #panel-dividendes,#panel-tresorerie{display:none!important}
+  body{background:#fff!important;color:#000!important}
+  .body-wrap{padding:4px!important}
+  .card{background:#fff!important;box-shadow:0 0 0 1px #ddd!important}
+  .stat-card.wide{background:#f5f5f5!important}
+  .bilan-row{color:#000!important;border-bottom-color:#ccc!important}
+  .card-title,.card-sub{color:#555!important}
+  .charge-libelle{color:#000!important}
+  @page{margin:15mm;size:A4 portrait}
+}
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--bg3);margin-bottom:4px;
+  overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.tab-bar::-webkit-scrollbar{display:none}
+.tab-btn{flex:0 0 auto;padding:11px 14px;text-align:center;font-size:13px;font-weight:500;
+  color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .15s;-webkit-tap-highlight-color:transparent}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold)}
+.panel{display:none}.panel.active{display:flex;flex-direction:column;gap:12px}
+.charge-item{background:var(--bg2);border-radius:var(--rs);padding:12px 14px;
+  display:flex;justify-content:space-between;align-items:center;gap:8px}
+.charge-info{flex:1}
+.charge-libelle{font-size:14px;font-weight:500}
+.charge-meta{font-size:12px;color:var(--muted);margin-top:2px}
+.charge-montant{font-family:'Bebas Neue',sans-serif;font-size:18px;
+  color:var(--danger);flex-shrink:0}
+.bilan-row{display:flex;justify-content:space-between;font-size:14px;
+  padding:7px 0;border-bottom:1px solid var(--bg3)}
+.bilan-row:last-child{border-bottom:none;font-weight:600;
+  font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.5px}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap">
+    <div class="tab-bar">
+      <div class="tab-btn active" onclick="switchTab('bilan')">Bilan</div>
+      <div class="tab-btn" onclick="switchTab('dividendes')">Dividendes</div>
+      <div class="tab-btn" onclick="switchTab('tresorerie')">Trésorerie</div>
+      <div class="tab-btn" onclick="switchTab('charges')">Charges</div>
+      <div class="tab-btn" onclick="switchTab('ajout')">+ Charge</div>
+      <div class="tab-btn" onclick="switchTab('evolution')">Évolution</div>
+    </div>
+
+    <!-- BILAN MENSUEL -->
+    <div id="panel-bilan" class="panel active">
+      <div class="field">
+        <label>Mois</label>
+        <input type="month" id="mois-sel" onchange="loadBilan()">
+      </div>
+      <div id="bilan-content"><div class="state-msg">Sélectionnez un mois</div></div>
+      <div id="btn-exports" style="display:none;gap:8px;flex-wrap:wrap">
+        <button class="btn-secondary" style="flex:1" onclick="exportPDF()">🖨 PDF</button>
+        <button class="btn-secondary" style="flex:1" onclick="exportCSV()">📊 CSV</button>
+        <button class="btn-secondary" style="flex:1" onclick="partagerBilan()">📤 Envoyer</button>
+      </div>
+    </div>
+
+    <!-- DIVIDENDES -->
+    <div id="panel-dividendes" class="panel">
+      <div class="field">
+        <label>Mois</label>
+        <input type="month" id="div-mois-sel" onchange="loadDividendes()">
+      </div>
+      <div id="div-content"><div class="state-msg">Sélectionnez un mois</div></div>
+    </div>
+
+    <!-- TRÉSORERIE -->
+    <div id="panel-tresorerie" class="panel">
+      <div class="field">
+        <label>Période</label>
+        <select id="tres-period" onchange="loadTresorerie()">
+          <option value="3">3 derniers mois</option>
+          <option value="6" selected>6 derniers mois</option>
+          <option value="12">12 derniers mois</option>
+        </select>
+      </div>
+      <div id="tres-content"><div class="state-msg">Chargement…</div></div>
+    </div>
+
+    <!-- CHARGES FIXES -->
+    <div id="panel-charges" class="panel">
+      <div class="sec-header">
+        <div class="sec-title">Charges du mois</div>
+        <div id="mois-charges" style="font-size:12px;color:var(--muted)"></div>
+      </div>
+      <div id="charges-list"><div class="state-msg">Chargement…</div></div>
+    </div>
+
+    <!-- AJOUTER CHARGE -->
+    <div id="panel-ajout" class="panel">
+      <div class="card">
+        <div class="card-head"><div class="card-title">Nouvelle charge</div></div>
+        <div class="card-body">
+          <div class="field"><label>Libellé</label>
+            <input id="ch-lib" type="text" placeholder="Ex: Loyer, Électricité…"></div>
+          <div class="row2">
+            <div class="field"><label>Montant (GNF)</label>
+              <input id="ch-montant" type="number" inputmode="numeric" placeholder="0"></div>
+            <div class="field"><label>Catégorie</label>
+              <select id="ch-cat">
+                <option value="loyer">Loyer</option>
+                <option value="electricite">Électricité</option>
+                <option value="eau">Eau</option>
+                <option value="internet">Internet / Téléphone</option>
+                <option value="personnel">Personnel</option>
+                <option value="fournitures">Fournitures</option>
+                <option value="autre">Autre</option>
+              </select>
+            </div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Mois concerné</label>
+              <input id="ch-mois" type="month"></div>
+            <div class="field"><label>Fréquence</label>
+              <select id="ch-freq">
+                <option value="mensuel">Mensuel</option>
+                <option value="unique">Unique</option>
+                <option value="annuel">Annuel</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label>Statut</label>
+            <select id="ch-paye">
+              <option value="false">Non payée</option>
+              <option value="true">Payée</option>
+            </select>
+          </div>
+          <button class="btn-primary" onclick="saveCharge()">ENREGISTRER</button>
+        </div>
+      </div>
+    </div>
+    <!-- ÉVOLUTION -->
+    <div id="panel-evolution" class="panel">
+      <div class="sec-header">
+        <div class="sec-title">6 derniers mois</div>
+      </div>
+      <div style="background:var(--bg2);border-radius:var(--rs);padding:12px 8px">
+        <canvas id="chart-evol"></canvas>
+      </div>
+      <div id="evol-rows" style="display:flex;flex-direction:column;gap:4px;margin-top:4px"></div>
+    </div>
+
+  </div>
+  <div id="toast"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['owner'])) return;
+
+  const now = new Date();
+  const moisDef = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  $('mois-sel').value      = moisDef;
+  $('div-mois-sel').value  = moisDef;
+  $('ch-mois').value       = moisDef;
+  $('mois-charges').textContent = frMonth(moisDef+'-01');
+
+  loadBilan();
+  loadCharges();
+});
+
+function switchTab(tab) {
+  ['bilan','dividendes','tresorerie','charges','ajout','evolution'].forEach((t,i) => {
+    $('panel-'+t)?.classList.toggle('active', t===tab);
+    document.querySelectorAll('.tab-btn')[i]?.classList.toggle('active', t===tab);
+  });
+  if (tab==='charges')   loadCharges();
+  if (tab==='evolution') loadEvolution();
+  if (tab==='dividendes') loadDividendes();
+  if (tab==='tresorerie') loadTresorerie();
+}
+
+async function loadBilan() {
+  const mois = $('mois-sel').value;
+  if (!mois) return;
+  const el = $('bilan-content');
+  el.innerHTML = '<div class="state-msg">Chargement…</div>';
+  try {
+    const debut = mois+'-01';
+    const fin   = new Date(mois.split('-')[0], mois.split('-')[1], 0)
+      .toISOString().slice(0,10);
+
+    const [rapRes, chargesRes, avRes, assocRes] = await Promise.all([
+      db.from('rapports').select('net,total_chicha,total_boissons,total_achats')
+        .gte('date',debut).lte('date',fin),
+      db.from('charges').select('montant,libelle,paye').eq('mois',mois),
+      db.from('avances').select('montant').eq('rembourse',false)
+        .gte('date',debut).lte('date',fin),
+      db.from('associes').select('pourcentage').eq('actif',true)
+    ]);
+
+    const raps     = rapRes.data   || [];
+    const charges  = chargesRes.data || [];
+    const avances  = avRes.data    || [];
+    const assocs   = assocRes.data || [];
+
+    const recettes    = raps.reduce((s,r)=>s+(r.total_chicha||0)+(r.total_boissons||0),0);
+    const achats      = raps.reduce((s,r)=>s+(r.total_achats||0),0);
+    const netVentes   = recettes - achats;
+    const totCharges  = charges.reduce((s,c)=>s+c.montant,0);
+    const totAvances  = avances.reduce((s,a)=>s+a.montant,0);
+    const netFinal    = netVentes - totCharges;
+    const assocPct    = assocs.reduce((s,a)=>s+(a.pourcentage||0),0);
+    const ownerPct    = Math.max(0, 100 - assocPct);
+    const partOwner   = Math.max(0, netFinal * ownerPct / 100);
+
+    el.innerHTML = `
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Bilan — ${frMonth(debut).toUpperCase()}</div>
+          <div class="card-sub">${raps.length} rapport${raps.length>1?'s':''}</div>
+        </div>
+        <div class="card-body" style="gap:4px">
+          <div class="bilan-row">
+            <span>Recettes brutes</span>
+            <span style="color:var(--gold)">${gnf(recettes)}</span>
+          </div>
+          <div class="bilan-row">
+            <span>Achats & dépenses</span>
+            <span style="color:var(--danger)">- ${gnf(achats)}</span>
+          </div>
+          <div class="bilan-row">
+            <span>Net des ventes</span>
+            <span style="color:var(--ok)">${gnf(netVentes)}</span>
+          </div>
+          <div class="bilan-row">
+            <span>Charges fixes</span>
+            <span style="color:var(--danger)">- ${gnf(totCharges)}</span>
+          </div>
+          ${totAvances?`<div class="bilan-row">
+            <span>Avances non remboursées</span>
+            <span style="color:var(--danger)">- ${gnf(totAvances)}</span>
+          </div>`:''}
+          <div class="bilan-row">
+            <span>NET FINAL</span>
+            <span style="color:${netFinal>=0?'var(--ok)':'var(--danger)'}">
+              ${gnf(netFinal)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="stat-card wide">
+        <div class="stat-label">Votre part — ${ownerPct.toFixed(1)}%</div>
+        <div class="stat-val gold">${gnf(partOwner)}</div>
+      </div>
+      ${charges.length?`
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Charges du mois</div>
+          <div class="card-sub">${charges.filter(c=>c.paye).length}/${charges.length} payées</div>
+        </div>
+        <div class="card-body" style="gap:6px">
+          ${charges.map(c=>`
+            <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;
+              border-bottom:1px solid var(--bg3)">
+              <span>${c.libelle}</span>
+              <span style="color:${c.paye?'var(--ok)':'var(--danger)'};font-weight:500">
+                ${c.paye?'✓':''} ${gnf(c.montant)}</span>
+            </div>`).join('')}
+        </div>
+      </div>`:''}`;
+    $('btn-exports').style.display = 'flex';
+    $('btn-exports').dataset.mois = mois;
+  } catch(e) {
+    el.innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+    $('btn-exports').style.display = 'none';
+  }
+}
+
+async function loadCharges() {
+  const mois = $('mois-sel')?.value || new Date().toISOString().slice(0,7);
+  try {
+    const { data } = await db.from('charges').select('*').eq('mois',mois)
+      .order('paye').order('libelle');
+    const list = data || [];
+    if (!list.length) {
+      $('charges-list').innerHTML = '<div class="state-msg">Aucune charge ce mois.</div>'; return;
+    }
+    $('charges-list').innerHTML = list.map(c=>`
+      <div class="charge-item">
+        <div class="charge-info">
+          <div class="charge-libelle">${c.libelle}</div>
+          <div class="charge-meta">${c.categorie||''} · ${c.frequence||''}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="charge-montant">${gnf(c.montant)}</div>
+          <button style="font-size:11px;color:${c.paye?'var(--muted)':'var(--ok)'};
+            background:none;border:none;cursor:pointer;margin-top:2px"
+            onclick="togglePaye('${c.id}',${!c.paye})">
+            ${c.paye?'Annuler':'Marquer payée'}
+          </button>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    $('charges-list').innerHTML = `<div class="state-msg err">${e.message}</div>`;
+  }
+}
+
+async function saveCharge() {
+  const lib = $('ch-lib').value.trim();
+  const mnt = parseFloat($('ch-montant').value);
+  if (!lib||!mnt) { toast('Libellé et montant requis','ko'); return; }
+  try {
+    await db.from('charges').insert({
+      libelle:lib, montant:mnt,
+      categorie:$('ch-cat').value,
+      frequence:$('ch-freq').value,
+      mois:$('ch-mois').value,
+      paye:$('ch-paye').value==='true'
+    });
+    toast('Charge enregistrée ✓','ok');
+    $('ch-lib').value=''; $('ch-montant').value='';
+    switchTab('charges');
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+async function togglePaye(id, val) {
+  try {
+    await db.from('charges').update({paye:val}).eq('id',id);
+    loadCharges();
+  } catch(e) { toast('Erreur','ko'); }
+}
+
+function exportPDF() { window.print(); }
+
+async function exportCSV() {
+  const mois = $('mois-sel').value;
+  if (!mois) return;
+  const debut = mois+'-01';
+  const fin   = new Date(mois.split('-')[0], mois.split('-')[1], 0).toISOString().slice(0,10);
+  try {
+    const { data: raps } = await db.from('rapports')
+      .select('date,num,manager,caissier,total_chicha,total_boissons,total_achats,net,obs,montant_exceptionnel,note_exception')
+      .gte('date',debut).lte('date',fin).order('date');
+    if (!raps?.length) { toast('Aucun rapport ce mois','ko'); return; }
+
+    const esc = v => `"${String(v||'').replace(/"/g,'""')}"`;
+    const header = ['Date','N°','Manager','Caissier','Recettes Chicha','Recettes Boissons',
+      'Total Achats','Net','Dépense Exceptionnelle','Note Exception','Observations'];
+    const rows = raps.map(r=>[
+      r.date, r.num, r.manager||'', r.caissier||'',
+      r.total_chicha||0, r.total_boissons||0, r.total_achats||0, r.net||0,
+      r.montant_exceptionnel||0, r.note_exception||'', r.obs||''
+    ].map(esc).join(','));
+
+    const csv  = [header.join(','), ...rows].join('\n');
+    const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `medellin_${mois}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    toast('CSV téléchargé ✓','ok');
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+async function partagerBilan() {
+  const mois = $('mois-sel').value;
+  if (!mois) return;
+  const debut = mois+'-01';
+  const fin   = new Date(mois.split('-')[0], mois.split('-')[1], 0).toISOString().slice(0,10);
+  try {
+    const [rapRes, chargesRes] = await Promise.all([
+      db.from('rapports').select('total_chicha,total_boissons,total_achats,net')
+        .gte('date',debut).lte('date',fin),
+      db.from('charges').select('montant').eq('mois',mois)
+    ]);
+    const raps    = rapRes.data    || [];
+    const charges = chargesRes.data || [];
+    const rec  = raps.reduce((s,r)=>s+(r.total_chicha||0)+(r.total_boissons||0),0);
+    const dep  = raps.reduce((s,r)=>s+(r.total_achats||0),0);
+    const chg  = charges.reduce((s,c)=>s+(c.montant||0),0);
+    const net  = rec - dep - chg;
+    const label = new Date(debut+'T12:00:00').toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+
+    const texte = `📊 MEDELLIN LOUNGE — ${label.toUpperCase()}\n\n`+
+      `Recettes : ${gnf(rec)}\nDépenses : ${gnf(dep+chg)}\n`+
+      `──────────────\nNET FINAL : ${gnf(net)}\n\n`+
+      `${raps.length} rapport${raps.length>1?'s':''}`;
+
+    if (navigator.share) {
+      await navigator.share({ title:`Bilan Medellin ${label}`, text: texte });
+    } else {
+      /* Fallback WhatsApp */
+      window.open('https://wa.me/?text='+encodeURIComponent(texte),'_blank');
+    }
+  } catch(e) { if (e.name!=='AbortError') toast('Erreur','ko'); }
+}
+
+/* ── CALCULATEUR DIVIDENDES ──────────────────────────────────── */
+async function loadDividendes() {
+  const mois = $('div-mois-sel').value;
+  const el   = $('div-content');
+  if (!mois) return;
+  el.innerHTML = '<div class="state-msg">Chargement…</div>';
+  try {
+    const debut = mois+'-01';
+    const fin   = new Date(mois.split('-')[0], mois.split('-')[1], 0)
+                    .toISOString().slice(0,10);
+
+    const [rapRes, chargesRes, assocRes] = await Promise.all([
+      db.from('rapports').select('total_chicha,total_boissons,total_achats')
+        .gte('date',debut).lte('date',fin),
+      db.from('charges').select('montant').eq('mois',mois),
+      db.from('associes').select('nom,pourcentage').eq('actif',true).order('nom')
+    ]);
+
+    const raps    = rapRes.data    || [];
+    const charges = chargesRes.data || [];
+    const assocs  = assocRes.data   || [];
+
+    const recettes   = raps.reduce((s,r)=>s+(r.total_chicha||0)+(r.total_boissons||0),0);
+    const achats     = raps.reduce((s,r)=>s+(r.total_achats||0),0);
+    const totCharges = charges.reduce((s,c)=>s+(c.montant||0),0);
+    const netFinal   = recettes - achats - totCharges;
+    const assocPct   = assocs.reduce((s,a)=>s+(a.pourcentage||0),0);
+    const ownerPct   = Math.max(0, 100 - assocPct);
+
+    const rows = [
+      { nom:'Gestionnaire (vous)', pct:ownerPct, montant:Math.max(0, netFinal * ownerPct / 100), isOwner:true },
+      ...assocs.map(a => ({
+        nom: a.nom,
+        pct: a.pourcentage||0,
+        montant: Math.max(0, netFinal * (a.pourcentage||0) / 100),
+        isOwner: false
+      }))
+    ];
+
+    el.innerHTML = `
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Net à distribuer</div>
+          <div class="card-sub">${frMonth(debut)}</div>
+        </div>
+        <div class="card-body" style="gap:4px">
+          <div class="bilan-row"><span>Recettes</span>
+            <span style="color:var(--gold)">${gnf(recettes)}</span></div>
+          <div class="bilan-row"><span>Dépenses + Charges</span>
+            <span style="color:var(--danger)">- ${gnf(achats+totCharges)}</span></div>
+          <div class="bilan-row">
+            <span style="font-weight:600">Net final</span>
+            <span style="color:${netFinal>=0?'var(--ok)':'var(--danger)'};
+              font-family:Bebas Neue,sans-serif;font-size:18px">
+              ${gnf(netFinal)}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="sec-header"><div class="sec-title">Répartition</div></div>
+      ${rows.map(r=>`
+        <div class="charge-item" style="padding:14px 16px">
+          <div class="charge-info">
+            <div class="charge-libelle" style="${r.isOwner?'color:var(--gold)':''}">${r.nom}</div>
+            <div class="charge-meta">${r.pct.toFixed(1)}% du net</div>
+          </div>
+          <div class="charge-montant" style="color:${r.isOwner?'var(--gold)':'var(--ok)'}">
+            ${gnf(r.montant)}
+          </div>
+        </div>`).join('')}
+      <div style="font-size:11px;color:var(--muted);text-align:center;padding:8px 0">
+        Total parts : ${(ownerPct + assocPct).toFixed(1)}%
+        · Net distribué : ${gnf(rows.reduce((s,r)=>s+r.montant,0))}
+      </div>`;
+  } catch(e) {
+    $('div-content').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+
+/* ── SUIVI TRÉSORERIE ────────────────────────────────────────── */
+async function loadTresorerie() {
+  const n  = parseInt($('tres-period').value) || 6;
+  const el = $('tres-content');
+  el.innerHTML = '<div class="state-msg">Chargement…</div>';
+  try {
+    const now    = new Date();
+    const months = [];
+    for (let i = n-1; i >= 0; i--) {
+      const d   = new Date(now.getFullYear(), now.getMonth()-i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      months.push(key);
+    }
+    const debut = months[0]+'-01';
+    const fin   = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
+
+    const [rapRes, chargesRes, avRes] = await Promise.all([
+      db.from('rapports').select('total_chicha,total_boissons,total_achats')
+        .gte('date',debut).lte('date',fin),
+      db.from('charges').select('montant').gte('mois',months[0]).lte('mois',months[months.length-1]),
+      db.from('avances').select('montant').eq('rembourse',false)
+    ]);
+
+    const raps    = rapRes.data    || [];
+    const charges = chargesRes.data || [];
+    const avances = avRes.data     || [];
+
+    const recettes   = raps.reduce((s,r)=>s+(r.total_chicha||0)+(r.total_boissons||0),0);
+    const achats     = raps.reduce((s,r)=>s+(r.total_achats||0),0);
+    const totCharges = charges.reduce((s,c)=>s+(c.montant||0),0);
+    const totAvances = avances.reduce((s,a)=>s+(a.montant||0),0);
+    const netOps     = recettes - achats;
+    const netFinal   = netOps - totCharges;
+    const tresorerie = netFinal - totAvances;
+
+    const trColor = tresorerie >= 0 ? 'var(--ok)' : 'var(--danger)';
+
+    el.innerHTML = `
+      <div class="stat-card wide" style="background:rgba(34,197,94,.08);
+        border:1px solid rgba(34,197,94,.2)">
+        <div class="stat-label">Trésorerie estimée</div>
+        <div style="font-family:Bebas Neue,sans-serif;font-size:32px;
+          color:${trColor};margin-top:4px">${gnf(tresorerie)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">
+          Sur ${n} mois · net après charges et avances</div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Détail</div>
+          <div class="card-sub">${n} derniers mois</div>
+        </div>
+        <div class="card-body" style="gap:4px">
+          <div class="bilan-row">
+            <span>Recettes cumulées</span>
+            <span style="color:var(--gold)">${gnf(recettes)}</span>
+          </div>
+          <div class="bilan-row">
+            <span>Achats & dépenses</span>
+            <span style="color:var(--danger)">- ${gnf(achats)}</span>
+          </div>
+          <div class="bilan-row">
+            <span>Charges fixes</span>
+            <span style="color:var(--danger)">- ${gnf(totCharges)}</span>
+          </div>
+          <div class="bilan-row">
+            <span>Avances non remboursées</span>
+            <span style="color:var(--danger)">- ${gnf(totAvances)}</span>
+          </div>
+          <div class="bilan-row">
+            <span>TRÉSORERIE NETTE</span>
+            <span style="color:${trColor};font-family:Bebas Neue,sans-serif;font-size:18px">
+              ${gnf(tresorerie)}</span>
+          </div>
+        </div>
+      </div>`;
+  } catch(e) {
+    $('tres-content').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+
+const gnfK = v => {
+  v = Math.round(v ?? 0);
+  if (v >= 1e9) return (v/1e9).toFixed(1) + 'G';
+  if (v >= 1e6) return (v/1e6).toFixed(1) + 'M';
+  if (v >= 1e3) return (v/1e3).toFixed(0) + 'k';
+  return String(v);
+};
+
+let _evolChart = null;
+
+async function loadEvolution() {
+  const rowsEl = $('evol-rows');
+  rowsEl.innerHTML = '<div class="state-msg">Chargement…</div>';
+
+  try {
+    const now = new Date();
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d     = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key   = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const debut = key + '-01';
+      const fin   = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().slice(0,10);
+      const label = d.toLocaleDateString('fr-FR',{month:'short'}).toUpperCase().replace('.','');
+      months.push({ key, debut, fin, label });
+    }
+
+    const earliest = months[0].debut;
+    const latest   = months[months.length-1].fin;
+
+    const [rapRes, chargesRes] = await Promise.all([
+      db.from('rapports').select('date,total_chicha,total_boissons,total_achats')
+        .gte('date', earliest).lte('date', latest),
+      db.from('charges').select('mois,montant')
+        .gte('mois', months[0].key).lte('mois', months[months.length-1].key)
+    ]);
+
+    const raps    = rapRes.data    || [];
+    const charges = chargesRes.data || [];
+
+    const data = months.map(m => {
+      const mR = raps.filter(r => r.date >= m.debut && r.date <= m.fin);
+      const mC = charges.filter(c => c.mois === m.key);
+      const recettes  = mR.reduce((s,r) => s + (r.total_chicha||0) + (r.total_boissons||0), 0);
+      const achats    = mR.reduce((s,r) => s + (r.total_achats||0), 0);
+      const fixCharges = mC.reduce((s,c) => s + (c.montant||0), 0);
+      const net       = recettes - achats - fixCharges;
+      return { label: m.label, recettes, depenses: achats + fixCharges, net };
+    });
+
+    if (_evolChart) _evolChart.destroy();
+    const ctx = document.getElementById('chart-evol').getContext('2d');
+    _evolChart = new Chart(ctx, {
+      data: {
+        labels: data.map(d => d.label),
+        datasets: [
+          {
+            type: 'bar', label: 'Recettes',
+            data: data.map(d => d.recettes),
+            backgroundColor: 'rgba(201,168,76,0.85)',
+            borderRadius: 4, order: 2
+          },
+          {
+            type: 'bar', label: 'Dépenses',
+            data: data.map(d => d.depenses),
+            backgroundColor: 'rgba(239,68,68,0.75)',
+            borderRadius: 4, order: 2
+          },
+          {
+            type: 'line', label: 'Net',
+            data: data.map(d => d.net),
+            borderColor: '#22c55e', backgroundColor: 'transparent',
+            pointBackgroundColor: '#22c55e', pointRadius: 4,
+            tension: 0.35, order: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { labels: { color:'#aaa', font:{ size:11 } } },
+          tooltip: {
+            callbacks: { label: c => ` ${c.dataset.label}: ${gnf(c.raw)}` }
+          }
+        },
+        scales: {
+          x: { ticks:{ color:'#888' }, grid:{ color:'#1e1e1e' } },
+          y: {
+            ticks: { color:'#888', callback: v => gnfK(v) },
+            grid: { color:'#1e1e1e' }
+          }
+        }
+      }
+    });
+
+    rowsEl.innerHTML = data.map(d => `
+      <div class="bilan-row" style="font-size:13px">
+        <span style="color:var(--muted)">${d.label}</span>
+        <span style="color:${d.net>=0?'var(--ok)':'var(--danger)'};font-weight:500">
+          ${gnf(d.net)}
+        </span>
+      </div>`).join('');
+
+  } catch(e) {
+    rowsEl.innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+</script>
+</body>
+</html>

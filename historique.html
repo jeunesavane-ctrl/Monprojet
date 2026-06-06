@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Historique — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+/* ── Items génériques ── */
+.hist-item{
+  background:var(--bg2);border-radius:var(--r);
+  border:1px solid var(--b1);overflow:hidden;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 8px rgba(0,0,0,.3);
+  cursor:pointer;-webkit-tap-highlight-color:transparent;transition:border-color var(--t)}
+.hist-item:hover{border-color:var(--b2)}
+.hist-head{display:flex;align-items:center;gap:12px;padding:13px 16px}
+.hist-icon{
+  width:36px;height:36px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700}
+.hist-info{flex:1;min-width:0}
+.hist-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-sub{font-size:12px;color:var(--muted);margin-top:1px}
+.hist-right{text-align:right;flex-shrink:0}
+.hist-val{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--gold);line-height:1}
+.hist-arrow{font-size:10px;color:var(--muted);transition:transform .2s;margin-top:3px}
+.hist-item.open .hist-arrow{transform:rotate(180deg)}
+
+.hist-detail{display:none;padding:12px 16px 14px;border-top:1px solid var(--b1)}
+.hist-item.open .hist-detail{display:block}
+
+/* ── Détail ventes staff ── */
+.vente-row{
+  display:flex;align-items:center;gap:8px;padding:7px 0;
+  border-bottom:1px solid rgba(255,255,255,.04)}
+.vente-row:last-child{border-bottom:none}
+.vente-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.vente-dot.chicha{background:var(--gold)}
+.vente-dot.boisson{background:#3A7BA8}
+.vente-dot.autre{background:var(--ok)}
+.vente-lbl{flex:1;font-size:13px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vente-qty{font-size:12px;color:var(--muted);flex-shrink:0}
+.vente-pm{font-size:11px;flex-shrink:0}
+.vente-tot{font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--gold);flex-shrink:0}
+
+/* ── Détail caisse ── */
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.detail-kpi{
+  background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rs);
+  padding:10px 12px;text-align:center}
+.detail-kpi-val{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--gold)}
+.detail-kpi-lbl{font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.8px}
+.detail-row{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;
+  border-bottom:1px solid rgba(255,255,255,.04)}
+.detail-row:last-child{border-bottom:none}
+
+/* ── Filtres ── */
+.hist-filters{display:flex;flex-direction:column;gap:10px;margin-bottom:4px}
+.filter-label{font-size:11px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:1.2px;margin-bottom:6px}
+.filter-chips{display:flex;flex-wrap:wrap;gap:6px}
+.filter-chip{
+  padding:5px 12px;border-radius:var(--rs);border:1px solid var(--b1);
+  font-size:12px;color:var(--muted);cursor:pointer;transition:all var(--t);
+  background:transparent;-webkit-tap-highlight-color:transparent}
+.filter-chip.on{background:rgba(201,168,76,.1);border-color:rgba(201,168,76,.3);color:var(--gold)}
+.filter-inp{
+  background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rs);
+  padding:8px 10px;font-size:13px;color:var(--text);width:100%;outline:none}
+
+/* ── Vue switch ── */
+.view-switch{display:flex;gap:6px;margin-bottom:4px}
+.view-btn{
+  flex:1;padding:9px;border-radius:var(--rs);border:1px solid var(--b1);
+  background:transparent;color:var(--muted);font-size:12px;font-weight:600;
+  cursor:pointer;transition:all var(--t);letter-spacing:.8px}
+.view-btn.on{background:rgba(201,168,76,.1);border-color:rgba(201,168,76,.3);color:var(--gold)}
+
+/* ── Vue mensuelle ── */
+.mensuel-item{
+  background:var(--bg2);border-radius:var(--r);border:1px solid var(--b1);
+  overflow:hidden;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 8px rgba(0,0,0,.3)}
+.mensuel-head{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.mensuel-mois{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px}
+.mensuel-rapports{font-size:12px;color:var(--muted);margin-top:2px}
+.mensuel-net{font-family:'Bebas Neue',sans-serif;font-size:22px;line-height:1}
+.mensuel-arrow{font-size:10px;color:var(--muted);transition:transform .2s;margin-top:4px;text-align:right}
+.mensuel-item.open .mensuel-arrow{transform:rotate(180deg)}
+.mensuel-body{display:none;padding:12px 16px 14px;border-top:1px solid var(--b1)}
+.mensuel-item.open .mensuel-body{display:block}
+.mensuel-row{
+  display:flex;justify-content:space-between;font-size:13px;
+  padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.mensuel-row:last-child{border-bottom:none}
+
+/* ── Rapport item (manager+) ── */
+.hist-count{font-size:12px;color:var(--muted);margin-bottom:8px;padding-left:2px}
+.hash-block{
+  font-size:10px;font-family:monospace;color:rgba(255,255,255,.2);
+  margin-top:10px;word-break:break-all;padding-top:8px;
+  border-top:1px solid rgba(255,255,255,.05)}
+.hash-block strong{display:block;margin-bottom:2px;color:rgba(255,255,255,.3);
+  font-family:'DM Sans',sans-serif;font-size:10px;font-weight:600}
+.det-sec{margin-bottom:12px}
+.det-sec-t{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;
+  color:var(--muted);margin-bottom:6px;font-weight:600}
+.det-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.det-tbl th{color:var(--muted);font-weight:500;text-align:left;
+  padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.det-tbl td{padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+.det-tbl td:nth-child(2){text-align:center;color:var(--muted)}
+.det-tbl td:nth-child(3){text-align:right}
+.det-tbl tr:last-child td{border-bottom:none}
+
+/* ── Ecart badge ── */
+.ecart-badge{
+  display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;
+  border-radius:8px;vertical-align:middle}
+.ecart-badge.exact{background:rgba(61,184,115,.1);color:var(--ok);border:1px solid rgba(61,184,115,.2)}
+.ecart-badge.manque{background:rgba(201,73,74,.1);color:var(--danger);border:1px solid rgba(201,73,74,.2)}
+.ecart-badge.surplus{background:rgba(91,163,204,.1);color:#5BA3CC;border:1px solid rgba(91,163,204,.2)}
+
+/* ── Bannière rôle ── */
+.role-banner{
+  background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.15);
+  border-radius:var(--rs);padding:10px 14px;font-size:13px;color:var(--gold);margin-bottom:4px}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap" id="main-body">
+    <div class="state-msg">Chargement…</div>
+  </div>
+  <div id="toast"></div>
+
+<script>
+let histData   = [];
+let histView   = 'list';
+let histFilter = { period:'all', manager:'', minNet:'' };
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['staff','caissier','chicha','achats','manager','owner','associe'])) return;
+  loadHist();
+});
+
+async function loadHist() {
+  const role = ML.getRole();
+  $('main-body').innerHTML = '<div class="state-msg">Chargement…</div>';
+  try {
+    if (role === 'staff')    { await loadHistStaff();    return; }
+    if (role === 'caissier') { await loadHistCaissier(); return; }
+    if (role === 'chicha')   { await loadHistChicha();   return; }
+    if (role === 'achats')   { await loadHistAchats();   return; }
+    await loadHistManager();
+  } catch(e) {
+    $('main-body').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+
+/* ════════════════════════════════════════════
+   STAFF — ventes_session par session
+════════════════════════════════════════════ */
+async function loadHistStaff() {
+  const extra = ML.getExtra();
+  const empId = extra?.employe_id;
+  if (!empId) {
+    $('main-body').innerHTML = '<div class="state-msg err">Compte non configuré.</div>';
+    return;
+  }
+
+  const [ventesRes, sessRes] = await Promise.all([
+    db.from('ventes_session').select('*').eq('employe_id', empId).order('created_at'),
+    db.from('sessions_caisse').select('id,date,statut').order('date',{ascending:false})
+  ]);
+
+  const ventes   = ventesRes.data || [];
+  const sessions = sessRes.data   || [];
+
+  /* Grouper ventes par session_id */
+  const bySess = {};
+  ventes.forEach(v => {
+    if (!bySess[v.session_id]) bySess[v.session_id] = [];
+    bySess[v.session_id].push(v);
+  });
+
+  const entries = sessions
+    .filter(s => bySess[s.id])
+    .map(s => ({ session: s, ventes: bySess[s.id] }));
+
+  if (!entries.length) {
+    $('main-body').innerHTML = `
+      <div class="role-banner">📋 Votre historique de ventes</div>
+      <div class="state-msg">Aucune vente enregistrée pour le moment.</div>`;
+    return;
+  }
+
+  const nom = extra?.nom || 'Staff';
+  const total = ventes.reduce((s,v) => s+v.total, 0);
+
+  let html = `<div class="role-banner">
+    📋 ${nom} — ${entries.length} service${entries.length>1?'s':''}
+    · Total cumulé : <strong>${gnf(total)}</strong>
+  </div>`;
+
+  html += entries.map(e => renderStaffEntry(e)).join('');
+  $('main-body').innerHTML = html;
+}
+
+function renderStaffEntry({ session, ventes }) {
+  const total  = ventes.reduce((s,v) => s+v.total, 0);
+  const totOM  = ventes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
+  const totEsp = total - totOM;
+  const closed = ventes.every(v => v.valide_staff);
+
+  const statutBadge = session.statut === 'valide_manager'
+    ? `<span class="badge ok" style="font-size:10px">Rapport créé</span>`
+    : session.statut === 'valide_caissier'
+    ? `<span class="badge" style="font-size:10px;background:rgba(91,163,204,.1);color:#5BA3CC;border-color:rgba(91,163,204,.25)">En validation</span>`
+    : closed
+    ? `<span class="badge ok" style="font-size:10px">Clôturé</span>`
+    : `<span class="badge gold" style="font-size:10px">En cours</span>`;
+
+  const rows = ventes.map(v => `
+    <div class="vente-row">
+      <div class="vente-dot ${v.type}"></div>
+      <div class="vente-lbl">${v.label}</div>
+      <div class="vente-qty">×${v.qty}</div>
+      <span class="vente-pm">${v.paiement==='om'?'📱':'💵'}</span>
+      <div class="vente-tot">${gnf(v.total)}</div>
+    </div>`).join('');
+
+  return `
+    <div class="hist-item" onclick="this.classList.toggle('open')">
+      <div class="hist-head">
+        <div class="hist-icon" style="background:rgba(201,168,76,.08);color:var(--gold)">
+          ${frDateShort(session.date).slice(0,3).toUpperCase()}
+        </div>
+        <div class="hist-info">
+          <div class="hist-title">${frDate(session.date)}</div>
+          <div class="hist-sub">
+            ${ventes.length} vente${ventes.length>1?'s':''}
+            ${totOM > 0 ? `· 📱 ${gnf(totOM)} OM` : ''}
+            · ${statutBadge}
+          </div>
+        </div>
+        <div class="hist-right">
+          <div class="hist-val">${gnf(total)}</div>
+          <div class="hist-arrow">▼</div>
+        </div>
+      </div>
+      <div class="hist-detail">
+        ${rows}
+        ${totOM > 0 ? `
+          <div style="display:flex;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">
+            <div style="flex:1;text-align:center">
+              <div style="font-size:11px;color:var(--muted)">Espèces</div>
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:16px">${gnf(totEsp)}</div>
+            </div>
+            <div style="width:1px;background:rgba(255,255,255,.06)"></div>
+            <div style="flex:1;text-align:center">
+              <div style="font-size:11px;color:#FF7800">📱 Orange Money</div>
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:#FF7800">${gnf(totOM)}</div>
+            </div>
+          </div>` : ''}
+      </div>
+    </div>`;
+}
+
+/* ════════════════════════════════════════════
+   CAISSIER — sessions_caisse
+════════════════════════════════════════════ */
+async function loadHistCaissier() {
+  const [sessRes, ventesRes, mouvRes] = await Promise.all([
+    db.from('sessions_caisse').select('*').order('date',{ascending:false}).limit(60),
+    db.from('ventes_session').select('session_id,total,paiement,employe_id').order('created_at'),
+    db.from('mouvements_caisse').select('session_id,type,montant').order('created_at')
+  ]);
+
+  const sessions   = sessRes.data  || [];
+  const ventes     = ventesRes.data || [];
+  const mouvements = mouvRes.data  || [];
+
+  /* Calculer les totaux par session */
+  const map = {};
+  ventes.forEach(v => {
+    if (!map[v.session_id]) map[v.session_id] = { totV:0, totOM:0, staffSet:new Set() };
+    map[v.session_id].totV += v.total;
+    if (v.paiement === 'om') map[v.session_id].totOM += v.total;
+    if (v.employe_id) map[v.session_id].staffSet.add(v.employe_id);
+  });
+  mouvements.forEach(m => {
+    if (!map[m.session_id]) map[m.session_id] = { totV:0, totOM:0, staffSet:new Set() };
+    if (!map[m.session_id].totEntrees) map[m.session_id].totEntrees = 0;
+    if (!map[m.session_id].totSorties) map[m.session_id].totSorties = 0;
+    if (m.type === 'entree') map[m.session_id].totEntrees += m.montant;
+    else                     map[m.session_id].totSorties += m.montant;
+  });
+
+  if (!sessions.length) {
+    $('main-body').innerHTML = `
+      <div class="role-banner">📊 Historique Caisse</div>
+      <div class="state-msg">Aucune session enregistrée.</div>`;
+    return;
+  }
+
+  const totalV = ventes.reduce((s,v) => s+v.total, 0);
+
+  let html = `<div class="role-banner">
+    📊 ${sessions.length} session${sessions.length>1?'s':''} · Total cumulé : <strong>${gnf(totalV)}</strong>
+  </div>`;
+
+  html += sessions.map(sess => renderCaissierEntry(sess, map[sess.id] || {})).join('');
+  $('main-body').innerHTML = html;
+}
+
+function renderCaissierEntry(sess, m) {
+  const fond       = sess.fond_caisse || 0;
+  const totV       = m.totV || 0;
+  const totOM      = m.totOM || 0;
+  const totEsp     = totV - totOM;
+  const totEntrees = m.totEntrees || 0;
+  const totSorties = m.totSorties || 0;
+  const theorique  = fond + totV + totEntrees - totSorties;
+  const reel       = sess.total_reel;
+  const ecart      = reel != null ? theorique - reel : null;
+  const nbStaff    = m.staffSet ? m.staffSet.size : 0;
+
+  const statut = sess.statut;
+  const statutBadge = statut === 'valide_manager'
+    ? `<span class="badge ok" style="font-size:10px">Rapport créé</span>`
+    : statut === 'valide_caissier'
+    ? `<span class="badge" style="font-size:10px;background:rgba(91,163,204,.1);color:#5BA3CC;border-color:rgba(91,163,204,.25)">En attente validation</span>`
+    : `<span class="badge gold" style="font-size:10px">Ouverte</span>`;
+
+  let ecartBadge = '';
+  if (ecart !== null) {
+    if (ecart === 0) ecartBadge = `<span class="ecart-badge exact">Caisse exacte</span>`;
+    else if (ecart > 0) ecartBadge = `<span class="ecart-badge manque">− ${gnf(ecart)}</span>`;
+    else ecartBadge = `<span class="ecart-badge surplus">+ ${gnf(Math.abs(ecart))}</span>`;
+  }
+
+  return `
+    <div class="hist-item" onclick="this.classList.toggle('open')">
+      <div class="hist-head">
+        <div class="hist-icon" style="background:rgba(201,168,76,.08);color:var(--gold)">💰</div>
+        <div class="hist-info">
+          <div class="hist-title">${frDate(sess.date)}</div>
+          <div class="hist-sub">
+            ${nbStaff} staff · ${statutBadge}
+            ${ecartBadge ? ` · ${ecartBadge}` : ''}
+          </div>
+        </div>
+        <div class="hist-right">
+          <div class="hist-val">${gnf(theorique)}</div>
+          <div class="hist-arrow">▼</div>
+        </div>
+      </div>
+      <div class="hist-detail">
+        <div class="detail-grid">
+          <div class="detail-kpi">
+            <div class="detail-kpi-val">${gnf(fond)}</div>
+            <div class="detail-kpi-lbl">Fond</div>
+          </div>
+          <div class="detail-kpi">
+            <div class="detail-kpi-val">${gnf(totV)}</div>
+            <div class="detail-kpi-lbl">Ventes</div>
+          </div>
+        </div>
+        ${totOM > 0 ? `
+          <div class="detail-row">
+            <span>💵 Espèces</span>
+            <span style="font-family:'Bebas Neue',sans-serif">${gnf(totEsp)}</span>
+          </div>
+          <div class="detail-row">
+            <span style="color:#FF7800">📱 Orange Money</span>
+            <span style="font-family:'Bebas Neue',sans-serif;color:#FF7800">${gnf(totOM)}</span>
+          </div>` : ''}
+        ${totEntrees > 0 ? `
+          <div class="detail-row">
+            <span style="color:var(--ok)">+ Entrées caisse</span>
+            <span style="font-family:'Bebas Neue',sans-serif;color:var(--ok)">${gnf(totEntrees)}</span>
+          </div>` : ''}
+        ${totSorties > 0 ? `
+          <div class="detail-row">
+            <span style="color:var(--danger)">− Sorties caisse</span>
+            <span style="font-family:'Bebas Neue',sans-serif;color:var(--danger)">${gnf(totSorties)}</span>
+          </div>` : ''}
+        <div class="detail-row" style="border-top:1px solid var(--b2);padding-top:8px;margin-top:4px">
+          <span><strong>Théorique</strong></span>
+          <span style="font-family:'Bebas Neue',sans-serif;color:var(--gold);font-size:17px">${gnf(theorique)}</span>
+        </div>
+        ${reel != null ? `
+          <div class="detail-row">
+            <span>Réel compté</span>
+            <span style="font-family:'Bebas Neue',sans-serif">${gnf(reel)}</span>
+          </div>
+          <div class="detail-row">
+            <span>Écart</span>
+            <span>${ecartBadge || '—'}</span>
+          </div>` : ''}
+        ${sess.note_caissier ? `
+          <div style="margin-top:8px;padding:8px 10px;background:var(--bg3);
+            border-radius:var(--rs);font-size:12px;color:var(--muted);font-style:italic">
+            "${sess.note_caissier}"
+          </div>` : ''}
+      </div>
+    </div>`;
+}
+
+/* ════════════════════════════════════════════
+   CHICHA — sorties_chicha par session
+════════════════════════════════════════════ */
+async function loadHistChicha() {
+  const extra = ML.getExtra();
+  const empId = extra?.employe_id;
+  if (!empId) {
+    $('main-body').innerHTML = '<div class="state-msg err">Compte non configuré.</div>';
+    return;
+  }
+
+  const [sortiesRes, sessRes] = await Promise.all([
+    db.from('sorties_chicha').select('*').eq('employe_id', empId).order('created_at'),
+    db.from('sessions_caisse').select('id,date,statut').order('date',{ascending:false})
+  ]);
+
+  const sorties  = sortiesRes.data || [];
+  const sessions = sessRes.data    || [];
+
+  const bySess = {};
+  sorties.forEach(s => {
+    if (!bySess[s.session_id]) bySess[s.session_id] = [];
+    bySess[s.session_id].push(s);
+  });
+
+  const entries = sessions
+    .filter(s => bySess[s.id])
+    .map(s => ({ session: s, sorties: bySess[s.id] }));
+
+  const nom        = extra?.nom || 'Chicha';
+  const totalChicha = sorties.reduce((n,s) => n + (s.qty||0), 0);
+
+  let html = `<div class="role-banner" style="background:rgba(255,120,0,.07);border-color:rgba(255,120,0,.2);color:#FF7A00">
+    🌿 ${nom} — ${entries.length} service${entries.length>1?'s':''} · Total : <strong>${totalChicha} chicha${totalChicha>1?'s':''}</strong>
+  </div>`;
+
+  if (!entries.length) {
+    html += '<div class="state-msg">Aucune sortie enregistrée.</div>';
+    $('main-body').innerHTML = html;
+    return;
+  }
+
+  html += entries.map(e => {
+    const total   = e.sorties.reduce((n,s) => n + (s.qty||0), 0);
+    const byArome = {};
+    e.sorties.forEach(s => { byArome[s.arome] = (byArome[s.arome]||0) + s.qty; });
+    const tags = Object.entries(byArome).sort((a,b)=>b[1]-a[1])
+      .map(([a,n]) => `<span style="display:inline-block;font-size:11px;padding:2px 8px;border-radius:8px;
+        background:rgba(255,120,0,.08);color:#FF7A00;border:1px solid rgba(255,120,0,.2);margin:2px">
+        ${a} ×${n}</span>`).join('');
+
+    return `
+      <div class="hist-item" onclick="this.classList.toggle('open')">
+        <div class="hist-head">
+          <div class="hist-icon" style="background:rgba(255,120,0,.1);color:#FF7A00;font-size:18px">🌿</div>
+          <div class="hist-info">
+            <div class="hist-title">${frDate(e.session.date)}</div>
+            <div class="hist-sub">${e.sorties.length} enregistrement${e.sorties.length>1?'s':''} · ${e.sorties.every(s=>s.valide)?'Clôturé':'En cours'}</div>
+          </div>
+          <div class="hist-right">
+            <div class="hist-val" style="color:#FF7A00">${total}</div>
+            <div class="hist-arrow">▼</div>
+          </div>
+        </div>
+        <div class="hist-detail">
+          <div style="margin-bottom:8px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">Aromes</div>
+          <div>${tags}</div>
+          ${e.sorties.map(s => {
+            const hm = new Date(s.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+            return `<div class="vente-row">
+              <div class="vente-dot chicha"></div>
+              <div class="vente-lbl">${s.arome}</div>
+              <div class="vente-qty">${hm}</div>
+              <div class="vente-tot" style="color:#FF7A00">×${s.qty}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  }).join('');
+  $('main-body').innerHTML = html;
+}
+
+/* ════════════════════════════════════════════
+   ACHATS — achats_session avec stats périodes
+════════════════════════════════════════════ */
+async function loadHistAchats() {
+  const extra = ML.getExtra();
+  const empId = extra?.employe_id;
+  if (!empId) {
+    $('main-body').innerHTML = '<div class="state-msg err">Compte non configuré.</div>';
+    return;
+  }
+
+  const { data: rows } = await db
+    .from('achats_session').select('*')
+    .eq('employe_id', empId)
+    .order('created_at', { ascending: false });
+
+  const achats = rows || [];
+  const nom    = extra?.nom || 'Achats';
+
+  const now    = new Date();
+  const d7     = new Date(now - 7*864e5);
+  const d30    = new Date(now - 30*864e5);
+  const today  = todayISO();
+
+  const sum = arr => arr.reduce((s,a) => s+(a.montant||0), 0);
+  const todayR = achats.filter(a => a.created_at?.slice(0,10)===today);
+  const week7R = achats.filter(a => new Date(a.created_at) >= d7);
+  const mon30R = achats.filter(a => new Date(a.created_at) >= d30);
+
+  let html = `<div class="role-banner" style="background:rgba(140,80,220,.07);border-color:rgba(140,80,220,.2);color:#B080F0">
+    🛒 ${nom} — ${achats.length} achat${achats.length>1?'s':''} · Total cumulé : <strong>${gnf(sum(achats))}</strong>
+  </div>`;
+
+  /* Stats */
+  html += `
+    <div class="detail-grid">
+      <div class="detail-kpi">
+        <div class="detail-kpi-val" style="color:#B080F0">${gnf(sum(todayR))}</div>
+        <div class="detail-kpi-lbl">Aujourd'hui</div>
+      </div>
+      <div class="detail-kpi">
+        <div class="detail-kpi-val">${gnf(sum(week7R))}</div>
+        <div class="detail-kpi-lbl">7 jours</div>
+      </div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-kpi">
+        <div class="detail-kpi-val">${gnf(sum(mon30R))}</div>
+        <div class="detail-kpi-lbl">30 jours</div>
+      </div>
+      <div class="detail-kpi">
+        <div class="detail-kpi-val" style="color:#B080F0">${gnf(sum(achats))}</div>
+        <div class="detail-kpi-lbl">Tout</div>
+      </div>
+    </div>`;
+
+  if (!achats.length) {
+    html += '<div class="state-msg">Aucun achat enregistré.</div>';
+    $('main-body').innerHTML = html;
+    return;
+  }
+
+  html += `<div class="s-head">Historique</div>`;
+  html += achats.map(a => {
+    const dt = new Date(a.created_at);
+    const label = dt.toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) + ' ' +
+                  dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    return `
+      <div class="hist-item" onclick="this.classList.toggle('open')">
+        <div class="hist-head">
+          <div class="hist-icon" style="background:rgba(140,80,220,.1);color:#B080F0;font-size:18px">🛒</div>
+          <div class="hist-info">
+            <div class="hist-title">${a.produit_nom}</div>
+            <div class="hist-sub">×${a.qty} — ${label}</div>
+          </div>
+          <div class="hist-right">
+            <div class="hist-val" style="color:#B080F0">${gnf(a.montant)}</div>
+            <div class="hist-arrow">▼</div>
+          </div>
+        </div>
+        <div class="hist-detail">
+          <div class="detail-row"><span>Produit</span><span>${a.produit_nom}</span></div>
+          <div class="detail-row"><span>Quantité</span><span>${a.qty}</span></div>
+          <div class="detail-row"><span>Prix unitaire</span><span style="font-family:'Bebas Neue',sans-serif">${gnf(a.prix_unitaire)}</span></div>
+          <div class="detail-row"><span><strong>Montant total</strong></span>
+            <span style="font-family:'Bebas Neue',sans-serif;color:#B080F0;font-size:17px">${gnf(a.montant)}</span></div>
+        </div>
+      </div>`;
+  }).join('');
+  $('main-body').innerHTML = html;
+}
+
+/* ════════════════════════════════════════════
+   MANAGER / OWNER / ASSOCIÉ — rapports
+════════════════════════════════════════════ */
+async function loadHistManager() {
+  const role  = ML.getRole();
+  const extra = ML.getExtra();
+
+  let query = db.from('rapports').select('*').order('date',{ascending:false});
+
+  const { data, error } = await query;
+  if (error) throw error;
+  histData = data || [];
+
+  if (!histData.length) {
+    $('main-body').innerHTML = '<div class="state-msg">Aucun rapport archivé.</div>';
+    return;
+  }
+  renderManagerPanel();
+}
+
+function renderManagerPanel() {
+  const role    = ML.getRole();
+  const mgrs    = [...new Set(histData.map(r=>r.manager).filter(Boolean))].sort();
+  const periods = [{v:'7j',l:'7 jours'},{v:'30j',l:'30 jours'},{v:'90j',l:'3 mois'},{v:'all',l:'Tout'}];
+
+  $('main-body').innerHTML = `
+    <div class="view-switch">
+      <button class="view-btn ${histView==='list'?'on':''}" onclick="setHistView('list')">Liste</button>
+      <button class="view-btn ${histView==='mensuel'?'on':''}" onclick="setHistView('mensuel')">Mensuel</button>
+    </div>
+    <div class="hist-filters">
+      <div>
+        <div class="filter-label">Période</div>
+        <div class="filter-chips">
+          ${periods.map(p=>`<div class="filter-chip ${histFilter.period===p.v?'on':''}"
+            onclick="histFilter.period='${p.v}';applyFilter()">${p.l}</div>`).join('')}
+        </div>
+      </div>
+      ${mgrs.length>1?`<div>
+        <div class="filter-label">Manager</div>
+        <select class="filter-inp" onchange="histFilter.manager=this.value;applyFilter()">
+          <option value="">Tous</option>
+          ${mgrs.map(m=>`<option value="${m}"${histFilter.manager===m?' selected':''}>${m}</option>`).join('')}
+        </select></div>`:''}
+      <div>
+        <div class="filter-label">Net minimum (GNF)</div>
+        <input class="filter-inp" type="number" inputmode="numeric" placeholder="0"
+          value="${histFilter.minNet}" onchange="histFilter.minNet=this.value;applyFilter()">
+      </div>
+    </div>
+    <div id="hist-content"></div>`;
+  applyFilter();
+}
+
+function setHistView(v) { histView=v; renderManagerPanel(); }
+
+function applyFilter() {
+  const now = new Date();
+  let filtered = histData;
+
+  if (histFilter.period !== 'all') {
+    const days = histFilter.period==='7j'?7:histFilter.period==='30j'?30:90;
+    const cutoff = new Date(now - days*864e5);
+    filtered = filtered.filter(r => {
+      const d = r.date ? new Date(r.date+'T12:00:00') : null;
+      return d && d >= cutoff;
+    });
+  }
+  if (histFilter.manager) filtered = filtered.filter(r => r.manager===histFilter.manager);
+  const minN = parseFloat(histFilter.minNet);
+  if (!isNaN(minN) && minN > 0) filtered = filtered.filter(r => (r.net||0) >= minN);
+
+  const el = $('hist-content');
+  if (!el) return;
+  if (!filtered.length) {
+    el.innerHTML = '<div class="hist-count">Aucun rapport pour ces critères.</div>';
+    return;
+  }
+
+  const count = `<div class="hist-count">${filtered.length} rapport${filtered.length>1?'s':''}</div>`;
+  el.innerHTML = count + (histView==='mensuel'
+    ? renderMensuel(filtered)
+    : filtered.map(rapportItem).join(''));
+}
+
+function renderMensuel(data) {
+  const map = {};
+  data.forEach(r => {
+    const d = r.date ? new Date(r.date+'T12:00:00') : null;
+    if (!d) return;
+    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if (!map[k]) map[k] = { label:frMonth(r.date), n:0, rec:0, dep:0, net:0 };
+    map[k].n++;
+    map[k].rec += (r.recettes || (r.total_chicha||0)+(r.total_boissons||0) || 0);
+    map[k].dep += (r.depenses || r.total_achats || 0);
+    map[k].net += (r.net || 0);
+  });
+  const role = ML.getRole();
+  return Object.entries(map).sort((a,b)=>b[0].localeCompare(a[0]))
+    .map(([,m])=>`
+      <div class="mensuel-item">
+        <div class="mensuel-head" onclick="this.parentElement.classList.toggle('open')">
+          <div>
+            <div class="mensuel-mois">${m.label.toUpperCase()}</div>
+            <div class="mensuel-rapports">${m.n} rapport${m.n>1?'s':''}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="mensuel-net" style="color:${m.net>=0?'var(--ok)':'var(--danger)'}">${gnf(m.net)}</div>
+            <div class="mensuel-arrow">▼</div>
+          </div>
+        </div>
+        <div class="mensuel-body">
+          <div class="mensuel-row"><span>Recettes</span><span style="color:var(--gold)">${gnf(m.rec)}</span></div>
+          <div class="mensuel-row"><span>Dépenses</span><span style="color:var(--danger)">- ${gnf(m.dep)}</span></div>
+          <div class="mensuel-row"><span><strong>Net</strong></span>
+            <span style="color:${m.net>=0?'var(--ok)':'var(--danger)'}"><strong>${gnf(m.net)}</strong></span>
+          </div>
+        </div>
+      </div>`).join('');
+}
+
+function rapportItem(r) {
+  const role  = ML.getRole();
+  const recettes = r.recettes || ((r.total_chicha||0)+(r.total_boissons||0));
+
+  /* Détail fond / caisse si disponible */
+  const caisseBlock = (r.fond_caisse || r.entrees_caisse || r.sorties_caisse || r.total_reel != null)
+    ? `<div class="det-sec">
+         <div class="det-sec-t">Caisse</div>
+         ${r.fond_caisse ? `<div class="detail-row"><span>Fond ouverture</span><span style="font-family:'Bebas Neue',sans-serif">${gnf(r.fond_caisse)}</span></div>` : ''}
+         ${r.entrees_caisse ? `<div class="detail-row"><span style="color:var(--ok)">+ Entrées</span><span style="font-family:'Bebas Neue',sans-serif;color:var(--ok)">${gnf(r.entrees_caisse)}</span></div>` : ''}
+         ${r.sorties_caisse ? `<div class="detail-row"><span style="color:var(--danger)">− Sorties</span><span style="font-family:'Bebas Neue',sans-serif;color:var(--danger)">${gnf(r.sorties_caisse)}</span></div>` : ''}
+         ${r.total_reel != null ? `
+           <div class="detail-row"><span>Réel compté</span><span style="font-family:'Bebas Neue',sans-serif">${gnf(r.total_reel)}</span></div>
+           ${r.ecart != null ? `<div class="detail-row"><span>Écart</span>
+             <span>${r.ecart===0
+               ? '<span class="ecart-badge exact">Caisse exacte</span>'
+               : r.ecart>0
+               ? `<span class="ecart-badge manque">− ${gnf(r.ecart)}</span>`
+               : `<span class="ecart-badge surplus">+ ${gnf(Math.abs(r.ecart))}</span>`}
+             </span></div>` : ''}` : ''}
+       </div>` : '';
+
+  return `
+    <div class="hist-item" id="hi-${r.id}" onclick="toggleHist('${r.id}')">
+      <div class="hist-head">
+        <div class="hist-icon" style="background:rgba(201,168,76,.08);color:var(--gold)">
+          ${String(r.num||'?').padStart(3,'0')}
+        </div>
+        <div class="hist-info">
+          <div class="hist-title">${r.date_display || frDate(r.date)}</div>
+          <div class="hist-sub">N°${r.num||'?'} — ${r.manager||'?'}${r.caissier?' / '+r.caissier:''}</div>
+        </div>
+        <div class="hist-right">
+          <div class="hist-val">${gnf(r.net)}</div>
+          <div class="hist-arrow">▼</div>
+        </div>
+      </div>
+      <div class="hist-detail" onclick="event.stopPropagation()">
+        <div class="det-sec">
+          <div class="det-sec-t">Bilan</div>
+          <div class="detail-row"><span>Recettes</span><span style="font-family:'Bebas Neue',sans-serif;color:var(--gold)">${gnf(recettes)}</span></div>
+          <div class="detail-row"><span>Dépenses</span><span style="font-family:'Bebas Neue',sans-serif;color:var(--danger)">− ${gnf(r.depenses||r.total_achats||0)}</span></div>
+          <div class="detail-row"><span><strong>Net</strong></span><span style="font-family:'Bebas Neue',sans-serif;color:var(--gold);font-size:17px">${gnf(r.net)}</span></div>
+        </div>
+        ${caisseBlock}
+        ${r.obs||r.note_exception ? `
+          <div class="det-sec">
+            <div class="det-sec-t">Observations</div>
+            <div style="font-size:13px;color:var(--muted)">${r.obs||r.note_exception}</div>
+          </div>` : ''}
+        ${r.hash ? `<div class="hash-block"><strong>SHA-256</strong>${r.hash}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+function toggleHist(id) { $('hi-'+id)?.classList.toggle('open'); }
+</script>
+</body>
+</html>

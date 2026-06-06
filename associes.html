@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Associés — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+.assoc-header{background:var(--bg2);border-radius:var(--r);padding:20px 16px;
+  display:flex;justify-content:space-between;align-items:flex-start}
+.assoc-name{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--gold);letter-spacing:1px}
+.assoc-role{font-size:12px;color:var(--muted);margin-top:4px}
+.assoc-pct-badge{font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--gold);line-height:1}
+.assoc-pct-lbl{font-size:11px;color:var(--muted);text-align:right;margin-top:2px}
+.month-row{background:var(--bg2);border-radius:var(--rs);padding:12px 14px}
+.month-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.month-lbl{font-size:14px;font-weight:500;text-transform:capitalize}
+.month-part{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--gold)}
+.month-details{display:flex;gap:16px;font-size:12px;color:var(--muted)}
+.month-detail span{color:var(--text);font-weight:500}
+.owner-assoc-item{background:var(--bg2);border-radius:var(--r);padding:14px 16px}
+.owner-assoc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.owner-assoc-nom{font-size:15px;font-weight:600}
+.owner-assoc-pct{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold)}
+.owner-assoc-rows{display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--bg3);padding-top:8px}
+.owner-assoc-row{display:flex;justify-content:space-between;font-size:13px}
+.owner-assoc-row span:first-child{color:var(--muted)}
+
+/* ── Propositions / Votes ── */
+.prop-card{
+  background:var(--bg2);border-radius:var(--r);border:1px solid var(--b1);
+  padding:16px;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 8px rgba(0,0,0,.3)}
+.prop-card.open-prop{border-color:rgba(201,168,76,.25)}
+.prop-card.closed-prop{opacity:.7}
+.prop-titre{font-size:15px;font-weight:600;margin-bottom:4px}
+.prop-desc{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:10px}
+.prop-date{font-size:11px;color:var(--muted);margin-bottom:10px}
+.vote-bar-wrap{height:8px;background:var(--bg4);border-radius:4px;overflow:hidden;margin:8px 0 6px;display:flex}
+.vote-bar-pour{height:100%;background:var(--ok);transition:width .4s ease}
+.vote-bar-contre{height:100%;background:var(--danger);transition:width .4s ease}
+.vote-stats{display:flex;justify-content:space-between;font-size:11px;margin-bottom:10px}
+.vote-pour-lbl{color:var(--ok);font-weight:600}
+.vote-contre-lbl{color:var(--danger);font-weight:600}
+.vote-abs-lbl{color:var(--muted)}
+.vote-btns{display:flex;gap:8px}
+.btn-vote-pour{
+  flex:1;padding:10px;border-radius:var(--rs);border:1px solid rgba(61,184,115,.3);
+  background:rgba(61,184,115,.08);color:var(--ok);font-weight:600;font-size:13px;
+  cursor:pointer;transition:all var(--t);-webkit-tap-highlight-color:transparent}
+.btn-vote-pour.active,.btn-vote-pour:hover{background:rgba(61,184,115,.2)}
+.btn-vote-contre{
+  flex:1;padding:10px;border-radius:var(--rs);border:1px solid rgba(201,73,74,.3);
+  background:rgba(201,73,74,.08);color:var(--danger);font-weight:600;font-size:13px;
+  cursor:pointer;transition:all var(--t);-webkit-tap-highlight-color:transparent}
+.btn-vote-contre.active,.btn-vote-contre:hover{background:rgba(201,73,74,.2)}
+.voted-badge{font-size:11px;padding:4px 10px;border-radius:8px;font-weight:600}
+.voted-pour{background:rgba(61,184,115,.12);color:var(--ok);border:1px solid rgba(61,184,115,.25)}
+.voted-contre{background:rgba(201,73,74,.12);color:var(--danger);border:1px solid rgba(201,73,74,.25)}
+.result-chip{
+  font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;
+  padding:5px 14px;border-radius:8px}
+.result-chip.adopte{background:rgba(61,184,115,.12);color:var(--ok)}
+.result-chip.rejete{background:rgba(201,73,74,.12);color:var(--danger)}
+.result-chip.egalite{background:rgba(201,168,76,.1);color:var(--gold)}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap">
+    <div class="field">
+      <label>Période</label>
+      <select id="period-sel" onchange="loadData()">
+        <option value="3">3 derniers mois</option>
+        <option value="6" selected>6 derniers mois</option>
+        <option value="12">12 derniers mois</option>
+      </select>
+    </div>
+    <div id="page-content"><div class="state-msg">Chargement…</div></div>
+
+    <!-- Propositions / Votes -->
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:3px;
+      color:var(--muted);text-transform:uppercase;padding:22px 2px 6px;
+      display:flex;align-items:center;gap:10px">
+      Propositions & Votes
+    </div>
+    <button onclick="openNewProp()"
+      style="width:100%;padding:14px;border-radius:var(--r);margin-bottom:10px;
+        border:1px dashed rgba(201,168,76,.3);background:rgba(201,168,76,.04);
+        color:var(--gold);font-size:12px;font-weight:600;letter-spacing:1.5px;
+        cursor:pointer;-webkit-tap-highlight-color:transparent">
+      + NOUVELLE PROPOSITION
+    </button>
+    <div id="props-list"><div class="state-msg" style="padding:20px">Chargement…</div></div>
+  </div>
+  <div id="overlay"><div class="sheet" id="overlay-sheet"></div></div>
+  <div id="toast"></div>
+
+<script>
+let _allAssocPcts = []; // [{nom, poids}] for vote weights
+let _propsChannel = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['owner','associe'])) return;
+  loadData();
+  loadPropositions();
+  document.addEventListener('click', e => {
+    if (e.target === $('overlay')) $('overlay').classList.remove('on');
+  });
+});
+
+async function loadData() {
+  const role  = ML.getRole();
+  if (role === 'associe') await loadAssocView();
+  else await loadOwnerView();
+}
+
+/* ── VUE ASSOCIÉ ─────────────────────────────────────────────── */
+async function loadAssocView() {
+  const el    = $('page-content');
+  el.innerHTML = '<div class="state-msg">Chargement…</div>';
+  try {
+    const extra = ML.getExtra();
+    const pct   = parseFloat(extra.pourcentage) || 0;
+    const nom   = extra.nom || 'Associé';
+    const n     = parseInt($('period-sel').value) || 6;
+    const months = buildMonths(n);
+
+    const [rapRes, chargesRes] = await Promise.all([
+      db.from('rapports').select('date,net,total_chicha,total_boissons,total_achats')
+        .gte('date',months[0].debut).lte('date',months[months.length-1].fin),
+      db.from('charges').select('mois,montant')
+        .gte('mois',months[0].key).lte('mois',months[months.length-1].key)
+    ]);
+
+    const raps    = rapRes.data    || [];
+    const charges = chargesRes.data || [];
+
+    const monthData = months.map(m => {
+      const mRaps    = raps.filter(r=>r.date>=m.debut&&r.date<=m.fin);
+      const mCharges = charges.filter(c=>c.mois===m.key);
+      const recettes  = mRaps.reduce((s,r)=>s+(r.total_chicha||0)+(r.total_boissons||0),0);
+      const depenses  = mRaps.reduce((s,r)=>s+(r.total_achats||0),0);
+      const netVentes = recettes - depenses;
+      const fixCharges= mCharges.reduce((s,c)=>s+(c.montant||0),0);
+      const netFinal  = netVentes - fixCharges;
+      const part      = Math.max(0, netFinal * pct / 100);
+      const jours     = mRaps.length;
+      return {label:m.label, recettes, depenses, netFinal, part, jours};
+    });
+
+    const totalPart = monthData.reduce((s,m)=>s+m.part,0);
+    const totalNet  = monthData.reduce((s,m)=>s+m.netFinal,0);
+
+    el.innerHTML = `
+      <div class="assoc-header">
+        <div>
+          <div class="assoc-name">${nom}</div>
+          <div class="assoc-role">Associé · ${n} derniers mois</div>
+        </div>
+        <div style="text-align:right">
+          <div class="assoc-pct-badge">${pct}%</div>
+          <div class="assoc-pct-lbl">de part</div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total perçu</div>
+          <div class="stat-val gold">${gnf(totalPart)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Net lounge</div>
+          <div class="stat-val">${gnf(totalNet)}</div>
+        </div>
+      </div>
+
+      <div class="sec-header"><div class="sec-title">Détail par mois</div></div>
+      ${monthData.reverse().map(m=>`
+        <div class="month-row">
+          <div class="month-top">
+            <div class="month-lbl">${m.label}</div>
+            <div class="month-part">${gnf(m.part)}</div>
+          </div>
+          <div class="month-details">
+            <div>Recettes <span>${gnf(m.recettes)}</span></div>
+            <div>Net <span>${gnf(m.netFinal)}</span></div>
+            <div>Rapports <span>${m.jours}</span></div>
+          </div>
+        </div>`).join('')}`;
+  } catch(e) {
+    $('page-content').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+
+/* ── VUE PROPRIÉTAIRE ────────────────────────────────────────── */
+async function loadOwnerView() {
+  const el = $('page-content');
+  el.innerHTML = '<div class="state-msg">Chargement…</div>';
+  try {
+    const n      = parseInt($('period-sel').value) || 6;
+    const months = buildMonths(n);
+
+    const [assocRes, rapRes, chargesRes] = await Promise.all([
+      db.from('associes').select('id,nom,pourcentage').eq('actif',true).order('nom'),
+      db.from('rapports').select('date,net,total_chicha,total_boissons,total_achats')
+        .gte('date',months[0].debut).lte('date',months[months.length-1].fin),
+      db.from('charges').select('mois,montant')
+        .gte('mois',months[0].key).lte('mois',months[months.length-1].key)
+    ]);
+
+    const assocs  = assocRes.data  || [];
+    const raps    = rapRes.data    || [];
+    const charges = chargesRes.data || [];
+
+    if (!assocs.length) {
+      el.innerHTML = `<div class="state-msg">Aucun associé. Ajoutez-en dans Paramètres.</div>`;
+      return;
+    }
+
+    /* Calcul net global */
+    const netTotal   = raps.reduce((s,r)=>s+(r.net||0),0)
+                     - charges.reduce((s,c)=>s+(c.montant||0),0);
+
+    /* Part propriétaire = 100% - somme des parts associés */
+    const totalAssocPct = assocs.reduce((s,a)=>s+(a.pourcentage||0),0);
+    const ownerPct      = Math.max(0, 100 - totalAssocPct);
+
+    /* Part gestionnaire */
+    const ownerPartTotal = Math.max(0, netTotal * ownerPct / 100);
+    const ownerMParts    = months.map(m => {
+      const mNet = raps.filter(r=>r.date>=m.debut&&r.date<=m.fin).reduce((s,r)=>s+(r.net||0),0)
+                 - charges.filter(c=>c.mois===m.key).reduce((s,c)=>s+(c.montant||0),0);
+      return { label:m.label, part: Math.max(0, mNet * ownerPct / 100) };
+    });
+
+    const buildCard = (nom, pct, partTotal, mParts, isOwner=false) => `
+      <div class="owner-assoc-item" style="${isOwner?
+        'border:1px solid rgba(201,168,76,.3);background:rgba(201,168,76,.05)':''}">
+        <div class="owner-assoc-head">
+          <div>
+            <div class="owner-assoc-nom" style="${isOwner?'color:var(--gold)':''}">${nom}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="owner-assoc-pct">${pct.toFixed(1)}%</div>
+            <div style="font-size:11px;color:var(--muted)">${gnf(partTotal)} total</div>
+          </div>
+        </div>
+        <div class="owner-assoc-rows">
+          ${mParts.map(mp=>`
+            <div class="owner-assoc-row">
+              <span>${mp.label}</span>
+              <span style="color:${mp.part>0?'var(--gold)':'var(--muted)'}">${gnf(mp.part)}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+
+    el.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-card wide">
+          <div class="stat-label">Bénéfice net — ${n} mois</div>
+          <div class="stat-val ok">${gnf(netTotal)}</div>
+        </div>
+      </div>
+      <div class="sec-header"><div class="sec-title">Répartition</div></div>
+      ${buildCard('Gestionnaire (vous)', ownerPct, ownerPartTotal, ownerMParts, true)}
+      ${assocs.map(a => {
+        const part   = Math.max(0, netTotal * (a.pourcentage||0) / 100);
+        const mParts = months.map(m => {
+          const mNet = raps.filter(r=>r.date>=m.debut&&r.date<=m.fin).reduce((s,r)=>s+(r.net||0),0)
+                     - charges.filter(c=>c.mois===m.key).reduce((s,c)=>s+(c.montant||0),0);
+          return { label:m.label, part: Math.max(0, mNet * (a.pourcentage||0) / 100) };
+        });
+        return buildCard(a.nom, a.pourcentage||0, part, mParts, false);
+      }).join('')}`;
+  } catch(e) {
+    el.innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+
+/* ════════════════════════════════════════════
+   PROPOSITIONS & VOTES
+════════════════════════════════════════════ */
+
+/* Calcule le poids de vote du user connecté */
+async function getMyVoteInfo() {
+  const role  = ML.getRole();
+  const extra = ML.getExtra();
+  const { data: assocs } = await db.from('associes').select('id,nom,pourcentage').eq('actif',true);
+  const totalAssocPct = (assocs||[]).reduce((s,a) => s+(a.pourcentage||0), 0);
+  const ownerPct = Math.max(0, 100 - totalAssocPct);
+  _allAssocPcts = (assocs||[]).map(a => ({ nom:a.nom, poids:a.pourcentage||0 }));
+  _allAssocPcts.push({ nom:'Gestionnaire', poids: ownerPct });
+
+  if (role === 'owner') {
+    return { key:'owner', nom:'Gestionnaire', poids: ownerPct };
+  }
+  /* Associé */
+  const myAssoc = (assocs||[]).find(a =>
+    a.id === extra.employe_id || a.nom === extra.nom);
+  return {
+    key: myAssoc ? myAssoc.id : (extra.nom || 'associe'),
+    nom: extra.nom || 'Associé',
+    poids: myAssoc?.pourcentage || 0
+  };
+}
+
+async function loadPropositions() {
+  try {
+    const [propsRes, votesRes] = await Promise.all([
+      db.from('propositions').select('*').order('created_at',{ascending:false}),
+      db.from('votes_prop').select('*')
+    ]);
+    const props = propsRes.data || [];
+    const votes = votesRes.data || [];
+    const myInfo = await getMyVoteInfo();
+    renderPropositions(props, votes, myInfo);
+
+    if (!_propsChannel) {
+      _propsChannel = db.channel('ml-props')
+        .on('postgres_changes',{event:'*',schema:'public',table:'propositions'},() => loadPropositions())
+        .on('postgres_changes',{event:'*',schema:'public',table:'votes_prop'},() => loadPropositions())
+        .subscribe();
+    }
+  } catch(e) {
+    $('props-list').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+
+function renderPropositions(props, votes, myInfo) {
+  if (!props.length) {
+    $('props-list').innerHTML = `<div class="state-msg" style="padding:20px;text-align:center;
+      color:var(--muted)">Aucune proposition pour l'instant.</div>`;
+    return;
+  }
+  $('props-list').innerHTML = props.map(p => renderPropCard(p, votes, myInfo)).join('');
+}
+
+function renderPropCard(p, allVotes, myInfo) {
+  const pvotes = allVotes.filter(v => v.proposition_id === p.id);
+  const pour   = pvotes.filter(v => v.choix === true).reduce((s,v) => s+(v.poids||0), 0);
+  const contre = pvotes.filter(v => v.choix === false).reduce((s,v) => s+(v.poids||0), 0);
+  const total  = pour + contre;
+  const abs    = Math.max(0, 100 - total);
+  const myVote = pvotes.find(v => v.votant_key === myInfo.key);
+  const isClosed = p.statut === 'ferme';
+  const role   = ML.getRole();
+  const dt     = new Date(p.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'});
+
+  const barPour   = total > 0 ? (pour/100*100)   : 0;
+  const barContre = total > 0 ? (contre/100*100) : 0;
+
+  let voteSection = '';
+  if (isClosed) {
+    const result = pour > contre ? 'adopte' : contre > pour ? 'rejete' : 'egalite';
+    const lbl    = pour > contre ? 'ADOPTÉ' : contre > pour ? 'REJETÉ' : 'ÉGALITÉ';
+    voteSection = `<span class="result-chip ${result}">${lbl}</span>`;
+  } else if (myVote) {
+    voteSection = `
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span class="voted-badge ${myVote.choix?'voted-pour':'voted-contre'}">
+          ${myVote.choix ? '✓ Voté Pour' : '✗ Voté Contre'} (${myInfo.poids.toFixed(1)}%)
+        </span>
+        <button onclick="voteOnProp('${p.id}',${!myVote.choix})"
+          style="font-size:11px;padding:4px 10px;border-radius:8px;cursor:pointer;
+            border:1px solid var(--b2);background:transparent;color:var(--muted)">
+          Changer
+        </button>
+      </div>`;
+  } else if (myInfo.poids > 0) {
+    voteSection = `
+      <div class="vote-btns">
+        <button class="btn-vote-pour" onclick="voteOnProp('${p.id}',true)">✓ POUR</button>
+        <button class="btn-vote-contre" onclick="voteOnProp('${p.id}',false)">✗ CONTRE</button>
+      </div>`;
+  } else {
+    voteSection = `<div style="font-size:12px;color:var(--muted)">Votre compte n'a pas de poids défini.</div>`;
+  }
+
+  return `
+    <div class="prop-card ${isClosed?'closed-prop':'open-prop'}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <div class="prop-titre">${p.titre}</div>
+        ${!isClosed && role === 'owner' ? `
+          <button onclick="closeProp('${p.id}')" style="font-size:11px;padding:3px 10px;
+            border-radius:8px;cursor:pointer;border:1px solid var(--b1);
+            background:transparent;color:var(--muted);white-space:nowrap">
+            Clore
+          </button>` : ''}
+      </div>
+      ${p.description ? `<div class="prop-desc">${p.description}</div>` : ''}
+      <div class="prop-date">Par ${p.auteur_nom} · ${dt}</div>
+
+      <!-- Barre de vote -->
+      <div class="vote-bar-wrap">
+        <div class="vote-bar-pour" style="width:${pour}%"></div>
+        <div class="vote-bar-contre" style="width:${contre}%"></div>
+      </div>
+      <div class="vote-stats">
+        <span class="vote-pour-lbl">Pour ${pour.toFixed(1)}%</span>
+        <span class="vote-abs-lbl">Abstention ${abs.toFixed(1)}%</span>
+        <span class="vote-contre-lbl">Contre ${contre.toFixed(1)}%</span>
+      </div>
+
+      ${voteSection}
+    </div>`;
+}
+
+async function voteOnProp(propId, choix) {
+  const myInfo = await getMyVoteInfo();
+  if (!myInfo.poids) { toast('Votre poids de vote est 0%', 'ko'); return; }
+  try {
+    await db.from('votes_prop').upsert({
+      proposition_id: propId,
+      votant_key:     myInfo.key,
+      votant_nom:     myInfo.nom,
+      poids:          myInfo.poids,
+      choix
+    }, { onConflict: 'proposition_id,votant_key' });
+    toast(choix ? 'Vote Pour enregistré ✓' : 'Vote Contre enregistré ✓', 'ok');
+  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+}
+
+async function closeProp(propId) {
+  try {
+    await db.from('propositions').update({ statut:'ferme' }).eq('id', propId);
+    toast('Proposition close ✓', 'ok');
+  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+}
+
+function openNewProp() {
+  const extra = ML.getExtra();
+  const nom   = ML.getRole() === 'owner' ? 'Gestionnaire' : (extra.nom || 'Associé');
+  $('overlay-sheet').innerHTML = `
+    <div class="sheet-title">Nouvelle proposition</div>
+    <div class="field">
+      <label>Titre</label>
+      <input type="text" id="np-titre" placeholder="Ex: Ouvrir le mercredi…" maxlength="80">
+    </div>
+    <div class="field">
+      <label>Description (optionnel)</label>
+      <textarea id="np-desc" placeholder="Détails, arguments…" style="min-height:80px"></textarea>
+    </div>
+    <div class="sheet-btns">
+      <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
+      <button class="btn-ok" onclick="submitNewProp('${nom}')">SOUMETTRE</button>
+    </div>`;
+  $('overlay').classList.add('on');
+}
+
+async function submitNewProp(auteurNom) {
+  const titre = ($('np-titre')?.value || '').trim();
+  if (!titre) { toast('Titre requis', 'ko'); return; }
+  const desc = ($('np-desc')?.value || '').trim();
+  try {
+    await db.from('propositions').insert({
+      titre, description: desc || null, auteur_nom: auteurNom, statut:'ouvert'
+    });
+    toast('Proposition soumise ✓', 'ok');
+    $('overlay').classList.remove('on');
+  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+}
+
+function buildMonths(n) {
+  const now    = new Date();
+  const months = [];
+  for (let i = n-1; i >= 0; i--) {
+    const d     = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const key   = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const debut = key + '-01';
+    const fin   = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().slice(0,10);
+    const label = d.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+    months.push({key,debut,fin,label});
+  }
+  return months;
+}
+</script>
+</body>
+</html>
