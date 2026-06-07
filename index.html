@@ -236,6 +236,8 @@ async function checkPin() {
     window.location.href =
       matched === 'staff'    ? 'saisie.html'   :
       matched === 'caissier' ? 'caisse.html'   :
+      matched === 'chicha'   ? 'chicha.html'   :
+      matched === 'achats'   ? 'achats.html'   :
       'dashboard.html';
   } else {
     document.getElementById('pin-err').textContent = 'Code incorrect';
