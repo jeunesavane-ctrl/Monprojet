@@ -60,6 +60,18 @@
   <div id="__header__"></div>
   <div class="body-wrap">
 
+    <!-- Nom du gestionnaire -->
+    <div class="card">
+      <div class="card-head"><div class="card-title">Votre nom affiché</div></div>
+      <div class="card-body">
+        <div class="field">
+          <label>Nom dans votre badge</label>
+          <input id="owner-nom" type="text" placeholder="Ex: Mohamed Lamine Savane">
+        </div>
+        <button class="btn-primary" onclick="saveOwnerNom()">ENREGISTRER</button>
+      </div>
+    </div>
+
     <!-- Objectif journalier -->
     <div class="card">
       <div class="card-head"><div class="card-title">Objectif journalier</div></div>
@@ -245,9 +257,19 @@ async function loadConfig() {
     hOwner   = cfg.pin_owner   || null;
     hStaff   = cfg.pin_staff   || H_STAFF_DEF;
     hManager = cfg.pin_manager || H_MANAGER_DEF;
-    if (cfg.objectif_journalier) $('obj-val').value = cfg.objectif_journalier;
+    if (cfg.owner_nom)           $('owner-nom').value   = cfg.owner_nom;
+    if (cfg.objectif_journalier) $('obj-val').value     = cfg.objectif_journalier;
     if (cfg.note_manager !== undefined) $('note-manager').value = cfg.note_manager || '';
   } catch {}
+}
+
+async function saveOwnerNom() {
+  const val = ($('owner-nom')?.value || '').trim();
+  if (!val) { toast('Nom requis', 'ko'); return; }
+  try {
+    await db.from('config').upsert({ key:'owner_nom', value:val });
+    toast('Nom mis à jour ✓', 'ok');
+  } catch(e) { toast('Erreur : '+e.message, 'ko'); }
 }
 
 async function saveNoteManager() {

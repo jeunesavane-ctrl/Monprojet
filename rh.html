@@ -138,7 +138,11 @@
             <option value="manager">Manager</option>
             <option value="caissier">Caissier</option>
             <option value="staff">Staff</option>
+            <option value="chicha">Chicha</option>
+            <option value="achats">Responsable Achats</option>
             <option value="securite">Sécurité</option>
+            <option value="barman">Barman</option>
+            <option value="serveur">Serveur</option>
             <option value="autre">Autre</option>
           </select>
         </div>
@@ -160,7 +164,8 @@
   <div id="toast"></div>
 
 <script>
-let employes = [];
+let employes    = [];
+let _editStaffId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
@@ -209,16 +214,38 @@ function renderStaffList() {
     $('staff-list').innerHTML = '<div class="state-msg">Aucun membre d\'équipe.</div>'; return;
   }
   $('staff-list').innerHTML = employes.map(e => `
-    <div class="list-item">
-      <div class="list-info">
-        <div class="list-name">${e.nom} ${e.prenom||''}</div>
-        <div class="list-sub">${e.poste} · ${gnf(e.salaire_base||0)}/mois</div>
+    <div class="list-item" style="flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="list-info">
+          <div class="list-name">${e.nom} ${e.prenom||''}</div>
+          <div class="list-sub">${e.poste||'—'} · ${gnf(e.salaire_base||0)}/mois</div>
+        </div>
+        <div class="list-actions">
+          <button class="btn-secondary" style="font-size:11px;padding:5px 10px"
+            onclick="editStaff('${e.id}')">Modifier</button>
+          <button class="btn-icon" onclick="archiveStaff('${e.id}')" title="Désactiver">✕</button>
+        </div>
       </div>
-      <div class="list-actions">
-        <span class="badge muted">${e.poste}</span>
-        <button class="btn-icon" onclick="archiveStaff('${e.id}')" title="Désactiver">✕</button>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);
+        padding-top:4px;border-top:1px solid rgba(255,255,255,.04)">
+        ${e.telephone ? `<span>📱 ${e.telephone}</span>` : '<span style="opacity:.4">Pas de numéro</span>'}
+        ${e.date_embauche ? `<span>📅 Depuis ${frDateShort(e.date_embauche)}</span>` : ''}
       </div>
     </div>`).join('');
+}
+
+function editStaff(id) {
+  const e = employes.find(x => x.id === id);
+  if (!e) return;
+  _editStaffId = id;
+  $('ns-nom').value     = e.nom    || '';
+  $('ns-prenom').value  = e.prenom || '';
+  $('ns-poste').value   = e.poste  || 'staff';
+  $('ns-tel').value     = e.telephone || '';
+  $('ns-date').value    = e.date_embauche || '';
+  $('ns-salaire').value = e.salaire_base  || '';
+  document.querySelector('#overlay .sheet-title').textContent = 'Modifier l\'employé';
+  $('overlay').classList.add('on');
 }
 
 async function loadPresence() {
@@ -384,7 +411,12 @@ async function marquerRembourse(id) {
 }
 
 function openAddStaff() {
+  _editStaffId = null;
+  $('ns-nom').value = ''; $('ns-prenom').value = '';
+  $('ns-tel').value = ''; $('ns-salaire').value = '';
+  $('ns-poste').value = 'staff';
   $('ns-date').value = todayISO();
+  document.querySelector('#overlay .sheet-title').textContent = 'Nouvel employé';
   $('overlay').classList.add('on');
 }
 function closeOverlay() { $('overlay').classList.remove('on'); }
@@ -392,15 +424,21 @@ function closeOverlay() { $('overlay').classList.remove('on'); }
 async function saveStaff() {
   const nom = $('ns-nom').value.trim();
   if (!nom) { toast('Le nom est requis','ko'); return; }
+  const payload = {
+    nom, prenom: $('ns-prenom').value.trim(),
+    poste: $('ns-poste').value,
+    telephone: $('ns-tel').value.trim() || null,
+    date_embauche: $('ns-date').value || null,
+    salaire_base: parseFloat($('ns-salaire').value) || 0
+  };
   try {
-    await db.from('employes').insert({
-      nom, prenom:$('ns-prenom').value.trim(),
-      poste:$('ns-poste').value,
-      telephone:$('ns-tel').value.trim(),
-      date_embauche:$('ns-date').value||null,
-      salaire_base:parseFloat($('ns-salaire').value)||0
-    });
-    toast('Employé ajouté ✓','ok');
+    if (_editStaffId) {
+      await db.from('employes').update(payload).eq('id', _editStaffId);
+      toast('Employé mis à jour ✓','ok');
+    } else {
+      await db.from('employes').insert(payload);
+      toast('Employé ajouté ✓','ok');
+    }
     closeOverlay();
     loadStaff();
   } catch(e) { toast('Erreur : '+e.message,'ko'); }

@@ -133,7 +133,7 @@ const NAV = [
   { href:'caisse.html',     label:'Caisse',       roles:['caissier','manager','owner','associe'] },
   { href:'rapport.html',    label:'Rapport',      roles:['manager','owner'] },
   { href:'historique.html', label:'Historique',   roles:['staff','caissier','chicha','achats','manager','owner','associe'] },
-  { href:'fiche.html',      label:'Ma Fiche',     roles:['staff','chicha','achats'] },
+  { href:'fiche.html',      label:'Ma Fiche',     roles:['staff','caissier','chicha','achats'] },
   { href:'produits.html',   label:'Produits',     roles:['manager','owner'] },
   { href:'rh.html',         label:'RH',           roles:['manager','owner'] },
   { href:'finances.html',   label:'Finances',     roles:['owner'] },
@@ -152,7 +152,7 @@ function renderNav() {
   if (badge) {
     const extra = ML.getExtra();
     badge.textContent =
-      role==='owner'    ? 'Gestionnaire' :
+      role==='owner'    ? (extra.nom || 'Gestionnaire') :
       role==='manager'  ? (extra.nom || 'Manager') :
       role==='associe'  ? (extra.nom || 'Associé') :
       role==='staff'    ? (extra.nom || 'Staff') :

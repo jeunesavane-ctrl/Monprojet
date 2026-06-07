@@ -192,8 +192,9 @@ let hStaff     = H_STAFF_DEF;
 let hManager   = H_MANAGER_DEF;
 let setupBuf   = '';
 let setupFirst = null;
-let associesList = [];
+let associesList  = [];
 let employesList  = [];
+let ownerNomCfg   = null;
 
 function kp(k) {
   if (pinBuf.length >= 4) return;
@@ -213,6 +214,7 @@ async function checkPin() {
 
   if (h === hOwner) {
     matched = 'owner';
+    if (ownerNomCfg) extra = { nom: ownerNomCfg };
   } else if (h === hManager) {
     matched = 'manager';
   } else {
@@ -300,9 +302,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('screen-setup').style.display = 'flex';
       return;
     }
-    hOwner   = cfg.pin_owner;
-    hStaff   = cfg.pin_staff   || H_STAFF_DEF;
-    hManager = cfg.pin_manager || H_MANAGER_DEF;
+    hOwner       = cfg.pin_owner;
+    hStaff       = cfg.pin_staff   || H_STAFF_DEF;
+    hManager     = cfg.pin_manager || H_MANAGER_DEF;
+    ownerNomCfg  = cfg.owner_nom   || null;
 
     try {
       const [assocRes, empRes] = await Promise.all([
