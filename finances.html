@@ -724,7 +724,7 @@ async function loadTresorerie() {
       db.from('rapports').select('total_chicha,total_boissons,total_achats')
         .gte('date',debut).lte('date',fin),
       db.from('charges').select('montant').gte('mois',months[0]).lte('mois',months[months.length-1]),
-      db.from('avances').select('montant').eq('rembourse',false)
+      db.from('avances').select('montant').eq('rembourse',false).in('statut',['en_attente','approuvee'])
     ]);
 
     const raps    = rapRes.data    || [];

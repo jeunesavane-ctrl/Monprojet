@@ -156,11 +156,12 @@
                    = sum(rapports.net)  ← identique si bien enregistré
 
     charges_total  = sum(charges.montant) WHERE mois = YYYY-MM
-    salaires_total = sum(salaires_verses.salaire_brut) WHERE mois = YYYY-MM
+    salaires_total = sum(salaires_verses.salaire_brut) WHERE mois = YYYY-MM  ← affiché en KPI uniquement
 
-    resultat_net   = marge_brute - charges_total - salaires_total
+    resultat_net_comptable = marge_brute - charges_total - salaires_total  ← KPI "Résultat net"
+    resultat_distribuable  = marge_brute - charges_total                   ← base des parts (cohérent avec finances.html)
 
-    part_associe_X = max(0, resultat_net) * pourcentage_X / 100
+    part_associe_X = max(0, resultat_distribuable) * pourcentage_X / 100
 
   ⚠ On utilise sum(rapports.net) comme marge brute
     car net = recettes - achats est déjà calculé et vérifié par caisse.html.
@@ -235,8 +236,10 @@ async function loadBilan() {
   const chargesTotal  = charges.reduce((s,c) => s + (c.montant||0), 0);
   const salairesTotal = salaires.reduce((s,v) => s + (v.salaire_brut||0), 0);
 
-  /* RÉSULTAT NET = Marge − Charges fixes − Salaires */
-  const resultatNet = margeBrute - chargesTotal - salairesTotal;
+  /* Résultat net comptable = Marge − Charges − Salaires (affiché en KPI) */
+  const resultatComptable = margeBrute - chargesTotal - salairesTotal;
+  /* Résultat distribuable = Marge − Charges uniquement (cohérent avec finances.html) */
+  const resultatNet = margeBrute - chargesTotal;
 
   /* ── Mise à jour KPI ── */
   $('kpi-recettes').textContent = fmtM(recettesTotal);
@@ -244,14 +247,14 @@ async function loadBilan() {
   $('kpi-marge').textContent    = fmtM(margeBrute);
   $('kpi-charges').textContent  = fmtM(chargesTotal);
   $('kpi-salaires').textContent = fmtM(salairesTotal);
-  $('kpi-net').textContent      = fmtM(resultatNet);
-  $('kpi-net').style.color      = resultatNet >= 0 ? 'var(--ok)' : 'var(--danger)';
+  $('kpi-net').textContent      = fmtM(resultatComptable);
+  $('kpi-net').style.color      = resultatComptable >= 0 ? 'var(--ok)' : 'var(--danger)';
 
   /* Titre impression */
   $('bilan-title').textContent  = `MEDELLIN LOUNGE — Bilan ${frMonth(mois+'-01')}`;
 
   /* ── Compte de résultat ── */
-  renderCompte({ recettesTotal, achatsTotal, margeBrute, chargesTotal, salairesTotal, resultatNet });
+  renderCompte({ recettesTotal, achatsTotal, margeBrute, chargesTotal, salairesTotal, resultatNet: resultatComptable });
 
   /* ── Sessions détail ── */
   if (rapports.length) {

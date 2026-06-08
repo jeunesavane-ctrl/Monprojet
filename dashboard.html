@@ -116,7 +116,7 @@ async function loadDash() {
     body.innerHTML = '<div class="state-msg">Chargement…</div>';
 
   try {
-    const [rapRes, prodRes, cfgRes, assocRes, sessRes, rembPendRes, avancePendRes] = await Promise.all([
+    const [rapRes, prodRes, cfgRes, assocRes, sessRes, rembPendRes, avancePendRes, chargesRes] = await Promise.all([
       db.from('rapports').select('*').order('date',{ascending:false}),
       db.from('produits').select('*').eq('actif',true),
       db.from('config').select('key,value'),
@@ -124,7 +124,8 @@ async function loadDash() {
       db.from('sessions_caisse').select('id,date,statut,note_caissier')
         .eq('statut','valide_caissier').order('date',{ascending:false}),
       db.from('remboursements_ecart').select('id,employe_id,montant').eq('statut','en_attente'),
-      db.from('avances').select('id,employe_id,montant').eq('statut','en_attente')
+      db.from('avances').select('id,employe_id,montant').eq('statut','en_attente'),
+      db.from('charges').select('mois,montant')
     ]);
     if (rapRes.error) throw rapRes.error;
     const pendingSessions = sessRes.data   || [];
@@ -135,6 +136,7 @@ async function loadDash() {
     const prods   = prodRes.data || [];
     const cfg     = {};
     (cfgRes.data||[]).forEach(r => cfg[r.key] = r.value);
+    const chargesData = chargesRes.data || [];
     const assocPct   = (assocRes.data||[]).reduce((s,a) => s+(a.pourcentage||0), 0);
     const ownerPct   = Math.max(0, 100 - assocPct);
     const partLounge = parseFloat(cfg.part_lounge ?? 10) || 10;
@@ -176,7 +178,7 @@ async function loadDash() {
     /* ── KPIs globaux ── */
     const totRec = data.reduce((s,r) => s+(r.total_chicha||0)+(r.total_boissons||0), 0);
     const totDep = data.reduce((s,r) => s+(r.total_achats||0), 0);
-    const netAll = totRec - totDep;
+    const netAll = totRec - totDep;                          /* marge brute cumulée */
     const avgNet = Math.round(netAll / data.length);
     const totQC  = data.reduce((s,r) => s+(r.total_qty_chicha||0), 0);
     const best   = data.reduce((p,r) => (r.net||0)>(p.net||0) ? r : p, data[0]);
@@ -193,11 +195,17 @@ async function loadDash() {
     const netPrevM  = prevMo.reduce((s,r) => s+(r.net||0), 0);
     const trendMois = netPrevM ? Math.round((netMois-netPrevM)/Math.abs(netPrevM)*100) : null;
 
-    /* ── Part gestionnaire ── */
-    const partOwnerAll  = netAll  * distribPct * ownerPct / 100;
-    const partOwnerMois = netMois * distribPct * ownerPct / 100;
-    const partLoungeAll  = netAll  * partLounge / 100;
-    const partLoungeMois = netMois * partLounge / 100;
+    /* ── Charges (déduites du net pour le calcul des parts) ── */
+    const chargesAll    = chargesData.reduce((s,c) => s+(c.montant||0), 0);
+    const chargesThisMo = chargesData.filter(c=>c.mois===mNow).reduce((s,c) => s+(c.montant||0), 0);
+    const netAllNet     = netAll  - chargesAll;   /* net cumulé après charges */
+    const netMoisNet    = netMois - chargesThisMo; /* net ce mois après charges */
+
+    /* ── Part gestionnaire (sur net après charges) ── */
+    const partOwnerAll  = Math.max(0, netAllNet)  * distribPct * ownerPct / 100;
+    const partOwnerMois = Math.max(0, netMoisNet) * distribPct * ownerPct / 100;
+    const partLoungeAll  = Math.max(0, netAllNet)  * partLounge / 100;
+    const partLoungeMois = Math.max(0, netMoisNet) * partLounge / 100;
 
     /* ── Objectif ── */
     const objJour = parseFloat(cfg.objectif_journalier) || 0;
@@ -305,7 +313,7 @@ async function loadDash() {
 
     const ownerCard = role === 'owner' ? `
       <div class="kpi-card wide" style="background:var(--gdim);border:1px solid var(--gring)">
-        <div class="kpi-label">Votre part — ${(ownerPct*distribPct).toFixed(1)}% du net</div>
+        <div class="kpi-label">Votre part — ${(ownerPct*distribPct).toFixed(1)}% du net après charges</div>
         <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:10px">
           <div>
             <div style="font-size:10px;color:var(--muted);margin-bottom:3px">CE MOIS</div>
