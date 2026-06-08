@@ -132,15 +132,20 @@ async function loadAssocView() {
     const n     = parseInt($('period-sel').value) || 6;
     const months = buildMonths(n);
 
-    const [rapRes, chargesRes] = await Promise.all([
+    const [rapRes, chargesRes, cfgResAssoc] = await Promise.all([
       db.from('rapports').select('date,net,total_chicha,total_boissons,total_achats')
         .gte('date',months[0].debut).lte('date',months[months.length-1].fin),
       db.from('charges').select('mois,montant')
-        .gte('mois',months[0].key).lte('mois',months[months.length-1].key)
+        .gte('mois',months[0].key).lte('mois',months[months.length-1].key),
+      db.from('config').select('key,value')
     ]);
 
     const raps    = rapRes.data    || [];
     const charges = chargesRes.data || [];
+    const cfgAssoc = {};
+    (cfgResAssoc.data||[]).forEach(r => cfgAssoc[r.key] = r.value);
+    const partLoungeAssoc = parseFloat(cfgAssoc.part_lounge ?? 10) || 10;
+    const distribPctAssoc = Math.max(0, 100 - partLoungeAssoc) / 100;
 
     const monthData = months.map(m => {
       const mRaps    = raps.filter(r=>r.date>=m.debut&&r.date<=m.fin);
@@ -150,7 +155,7 @@ async function loadAssocView() {
       const netVentes = recettes - depenses;
       const fixCharges= mCharges.reduce((s,c)=>s+(c.montant||0),0);
       const netFinal  = netVentes - fixCharges;
-      const part      = Math.max(0, netFinal * pct / 100);
+      const part      = Math.max(0, netFinal * distribPctAssoc * pct / 100);
       const jours     = mRaps.length;
       return {label:m.label, recettes, depenses, netFinal, part, jours};
     });

@@ -230,8 +230,8 @@ async function loadBilan() {
 
   /* Marge brute = sum(rapports.net) ← source vérité (caisse.html) */
   const margeRapports = rapports.reduce((s,r) => s + (r.net||0), 0);
-  /* Vérification cohérence : doit être ≈ recettesTotal - achatsTotal */
-  const margeBrute    = margeRapports > 0 ? margeRapports : (recettesTotal - achatsTotal);
+  /* Fallback si aucun rapport (colonne net absente) */
+  const margeBrute    = rapports.length > 0 ? margeRapports : (recettesTotal - achatsTotal);
 
   const chargesTotal  = charges.reduce((s,c) => s + (c.montant||0), 0);
   const salairesTotal = salaires.reduce((s,v) => s + (v.salaire_brut||0), 0);
