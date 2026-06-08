@@ -194,14 +194,28 @@ async function loadNavBadges() {
   const role = ML.getRole();
   if (!['caissier','manager','owner'].includes(role)) return;
   try {
-    const { data } = await db.from('remboursements_ecart')
-      .select('id').eq('statut','en_attente');
-    const count = (data || []).length;
-    const badge = $('nbadge-caisse');
-    if (badge && count > 0) {
-      badge.style.display = 'inline-block';
-      badge.title = `${count} remboursement${count > 1 ? 's' : ''} en attente`;
-    }
+    const isManager = ['manager','owner'].includes(role);
+
+    const [rembRes, avanceRes] = await Promise.all([
+      db.from('remboursements_ecart').select('id').eq('statut','en_attente'),
+      isManager
+        ? db.from('avances').select('id').eq('statut','en_attente')
+        : Promise.resolve({ data: [] })
+    ]);
+
+    const rembCount   = (rembRes.data   || []).length;
+    const avanceCount = (avanceRes.data || []).length;
+
+    const setBadge = (id, count, label) => {
+      const el = $(id);
+      if (el && count > 0) {
+        el.style.display = 'inline-block';
+        el.title = `${count} ${label}${count > 1 ? 's' : ''} en attente`;
+      }
+    };
+
+    setBadge('nbadge-caisse',  rembCount,   'remboursement');
+    setBadge('nbadge-avances', avanceCount, 'avance');
   } catch {}
 }
 
