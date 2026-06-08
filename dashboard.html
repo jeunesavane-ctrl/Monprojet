@@ -137,8 +137,9 @@ async function loadDash() {
     const cfg     = {};
     (cfgRes.data||[]).forEach(r => cfg[r.key] = r.value);
     const chargesData = chargesRes.data || [];
-    const assocPct   = (assocRes.data||[]).reduce((s,a) => s+(a.pourcentage||0), 0);
-    const ownerPct   = Math.max(0, 100 - assocPct);
+    const assocPct    = (assocRes.data||[]).reduce((s,a) => s+(a.pourcentage||0), 0);
+    const cfgOwnerPct = parseFloat(cfg.owner_pct);
+    const ownerPct    = !isNaN(cfgOwnerPct) && cfgOwnerPct >= 0 ? cfgOwnerPct : Math.max(0, 100 - assocPct);
     const partLounge = parseFloat(cfg.part_lounge ?? 10) || 10;
     const distribPct = Math.max(0, 100 - partLounge) / 100; /* part distribuable */
     const role     = ML.getRole();

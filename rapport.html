@@ -603,8 +603,9 @@ async function doSubmit() {
       .select('pourcentage').eq('role','associe').eq('actif',true);
     const partLoungeR  = parseFloat(cfgMap.part_lounge ?? 10) || 10;
     const distribPctR  = Math.max(0, 100 - partLoungeR) / 100;
-    const assocPctR    = (assocR||[]).reduce((s,a)=>s+(a.pourcentage||0),0);
-    const ownerPctR    = Math.max(0, 100 - assocPctR);
+    const assocPctR     = (assocR||[]).reduce((s,a)=>s+(a.pourcentage||0),0);
+    const cfgOwnerPctR  = parseFloat(cfgMap.owner_pct);
+    const ownerPctR     = !isNaN(cfgOwnerPctR) && cfgOwnerPctR >= 0 ? cfgOwnerPctR : Math.max(0, 100 - assocPctR);
     const part         = Math.max(0, net * distribPctR * ownerPctR / 100);
 
     const hashStr = [nextNum,now.toISOString().slice(0,10),manager,caissier,

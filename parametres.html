@@ -102,9 +102,26 @@
             min="0" max="50" step="1" placeholder="10">
         </div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.6">
-          Le reste (100% − lounge − associés) revient au gestionnaire.
+          Réservé au lounge avant distribution. Le reste est partagé entre gestionnaire et associés.
         </div>
         <button class="btn-primary" onclick="savePartLounge()">ENREGISTRER</button>
+      </div>
+    </div>
+
+    <!-- Part gestionnaire -->
+    <div class="card">
+      <div class="card-head"><div class="card-title">Part gestionnaire</div></div>
+      <div class="card-body">
+        <div class="field">
+          <label>Votre % sur le net distribuable (1–99)</label>
+          <input id="owner-pct-val" type="number" inputmode="numeric"
+            min="1" max="99" step="1" placeholder="Automatique">
+        </div>
+        <div id="owner-pct-total" style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.6">
+          Si vide, calculé automatiquement : 100% − parts associés.
+        </div>
+        <button class="btn-primary" onclick="saveOwnerPct()">ENREGISTRER</button>
+        <button class="btn-cancel" style="margin-top:8px;width:100%" onclick="clearOwnerPct()">REMETTRE EN AUTO</button>
       </div>
     </div>
 
@@ -302,9 +319,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 /* ── Config ── */
 async function loadConfig() {
   try {
-    const { data } = await db.from('config').select('key,value');
+    const [cfgRes, assocRes] = await Promise.all([
+      db.from('config').select('key,value'),
+      db.from('employes').select('pourcentage').eq('role','associe').eq('actif',true)
+    ]);
     const cfg = {};
-    (data||[]).forEach(r => cfg[r.key] = r.value);
+    (cfgRes.data||[]).forEach(r => cfg[r.key] = r.value);
     hOwner   = cfg.pin_owner   || null;
     hStaff   = cfg.pin_staff   || H_STAFF_DEF;
     hManager = cfg.pin_manager || H_MANAGER_DEF;
@@ -313,7 +333,33 @@ async function loadConfig() {
     if (cfg.part_lounge !== undefined) $('part-lounge-val').value = cfg.part_lounge;
     else $('part-lounge-val').value = '10';
     if (cfg.note_manager !== undefined) $('note-manager').value = cfg.note_manager || '';
+    /* Part gestionnaire */
+    const assocPctTotal = (assocRes.data||[]).reduce((s,a)=>s+(a.pourcentage||0),0);
+    if (cfg.owner_pct !== undefined) {
+      $('owner-pct-val').value = cfg.owner_pct;
+    }
+    _refreshOwnerPctHint(parseFloat(cfg.owner_pct), assocPctTotal);
+    $('owner-pct-val').addEventListener('input', () => {
+      _refreshOwnerPctHint(parseFloat($('owner-pct-val').value), assocPctTotal);
+    });
   } catch {}
+}
+
+function _refreshOwnerPctHint(ownerPct, assocPctTotal) {
+  const el = $('owner-pct-total');
+  if (!el) return;
+  if (isNaN(ownerPct)) {
+    const auto = Math.max(0, 100 - assocPctTotal);
+    el.textContent = `Auto : vous recevez ${auto}% (100% − ${assocPctTotal}% associés).`;
+    el.style.color = '';
+    return;
+  }
+  const total = ownerPct + assocPctTotal;
+  const diff  = total - 100;
+  const ok    = Math.abs(diff) < 0.01;
+  el.innerHTML = `Gestionnaire ${ownerPct}% + Associés ${assocPctTotal}% = <strong>${total.toFixed(1)}%</strong>` +
+    (ok ? ' ✓' : ` <span style="color:var(--danger)">≠ 100% (écart ${diff > 0 ? '+' : ''}${diff.toFixed(1)}%)</span>`);
+  el.style.color = ok ? 'var(--ok)' : '';
 }
 
 async function saveOwnerNom() {
@@ -354,6 +400,25 @@ async function savePartLounge() {
     await db.from('config').upsert({ key:'part_lounge', value:String(val) });
     ML.logAction(`🏠 Part lounge → ${val}%`);
     toast(`Part lounge → ${val}% ✓`, 'ok');
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+async function saveOwnerPct() {
+  const val = parseFloat($('owner-pct-val').value);
+  if (isNaN(val) || val < 1 || val > 99) { toast('Valeur invalide (1–99)','ko'); return; }
+  try {
+    await db.from('config').upsert({ key:'owner_pct', value:String(val) });
+    ML.logAction(`👑 Part gestionnaire → ${val}%`);
+    toast(`Part gestionnaire → ${val}% ✓`, 'ok');
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+async function clearOwnerPct() {
+  try {
+    await db.from('config').delete().eq('key','owner_pct');
+    $('owner-pct-val').value = '';
+    toast('Part gestionnaire → automatique ✓', 'ok');
+    await loadConfig();
   } catch(e) { toast('Erreur : '+e.message,'ko'); }
 }
 

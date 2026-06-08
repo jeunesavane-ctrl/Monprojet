@@ -233,9 +233,10 @@ async function loadOwnerView() {
     const netTotal   = raps.reduce((s,r)=>s+(r.net||0),0)
                      - charges.reduce((s,c)=>s+(c.montant||0),0);
 
-    /* Part propriétaire = 100% - somme des parts associés */
-    const totalAssocPct = assocs.reduce((s,a)=>s+(a.pourcentage||0),0);
-    const ownerPct      = Math.max(0, 100 - totalAssocPct);
+    /* Part propriétaire : fixée en config ou calculée par défaut */
+    const totalAssocPct  = assocs.reduce((s,a)=>s+(a.pourcentage||0),0);
+    const cfgOwnerPctA   = parseFloat(cfgA.owner_pct);
+    const ownerPct       = !isNaN(cfgOwnerPctA) && cfgOwnerPctA >= 0 ? cfgOwnerPctA : Math.max(0, 100 - totalAssocPct);
 
     /* Part gestionnaire (après déduction lounge) */
     const ownerPartTotal = Math.max(0, netTotal * distribPctA * ownerPct / 100);
@@ -297,9 +298,16 @@ async function loadOwnerView() {
 async function getMyVoteInfo() {
   const role  = ML.getRole();
   const extra = ML.getExtra();
-  const { data: assocs } = await db.from('employes').select('id,nom,prenom,pourcentage').eq('role','associe').eq('actif',true);
-  const totalAssocPct = (assocs||[]).reduce((s,a) => s+(a.pourcentage||0), 0);
-  const ownerPct = Math.max(0, 100 - totalAssocPct);
+  const [assocRes2, cfgRes2] = await Promise.all([
+    db.from('employes').select('id,nom,prenom,pourcentage').eq('role','associe').eq('actif',true),
+    db.from('config').select('key,value')
+  ]);
+  const assocs = assocRes2.data || [];
+  const cfg2   = {};
+  (cfgRes2.data||[]).forEach(r => cfg2[r.key] = r.value);
+  const totalAssocPct  = assocs.reduce((s,a) => s+(a.pourcentage||0), 0);
+  const cfgOwnerPctG   = parseFloat(cfg2.owner_pct);
+  const ownerPct       = !isNaN(cfgOwnerPctG) && cfgOwnerPctG >= 0 ? cfgOwnerPctG : Math.max(0, 100 - totalAssocPct);
   _allAssocPcts = (assocs||[]).map(a => ({ nom:a.nom, poids:a.pourcentage||0 }));
   _allAssocPcts.push({ nom:'Gestionnaire', poids: ownerPct });
 

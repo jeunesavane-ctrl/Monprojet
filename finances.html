@@ -250,9 +250,10 @@ async function loadBilan() {
     const netVentes   = recettes - achats;
     const totCharges  = charges.reduce((s,c)=>s+c.montant,0);
     const netFinal    = netVentes - totCharges;
-    const assocPct    = assocs.reduce((s,a)=>s+(a.pourcentage||0),0);
-    const ownerPct    = Math.max(0, 100 - assocPct);
-    const partOwner   = Math.max(0, netFinal * distribPctF * ownerPct / 100);
+    const assocPct     = assocs.reduce((s,a)=>s+(a.pourcentage||0),0);
+    const cfgOwnerPctF = parseFloat(cfgF.owner_pct);
+    const ownerPct     = !isNaN(cfgOwnerPctF) && cfgOwnerPctF >= 0 ? cfgOwnerPctF : Math.max(0, 100 - assocPct);
+    const partOwner    = Math.max(0, netFinal * distribPctF * ownerPct / 100);
 
     el.innerHTML = `
       <div class="card">
@@ -482,8 +483,9 @@ async function loadDividendes() {
     const achats     = raps.reduce((s,r)=>s+(r.total_achats||0),0);
     const totCharges = charges.reduce((s,c)=>s+(c.montant||0),0);
     const netFinal   = recettes - achats - totCharges;
-    const assocPct   = assocs.reduce((s,a)=>s+(a.pourcentage||0),0);
-    const ownerPct   = Math.max(0, 100 - assocPct);
+    const assocPct     = assocs.reduce((s,a)=>s+(a.pourcentage||0),0);
+    const cfgOwnerPctD = parseFloat(cfgD.owner_pct);
+    const ownerPct     = !isNaN(cfgOwnerPctD) && cfgOwnerPctD >= 0 ? cfgOwnerPctD : Math.max(0, 100 - assocPct);
 
     const rows = [
       {

@@ -278,8 +278,9 @@ async function loadBilan() {
   const partLoungeVal  = Math.max(0, resultatNet) * partLoungePct / 100;
   const distribuable   = Math.max(0, resultatNet) * distribPct;
   const assocTotal     = associes.reduce((s,a) => s + Math.round(distribuable*(a.pourcentage||0)/100), 0);
-  const assocPctTotal  = associes.reduce((s,a) => s + (a.pourcentage||0), 0);
-  const ownerPctBilan  = Math.max(0, 100 - assocPctTotal);
+  const assocPctTotal   = associes.reduce((s,a) => s + (a.pourcentage||0), 0);
+  const cfgOwnerPctB    = parseFloat(cfg.owner_pct);
+  const ownerPctBilan   = !isNaN(cfgOwnerPctB) && cfgOwnerPctB >= 0 ? cfgOwnerPctB : Math.max(0, 100 - assocPctTotal);
   const partOwnerVal   = Math.round(distribuable * ownerPctBilan / 100);
 
   $('section-parts').style.display = '';
