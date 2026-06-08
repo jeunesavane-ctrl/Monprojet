@@ -231,6 +231,7 @@ let allAchats     = [];
 let employes      = [];
 let _realtimeSub  = false;
 let _noteSave;
+let _savingOp     = false;
 
 const isReadOnly  = () => ML.getRole() !== 'caissier';
 const caisseNoteKey = () => `ml_caisse_note_${todayISO()}`;
@@ -855,6 +856,7 @@ function onMotifSel() {
 }
 
 async function saveMouvement(type) {
+  if (_savingOp) return;
   const sel     = document.getElementById('mv-sel');
   const custom  = document.getElementById('mv-custom');
   const motif   = (sel?.value === 'Autre' && custom?.value.trim())
@@ -873,6 +875,7 @@ async function saveMouvement(type) {
     if (!ok) return;
   }
 
+  _savingOp = true;
   try {
     const { data, error } = await db.from('mouvements_caisse').insert({
       session_id: sessionData.id, type, motif, montant, note
@@ -884,6 +887,7 @@ async function saveMouvement(type) {
     allMouvements.push(data);
     renderCaisse();
   } catch(e) { toast('Erreur : '+e.message, 'ko'); }
+  finally { _savingOp = false; }
 }
 
 async function deleteMouvement(id) {
@@ -926,6 +930,7 @@ function openCreditModal() {
 }
 
 async function saveCredit() {
+  if (_savingOp) return;
   const client_nom = document.getElementById('cr-nom')?.value.trim() || '';
   const montant    = parseInt(document.getElementById('cr-montant')?.value) || 0;
   const note       = document.getElementById('cr-note')?.value.trim() || null;
@@ -933,6 +938,7 @@ async function saveCredit() {
   if (!client_nom) { toast('Nom du client requis', 'ko'); return; }
   if (!montant)    { toast('Montant requis', 'ko'); return; }
 
+  _savingOp = true;
   try {
     const { data, error } = await db.from('credits').insert({
       session_id: sessionData.id, client_nom, montant, note, rembourse: false
@@ -944,6 +950,7 @@ async function saveCredit() {
     allCredits.push(data);
     renderCaisse();
   } catch(e) { toast('Erreur : '+e.message, 'ko'); }
+  finally { _savingOp = false; }
 }
 
 async function toggleCredit(id, rembourse) {

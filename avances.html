@@ -364,6 +364,13 @@ async function addAvance(statut) {
   if (!empId)   { toast('Sélectionnez un employé','ko'); return; }
   if (!montant) { toast('Montant requis','ko'); return; }
 
+  const emp = _employes[empId];
+  const salaire = emp?.salaire_base || 0;
+  if (salaire > 0 && montant > salaire) {
+    const ok = confirm(`⚠ Avance de ${gnf(montant)} > salaire de base (${gnf(salaire)}).\n\nConfirmer quand même ?`);
+    if (!ok) return;
+  }
+
   try {
     const { error } = await db.from('avances').insert({
       employe_id: empId,
