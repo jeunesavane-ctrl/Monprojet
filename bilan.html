@@ -195,19 +195,25 @@ async function loadBilan() {
     { data: rapportsData },
     { data: chargesData  },
     { data: salairesData },
-    { data: associesData }
+    { data: associesData },
+    { data: cfgData      }
   ] = await Promise.all([
     db.from('rapports').select('date,total_chicha,total_boissons,total_achats,recettes,net,statut')
       .gte('date', dateDebut).lt('date', dateFin).order('date'),
     db.from('charges').select('montant,categorie').eq('mois', mois),
     db.from('salaires_verses').select('employe_id,salaire_brut,net_verse,avances_deduites').eq('mois', mois),
-    db.from('employes').select('nom,prenom,pourcentage').eq('role','associe').eq('actif',true).order('nom')
+    db.from('employes').select('nom,prenom,pourcentage').eq('role','associe').eq('actif',true).order('nom'),
+    db.from('config').select('key,value')
   ]);
 
   const rapports  = rapportsData  || [];
   const charges   = chargesData   || [];
   const salaires  = salairesData  || [];
   const associes  = associesData  || [];
+  const cfg       = {};
+  (cfgData||[]).forEach(r => cfg[r.key] = r.value);
+  const partLoungePct = parseFloat(cfg.part_lounge ?? 10) || 10;
+  const distribPct    = Math.max(0, 100 - partLoungePct) / 100;
 
   /* ── CALCULS PRINCIPAUX ─────────────────────────────────────────
      Priorité : utiliser rapports.net (déjà vérifié par caisse.html)
@@ -265,22 +271,37 @@ async function loadBilan() {
     }).join('');
   }
 
-  /* ── Parts associés ── */
-  if (associes.length && resultatNet > 0) {
-    const partBase = resultatNet; /* on ne distribue que si positif */
-    $('section-parts').style.display = '';
-    $('parts-list').innerHTML = associes.map(a => {
-      const part = Math.round(partBase * (a.pourcentage||0) / 100);
-      return `<div class="part-row">
-        <div>${a.nom}<span class="part-pct">${a.pourcentage||0}%</span></div>
-        <div class="part-val">${gnf(part)}</div>
+  /* ── Parts associés + lounge ── */
+  const partLoungeVal  = Math.max(0, resultatNet) * partLoungePct / 100;
+  const distribuable   = Math.max(0, resultatNet) * distribPct;
+  const assocTotal     = associes.reduce((s,a) => s + Math.round(distribuable*(a.pourcentage||0)/100), 0);
+  const assocPctTotal  = associes.reduce((s,a) => s + (a.pourcentage||0), 0);
+  const ownerPctBilan  = Math.max(0, 100 - assocPctTotal);
+  const partOwnerVal   = Math.round(distribuable * ownerPctBilan / 100);
+
+  $('section-parts').style.display = '';
+  if (resultatNet > 0) {
+    $('parts-list').innerHTML = `
+      <div class="part-row" style="background:rgba(255,255,255,.02)">
+        <div>🏠 Lounge<span class="part-pct">${partLoungePct}%</span></div>
+        <div class="part-val" style="color:var(--muted)">${gnf(partLoungeVal)}</div>
+      </div>
+      ${associes.map(a => {
+        const part = Math.round(distribuable * (a.pourcentage||0) / 100);
+        return `<div class="part-row">
+          <div>${a.nom}<span class="part-pct">${a.pourcentage||0}%</span></div>
+          <div class="part-val">${gnf(part)}</div>
+        </div>`;
+      }).join('')}
+      <div class="part-row">
+        <div>Gestionnaire<span class="part-pct">${ownerPctBilan}%</span></div>
+        <div class="part-val">${gnf(partOwnerVal)}</div>
+      </div>
+      <div class="part-row" style="background:rgba(201,168,76,.05)">
+        <div style="font-weight:600">Total (100%)</div>
+        <div class="part-val">${gnf(partLoungeVal + assocTotal + partOwnerVal)}</div>
       </div>`;
-    }).join('') + `<div class="part-row" style="background:rgba(201,168,76,.05)">
-        <div style="font-weight:600">Total distribué</div>
-        <div class="part-val">${gnf(associes.reduce((s,a) => s+Math.round(partBase*(a.pourcentage||0)/100),0))}</div>
-      </div>`;
-  } else if (associes.length && resultatNet <= 0) {
-    $('section-parts').style.display = '';
+  } else {
     $('parts-list').innerHTML = `<div class="part-row"><div style="color:var(--muted)">
       Résultat net négatif — aucune distribution</div></div>`;
   }

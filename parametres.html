@@ -92,6 +92,22 @@
       </div>
     </div>
 
+    <!-- Part lounge -->
+    <div class="card">
+      <div class="card-head"><div class="card-title">Part lounge</div></div>
+      <div class="card-body">
+        <div class="field">
+          <label>% du bénéfice net réservé au lounge (0–50)</label>
+          <input id="part-lounge-val" type="number" inputmode="numeric"
+            min="0" max="50" step="1" placeholder="10">
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.6">
+          Le reste (100% − lounge − associés) revient au gestionnaire.
+        </div>
+        <button class="btn-primary" onclick="savePartLounge()">ENREGISTRER</button>
+      </div>
+    </div>
+
     <!-- Note pour le Manager -->
     <div class="card">
       <div class="card-head"><div class="card-title">Note pour le Manager</div></div>
@@ -292,8 +308,10 @@ async function loadConfig() {
     hOwner   = cfg.pin_owner   || null;
     hStaff   = cfg.pin_staff   || H_STAFF_DEF;
     hManager = cfg.pin_manager || H_MANAGER_DEF;
-    if (cfg.owner_nom)           $('owner-nom').value    = cfg.owner_nom;
-    if (cfg.objectif_journalier) $('obj-val').value      = cfg.objectif_journalier;
+    if (cfg.owner_nom)           $('owner-nom').value          = cfg.owner_nom;
+    if (cfg.objectif_journalier) $('obj-val').value            = cfg.objectif_journalier;
+    if (cfg.part_lounge !== undefined) $('part-lounge-val').value = cfg.part_lounge;
+    else $('part-lounge-val').value = '10';
     if (cfg.note_manager !== undefined) $('note-manager').value = cfg.note_manager || '';
   } catch {}
 }
@@ -327,6 +345,16 @@ async function saveObjectif() {
     await db.from('config').upsert({ key:'objectif_journalier', value:String(val) });
     toast('Objectif enregistré ✓','ok');
   } catch(e) { toast('Erreur','ko'); }
+}
+
+async function savePartLounge() {
+  const val = parseFloat($('part-lounge-val').value);
+  if (isNaN(val) || val < 0 || val > 50) { toast('Valeur invalide (0–50)','ko'); return; }
+  try {
+    await db.from('config').upsert({ key:'part_lounge', value:String(val) });
+    ML.logAction(`🏠 Part lounge → ${val}%`);
+    toast(`Part lounge → ${val}% ✓`, 'ok');
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
 }
 
 /* ── PINs partagés ── */

@@ -135,8 +135,10 @@ async function loadDash() {
     const prods   = prodRes.data || [];
     const cfg     = {};
     (cfgRes.data||[]).forEach(r => cfg[r.key] = r.value);
-    const assocPct = (assocRes.data||[]).reduce((s,a) => s+(a.pourcentage||0), 0);
-    const ownerPct = Math.max(0, 100 - assocPct);
+    const assocPct   = (assocRes.data||[]).reduce((s,a) => s+(a.pourcentage||0), 0);
+    const ownerPct   = Math.max(0, 100 - assocPct);
+    const partLounge = parseFloat(cfg.part_lounge ?? 10) || 10;
+    const distribPct = Math.max(0, 100 - partLounge) / 100; /* part distribuable */
     const role     = ML.getRole();
 
     const btnRapPasse = role !== 'associe' ? `
@@ -192,8 +194,10 @@ async function loadDash() {
     const trendMois = netPrevM ? Math.round((netMois-netPrevM)/Math.abs(netPrevM)*100) : null;
 
     /* ── Part gestionnaire ── */
-    const partOwnerAll  = netAll  * ownerPct / 100;
-    const partOwnerMois = netMois * ownerPct / 100;
+    const partOwnerAll  = netAll  * distribPct * ownerPct / 100;
+    const partOwnerMois = netMois * distribPct * ownerPct / 100;
+    const partLoungeAll  = netAll  * partLounge / 100;
+    const partLoungeMois = netMois * partLounge / 100;
 
     /* ── Objectif ── */
     const objJour = parseFloat(cfg.objectif_journalier) || 0;
@@ -301,8 +305,8 @@ async function loadDash() {
 
     const ownerCard = role === 'owner' ? `
       <div class="kpi-card wide" style="background:var(--gdim);border:1px solid var(--gring)">
-        <div class="kpi-label">Votre part — ${ownerPct.toFixed(1)}%</div>
-        <div style="display:flex;gap:28px;flex-wrap:wrap">
+        <div class="kpi-label">Votre part — ${(ownerPct*distribPct).toFixed(1)}% du net</div>
+        <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:10px">
           <div>
             <div style="font-size:10px;color:var(--muted);margin-bottom:3px">CE MOIS</div>
             <div class="kpi-val" style="color:var(--gold);font-size:26px">${gnf(partOwnerMois)}</div>
@@ -311,6 +315,11 @@ async function loadDash() {
             <div style="font-size:10px;color:var(--muted);margin-bottom:3px">CUMULÉ TOTAL</div>
             <div class="kpi-val" style="color:var(--muted);font-size:20px">${gnf(partOwnerAll)}</div>
           </div>
+        </div>
+        <div style="border-top:1px solid rgba(201,168,76,.15);padding-top:8px;
+          display:flex;justify-content:space-between;font-size:12px;color:var(--muted)">
+          <span>🏠 Réserve lounge (${partLounge}%)</span>
+          <span>${gnf(partLoungeMois)} ce mois · ${gnf(partLoungeAll)} total</span>
         </div>
       </div>` : '';
 
@@ -1156,19 +1165,24 @@ async function loadDashAssoc() {
       months.push({key, debut, fin, label, labelLong});
     }
 
-    const [rapRes, chargesRes] = await Promise.all([
+    const [rapRes, chargesRes, cfgRes2] = await Promise.all([
       db.from('rapports').select('date,net').gte('date',months[0].debut).lte('date',months[months.length-1].fin),
-      db.from('charges').select('mois,montant').gte('mois',months[0].key).lte('mois',months[months.length-1].key)
+      db.from('charges').select('mois,montant').gte('mois',months[0].key).lte('mois',months[months.length-1].key),
+      db.from('config').select('key,value')
     ]);
 
     const raps    = rapRes.data    || [];
     const charges = chargesRes.data || [];
+    const cfg2    = {};
+    (cfgRes2.data||[]).forEach(r => cfg2[r.key] = r.value);
+    const partLng2   = parseFloat(cfg2.part_lounge ?? 10) || 10;
+    const distribPct2 = Math.max(0, 100 - partLng2) / 100;
 
     const monthData = months.map(m => {
       const mNet     = raps.filter(r=>r.date>=m.debut&&r.date<=m.fin).reduce((s,r)=>s+(r.net||0),0);
       const mCharges = charges.filter(c=>c.mois===m.key).reduce((s,c)=>s+(c.montant||0),0);
       const netFinal = mNet - mCharges;
-      const part     = Math.max(0, netFinal * pct / 100);
+      const part     = Math.max(0, netFinal * distribPct2 * pct / 100);
       return {...m, mNet, mCharges, netFinal, part};
     });
 
