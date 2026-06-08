@@ -132,12 +132,15 @@ const NAV = [
   { href:'achats.html',     label:'Achats',     roles:['achats','manager','owner'] },
   { href:'caisse.html',     label:'Caisse',     roles:['caissier','manager','owner','associe'] },
   { href:'rapport.html',    label:'Rapport',    roles:['manager','owner'] },
+  { href:'pointage.html',   label:'Pointage',   roles:['manager','owner'] },
   { href:'historique.html', label:'Historique', roles:['staff','caissier','chicha','achats','manager','owner','associe'] },
   { href:'fiche.html',      label:'Ma Fiche',   roles:['staff','caissier','chicha','achats'] },
   { href:'avance.html',     label:'Avance',     roles:['staff','caissier','chicha','achats'] },
   { href:'produits.html',   label:'Produits',   roles:['manager','owner'] },
   { href:'rh.html',         label:'RH',         roles:['manager','owner'] },
+  { href:'avances.html',    label:'Avances',    roles:['manager','owner'] },
   { href:'finances.html',   label:'Finances',   roles:['owner','manager','associe'] },
+  { href:'bilan.html',      label:'Bilan',      roles:['owner','manager','associe'] },
   { href:'parametres.html', label:'Paramètres', roles:['owner'] },
 ];
 
