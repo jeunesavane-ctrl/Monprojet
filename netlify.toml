@@ -1,0 +1,24 @@
+[build]
+  publish = "."
+  ignore = "echo 'no build'"
+
+# Exclure les fichiers de dev du déploiement
+[[plugins]]
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Cache-Control = "no-store, max-age=0"
+
+[[headers]]
+  for = "/shared.js"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0"
+
+[[headers]]
+  for = "/shared.css"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"

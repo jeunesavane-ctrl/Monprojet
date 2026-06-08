@@ -72,14 +72,98 @@
       <div class="card-body">
         <div id="pres-stats"><div class="state-msg">Chargement…</div></div>
         <div class="pres-recent" id="pres-list" style="display:none"></div>
+        <!-- Bandeau sanction absences -->
+        <div id="sanction-banner" style="display:none;margin-top:10px;font-size:12px;
+          line-height:1.6;padding:8px 10px;border-radius:6px;border:1px solid"></div>
+      </div>
+    </div>
+
+    <!-- Justification absence / raison valable -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">🔔 Absence / Raison valable</div>
+        <button class="btn-secondary" style="height:30px;font-size:11px;padding:0 10px"
+          onclick="toggleJustifyForm()">+ Signaler</button>
+      </div>
+      <div class="card-body">
+        <div id="justify-list"><div class="state-msg">Aucune justification soumise.</div></div>
+        <!-- Formulaire (caché par défaut) -->
+        <div id="justify-form" style="display:none;margin-top:12px;padding-top:12px;
+          border-top:1px solid var(--b1)">
+          <div class="field" style="margin-bottom:10px">
+            <label>Date de l'absence</label>
+            <input type="date" id="f-justif-date">
+          </div>
+          <div class="field" style="margin-bottom:10px">
+            <label>Raison</label>
+            <select id="f-justif-type">
+              <option value="maladie">🤒 Maladie</option>
+              <option value="urgence">🚨 Urgence familiale</option>
+              <option value="conge">📅 Congé demandé</option>
+              <option value="autre">📝 Autre</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:12px">
+            <label>Précision (optionnel)</label>
+            <input type="text" id="f-justif-motif"
+              placeholder="Ex: hospitalisation, enfant malade…">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button class="btn-secondary" onclick="toggleJustifyForm()">Annuler</button>
+            <button class="btn-primary"   onclick="soumettreJustification()">Envoyer</button>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5">
+            Le manager examinera votre justification. Si elle est acceptée,
+            l'absence ne comptera pas comme sanction.
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Avances -->
     <div class="card">
-      <div class="card-head"><div class="card-title">Avances en cours</div></div>
+      <div class="card-head">
+        <div class="card-title">Avances en cours</div>
+        <button class="btn-secondary" style="height:30px;font-size:11px;padding:0 10px"
+          onclick="toggleForm()">➕ Demander</button>
+      </div>
       <div class="card-body">
         <div id="avances-wrap"><div class="state-msg">Chargement…</div></div>
+
+        <!-- Formulaire de demande (caché par défaut) -->
+        <div id="avance-form" style="display:none;margin-top:12px;padding-top:12px;
+          border-top:1px solid var(--b1)">
+          <div class="field" style="margin-bottom:10px">
+            <label>Montant souhaité (GNF)</label>
+            <input type="number" id="f-avance-montant" inputmode="numeric" placeholder="0"
+              style="font-size:20px;font-family:'Bebas Neue',sans-serif;text-align:right">
+          </div>
+          <div class="field" style="margin-bottom:12px">
+            <label>Motif (optionnel)</label>
+            <input type="text" id="f-avance-note" placeholder="Ex: urgence médicale…">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button class="btn-secondary" onclick="toggleForm()">Annuler</button>
+            <button class="btn-primary"   onclick="soumettreAvance()">Envoyer</button>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5">
+            Votre demande sera visible par le manager pour approbation.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Écarts caisse (caissier uniquement, si manquant) -->
+    <div class="card" id="ecarts-card" style="display:none">
+      <div class="card-head">
+        <div class="card-title" style="color:var(--danger)">⚠ Écarts caisse</div>
+        <div class="card-sub" id="ecarts-sub" style="color:var(--danger)">0 GNF</div>
+      </div>
+      <div class="card-body">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.5">
+          Ces montants seront déduits de votre salaire ce mois.
+        </div>
+        <div id="ecarts-wrap"></div>
       </div>
     </div>
 
@@ -87,8 +171,8 @@
     <div class="solde-card">
       <div>
         <div class="solde-label">Salaire net estimé ce mois</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">
-          base − avances non remboursées</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px"
+          id="solde-detail">base − avances non remboursées</div>
       </div>
       <div class="solde-val" id="solde-val">—</div>
     </div>
@@ -97,7 +181,13 @@
   <div id="toast"></div>
 
 <script>
-let salaireBase = 0;
+let salaireBase         = 0;
+let totalAvances        = 0;   /* avances approuvées non remboursées */
+let totalEcarts         = 0;   /* manques nets après remboursements validés */
+let totalSurplus        = 0;   /* surplus de caisse = crédit sur salaire */
+let totalSanction       = 0;   /* déduction pour absences non justifiées */
+let totalSanctionRetard = 0;   /* déduction pour retards (≥5/mois) */
+let absNJCount          = 0;   /* nb absences non justifiées ce mois */
 
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
@@ -115,7 +205,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('pres-mois').value = todayISO().slice(0,7);
 
   await loadEmployee(empId);
-  await Promise.all([loadPresences(), loadAvances(empId)]);
+  await Promise.all([loadPresences(), loadAvances(empId), loadEcarts(empId), loadJustifications(empId), loadSanctionStatus(empId)]);
 });
 
 async function loadEmployee(empId) {
@@ -196,6 +286,43 @@ async function loadPresences() {
   }
 }
 
+function toggleForm() {
+  const f = $('avance-form');
+  const open = f.style.display === 'none';
+  f.style.display = open ? '' : 'none';
+  if (open) {
+    $('f-avance-montant').value = '';
+    $('f-avance-note').value    = '';
+    setTimeout(() => $('f-avance-montant').focus(), 80);
+  }
+}
+
+async function soumettreAvance() {
+  const extra   = ML.getExtra();
+  const empId   = extra.employe_id;
+  const montant = parseInt($('f-avance-montant')?.value) || 0;
+  const note    = ($('f-avance-note')?.value || '').trim();
+
+  if (!empId)   { toast('Compte introuvable','ko'); return; }
+  if (!montant) { toast('Montant requis','ko'); return; }
+
+  try {
+    const { error } = await db.from('avances').insert({
+      employe_id:   empId,
+      date:         todayISO(),
+      montant,
+      statut:       'en_attente',  /* Manager doit approuver — pas de déduction auto */
+      rembourse:    false,
+      note_demande: note || null
+    });
+    if (error) throw error;
+
+    toast('Demande envoyée — en attente d\'approbation ✓', 'ok');
+    toggleForm();
+    await loadAvances(empId);
+  } catch(e) { toast('Erreur : '+e.message, 'ko'); }
+}
+
 async function loadAvances(empId) {
   try {
     const { data } = await db.from('avances')
@@ -205,7 +332,7 @@ async function loadAvances(empId) {
       .order('date', { ascending:false });
 
     const list = data || [];
-    const totalAvances = list
+    totalAvances = list
       .filter(a => a.statut === 'approuvee')
       .reduce((s,a) => s + (a.montant||0), 0);
 
@@ -225,12 +352,321 @@ async function loadAvances(empId) {
         </div>`).join('');
     }
 
-    const solde = Math.max(0, salaireBase - totalAvances);
-    $('solde-val').textContent = gnf(solde);
+    updateSolde();
 
   } catch(e) {
     $('avances-wrap').innerHTML = `<div class="state-msg err">${e.message}</div>`;
   }
+}
+
+/* ── Écarts caisse : manques (remboursables) + surplus (crédit) ─────── */
+async function loadEcarts(empId) {
+  if (ML.getRole() !== 'caissier') return;
+  const mois  = $('pres-mois').value || todayISO().slice(0,7);
+  const debut = mois + '-01';
+  const fin   = new Date(+mois.slice(0,4), +mois.slice(5,7), 0).toISOString().slice(0,10);
+  try {
+    const [sessRes, rembRes] = await Promise.all([
+      db.from('sessions_caisse')
+        .select('id,date,ecart,total_reel')
+        .eq('caissier_id', empId)
+        .not('ecart', 'is', null)
+        .neq('ecart', 0)
+        .gte('date', debut).lte('date', fin)
+        .order('date', { ascending: false }),
+      db.from('remboursements_ecart')
+        .select('session_id,montant,statut')
+        .eq('employe_id', empId)
+    ]);
+
+    const sessions = sessRes.data || [];
+
+    /* Maps : total validé et en attente par session */
+    const rembValMap  = {};
+    const rembPendMap = {};
+    (rembRes.data || []).forEach(r => {
+      if (r.statut === 'valide')      rembValMap[r.session_id]  = (rembValMap[r.session_id]  || 0) + r.montant;
+      if (r.statut === 'en_attente')  rembPendMap[r.session_id] = (rembPendMap[r.session_id] || 0) + r.montant;
+    });
+
+    totalEcarts  = 0;
+    totalSurplus = 0;
+
+    const rows = sessions.map(s => {
+      if (s.ecart > 0) {
+        const validated  = rembValMap[s.id]  || 0;
+        const pending    = rembPendMap[s.id] || 0;
+        const restant    = Math.max(0, s.ecart - validated);
+        const disponible = Math.max(0, restant - pending);
+        totalEcarts += restant;
+        return { ...s, type:'manque', validated, pending, restant, disponible };
+      } else {
+        const bonus = Math.abs(s.ecart);
+        totalSurplus += bonus;
+        return { ...s, type:'surplus', bonus };
+      }
+    });
+
+    if (!rows.length) { $('ecarts-card').style.display='none'; updateSolde(); return; }
+
+    $('ecarts-card').style.display = '';
+    const netEcart = totalEcarts - totalSurplus;
+    $('ecarts-sub').textContent = netEcart > 0
+      ? `− ${gnf(netEcart)}`
+      : netEcart < 0 ? `+ ${gnf(-netEcart)}` : '0';
+    $('ecarts-sub').style.color = netEcart > 0
+      ? 'var(--danger)'
+      : netEcart < 0 ? 'var(--ok)' : 'var(--muted)';
+
+    $('ecarts-wrap').innerHTML = rows.map(r => {
+      if (r.type === 'surplus') {
+        return `
+          <div class="avance-item">
+            <div>
+              <div style="font-size:14px;font-weight:500">${frDateShort(r.date)}</div>
+              <div class="avance-info">Surplus de caisse</div>
+              <span class="statut-chip chip-ok">Crédit</span>
+            </div>
+            <div class="avance-montant" style="color:var(--ok)">+ ${gnf(r.bonus)}</div>
+          </div>`;
+      }
+      /* manque */
+      const theorique  = (r.total_reel||0) + r.ecart;
+      const regularise = r.restant === 0;
+      return `
+        <div class="avance-item">
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:500">${frDateShort(r.date)}</div>
+            <div class="avance-info">
+              Théorique ${gnf(theorique)} · Réel ${gnf(r.total_reel||0)}
+              ${r.validated > 0 ? `· <span style="color:var(--ok)">Remboursé ${gnf(r.validated)}</span>` : ''}
+              ${r.pending   > 0 ? `· <span style="color:#ffb400">En attente ${gnf(r.pending)}</span>` : ''}
+            </div>
+            ${r.restant === 0
+              ? `<span class="statut-chip chip-ok">Régularisé ✓</span>`
+              : r.disponible === 0
+                ? `<span class="statut-chip chip-wait">En attente de confirmation</span>`
+                : `<span class="statut-chip" style="background:rgba(255,80,80,.12);color:var(--danger);
+                     border:1px solid rgba(255,80,80,.2)">Restant − ${gnf(r.restant)}</span>`}
+            ${r.disponible > 0 ? `
+            <div id="remb-form-${r.id}" style="display:none;margin-top:8px">
+              <div style="background:var(--bg3);border-radius:6px;padding:10px;
+                display:flex;flex-direction:column;gap:8px">
+                <input id="remb-amt-${r.id}" type="number" min="1" max="${r.disponible}"
+                  placeholder="Montant remboursé (max ${gnf(r.disponible)})"
+                  style="background:var(--bg2);border:1px solid var(--bg3);border-radius:4px;
+                  color:var(--text);padding:7px 10px;font-size:13px;width:100%;box-sizing:border-box">
+                <input id="remb-note-${r.id}" type="text" placeholder="Note optionnelle"
+                  style="background:var(--bg2);border:1px solid var(--bg3);border-radius:4px;
+                  color:var(--text);padding:7px 10px;font-size:13px;width:100%;box-sizing:border-box">
+                <div style="display:flex;gap:8px">
+                  <button onclick="soumettreRemboursement('${r.id}','${empId}',${r.disponible})"
+                    style="flex:1;padding:8px;background:rgba(201,168,76,.15);
+                    border:1px solid rgba(201,168,76,.3);border-radius:6px;
+                    color:var(--gold);font-size:12px;font-weight:600;cursor:pointer">
+                    Envoyer
+                  </button>
+                  <button onclick="toggleRembForm('${r.id}')"
+                    style="padding:8px 12px;background:var(--bg2);border:1px solid var(--bg3);
+                    border-radius:6px;color:var(--muted);font-size:12px;cursor:pointer">
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            </div>` : ''}
+          </div>
+          ${r.disponible > 0 ? `
+          <button onclick="toggleRembForm('${r.id}')"
+            style="margin-left:10px;padding:7px 12px;background:rgba(201,168,76,.1);
+            border:1px solid rgba(201,168,76,.3);border-radius:6px;color:var(--gold);
+            font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0">
+            Rembourser
+          </button>` : ''}
+        </div>`;
+    }).join('');
+
+    updateSolde();
+  } catch(e) { console.warn('loadEcarts', e.message); }
+}
+
+function toggleRembForm(sessionId) {
+  const form = $('remb-form-' + sessionId);
+  if (!form) return;
+  form.style.display = form.style.display === 'none' ? '' : 'none';
+}
+
+async function soumettreRemboursement(sessionId, empId, maxMontant) {
+  const amt  = parseInt($('remb-amt-'  + sessionId)?.value) || 0;
+  const note = ($('remb-note-' + sessionId)?.value || '').trim();
+  if (!amt || amt <= 0)     { toast('Montant requis', 'ko');                  return; }
+  if (amt > maxMontant)     { toast(`Maximum ${gnf(maxMontant)}`, 'ko');       return; }
+  try {
+    const { error } = await db.from('remboursements_ecart').insert({
+      session_id: sessionId,
+      employe_id: empId,
+      montant:    amt,
+      note:       note || null,
+      statut:     'en_attente'
+    });
+    if (error) throw error;
+    toast('Remboursement soumis — en attente de confirmation ✓', 'ok');
+    toggleRembForm(sessionId);
+    await loadEcarts(empId);
+  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+}
+
+/* ── Justifications d'absence ───────────────────────────────────────── */
+async function loadJustifications(empId) {
+  try {
+    const { data } = await db.from('justifications')
+      .select('*')
+      .eq('employe_id', empId)
+      .order('date', { ascending: false })
+      .limit(10);
+
+    const list = data || [];
+    const el   = $('justify-list');
+    if (!list.length) {
+      el.innerHTML = '<div class="state-msg">Aucune justification soumise.</div>';
+      return;
+    }
+
+    const TYPES  = { maladie:'🤒 Maladie', urgence:'🚨 Urgence', conge:'📅 Congé', autre:'📝 Autre' };
+    const CHIPS  = { en_attente:'chip-wait', approuvee:'chip-ok', rejetee:'' };
+    const LABELS = { en_attente:'En attente', approuvee:'✓ Acceptée', rejetee:'✕ Refusée' };
+    const CSTYLE = { rejetee:'background:rgba(255,80,80,.12);color:var(--danger)' };
+
+    el.innerHTML = list.map(j => `
+      <div class="avance-item" style="margin-bottom:6px">
+        <div>
+          <div style="font-size:14px;font-weight:500">${frDateShort(j.date)}
+            <span style="font-size:12px;color:var(--muted)"> — ${TYPES[j.type]||j.type}</span>
+          </div>
+          ${j.motif ? `<div class="avance-info">${j.motif}</div>` : ''}
+          <span class="statut-chip ${CHIPS[j.statut]||''}"
+            style="${CSTYLE[j.statut]||''}">
+            ${LABELS[j.statut]||j.statut}
+          </span>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    $('justify-list').innerHTML = `<div class="state-msg err">${e.message}</div>`;
+  }
+}
+
+function toggleJustifyForm() {
+  const f = $('justify-form');
+  const open = f.style.display === 'none';
+  f.style.display = open ? '' : 'none';
+  if (open) {
+    $('f-justif-date').value  = todayISO();
+    $('f-justif-motif').value = '';
+    setTimeout(() => $('f-justif-type').focus(), 80);
+  }
+}
+
+async function soumettreJustification() {
+  const extra = ML.getExtra();
+  const empId = extra.employe_id;
+  const date  = $('f-justif-date').value;
+  const type  = $('f-justif-type').value;
+  const motif = ($('f-justif-motif').value || '').trim();
+  if (!empId || !date) { toast('Date requise', 'ko'); return; }
+  try {
+    const { error } = await db.from('justifications').upsert({
+      employe_id: empId,
+      date,
+      type,
+      motif:  motif || null,
+      statut: 'en_attente'
+    }, { onConflict: 'employe_id,date' });
+    if (error) throw error;
+    toast('Justification envoyée — en attente d\'approbation ✓', 'ok');
+    toggleJustifyForm();
+    await loadJustifications(empId);
+  } catch(e) { toast('Erreur : '+e.message, 'ko'); }
+}
+
+/* ── Sanctions absences (affiché dans la carte Présences) ───────────── */
+async function loadSanctionStatus(empId) {
+  const mois  = todayISO().slice(0,7);
+  const debut = mois + '-01';
+  const fin   = new Date(+mois.slice(0,4), +mois.slice(5,7), 0).toISOString().slice(0,10);
+  try {
+    const [presAbsRes, justifRes, presRetRes] = await Promise.all([
+      db.from('presences').select('id')
+        .eq('employe_id', empId).eq('statut','absent')
+        .gte('date', debut).lte('date', fin),
+      db.from('justifications').select('id')
+        .eq('employe_id', empId).eq('statut','approuvee')
+        .gte('date', debut).lte('date', fin),
+      db.from('presences').select('id')
+        .eq('employe_id', empId).eq('statut','retard')
+        .gte('date', debut).lte('date', fin)
+    ]);
+
+    /* Absences non justifiées */
+    absNJCount        = Math.max(0, (presAbsRes.data||[]).length - (justifRes.data||[]).length);
+    const absPct      = absNJCount >= 3 ? 0.15 : absNJCount === 2 ? 0.10 : 0;
+    totalSanction     = Math.round(salaireBase * absPct);
+
+    /* Retards */
+    const retardsCount      = (presRetRes.data||[]).length;
+    totalSanctionRetard     = retardsCount >= 5 ? Math.round(salaireBase * 0.10) : 0;
+
+    /* Bandeau d'alerte */
+    const banner = $('sanction-banner');
+    if (banner) {
+      const lines = [];
+
+      if (absNJCount >= 3) {
+        lines.push(`🚫 <strong>${absNJCount} absences non justifiées</strong> — <strong style="color:var(--danger)">−15%</strong> (${gnf(totalSanction)})`);
+      } else if (absNJCount === 2) {
+        lines.push(`🚫 <strong>2 absences non justifiées</strong> — <strong style="color:var(--danger)">−10%</strong> (${gnf(totalSanction)})`);
+      } else if (absNJCount === 1) {
+        lines.push(`⚠ <strong>1 absence non justifiée</strong> — <strong style="color:#ffb400">Avertissement</strong> (une 2e → −10%)`);
+      }
+
+      if (retardsCount >= 5) {
+        lines.push(`⏰ <strong>${retardsCount} retards</strong> ce mois — <strong style="color:var(--danger)">−10%</strong> (${gnf(totalSanctionRetard)})`);
+      } else if (retardsCount >= 3) {
+        lines.push(`⏰ <strong>${retardsCount} retards</strong> — encore ${5-retardsCount} et tu perds −10%`);
+      }
+
+      if (!lines.length) {
+        banner.style.display = 'none';
+      } else {
+        banner.style.display = '';
+        const isGrave = absNJCount >= 2 || retardsCount >= 5;
+        banner.style.background   = isGrave ? 'rgba(255,80,80,.08)' : 'rgba(255,180,0,.08)';
+        banner.style.borderColor  = isGrave ? 'rgba(255,80,80,.25)' : 'rgba(255,180,0,.3)';
+        banner.style.color        = 'var(--text)';
+        banner.innerHTML = lines.join('<br>');
+      }
+    }
+    updateSolde();
+  } catch(e) { console.warn('loadSanctionStatus', e.message); }
+}
+
+/* ── Solde estimé ────────────────────────────────────────────────────── */
+function updateSolde() {
+  const solde = Math.max(0,
+    salaireBase
+    - totalSanction
+    - totalSanctionRetard
+    - totalAvances
+    - totalEcarts
+    + totalSurplus
+  );
+  $('solde-val').textContent = gnf(solde);
+
+  const parts = [];
+  if (totalSanction      > 0) parts.push(`−${Math.round(totalSanction/salaireBase*100)}% abs`);
+  if (totalSanctionRetard> 0) parts.push(`−10% retards`);
+  if (totalAvances       > 0) parts.push('− avances');
+  if (totalEcarts        > 0) parts.push(`− écarts`);
+  if (totalSurplus       > 0) parts.push(`+ surplus`);
+  $('solde-detail').textContent = parts.length ? parts.join(' · ') : 'salaire de base';
 }
 </script>
 </body>

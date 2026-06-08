@@ -218,6 +218,7 @@
   <div class="body-wrap" id="main-body">
     <div class="state-msg">Chargement…</div>
   </div>
+  <div id="remb-wrap" class="body-wrap" style="padding-top:0"></div>
   <div id="overlay"><div class="sheet" id="overlay-sheet"></div></div>
   <div id="toast"></div>
 
@@ -238,6 +239,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
   if (!initPage(['caissier','manager','owner','associe'])) return;
   await loadCaisse();
+  loadRemboursementsEnAttente();
 });
 
 /* ════════════════════════════════════════════
@@ -265,6 +267,7 @@ async function loadCaisse() {
   statut TEXT DEFAULT 'ouvert',
   fond_caisse INTEGER DEFAULT 0,
   total_reel INTEGER,
+  total_om_verifie INTEGER,
   note_caissier TEXT,
   note_manager TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
@@ -408,7 +411,9 @@ function renderCaisse() {
   const totEntrees = allMouvements.filter(m => m.type==='entree').reduce((s,m) => s+m.montant, 0);
   const totSorties = allMouvements.filter(m => m.type==='sortie').reduce((s,m) => s+m.montant, 0);
   const totAchats  = allAchats.reduce((s,a) => s+a.montant, 0);
-  const theorique  = fond + totVentes + totEntrees - totSorties - totAchats;
+
+  /* Théorique ESPÈCES uniquement (OM ne va pas dans la caisse physique) */
+  const theorique  = fond + totEsp + totEntrees - totSorties - totAchats;
   const reel       = sessionData.total_reel;
   const ecart      = reel != null ? theorique - reel : null;
 
@@ -458,22 +463,29 @@ function renderCaisse() {
     </div>`;
 
   /* ── 3. Mouvements de caisse ── */
+  const LOCK_MIN = 10; /* minutes après création → verrouillé */
+  const now = Date.now();
   const mvtRows = allMouvements.length ? allMouvements.map(m => {
-    const d   = new Date(m.created_at);
-    const hm  = d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const d       = new Date(m.created_at);
+    const hm      = d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const agoMin  = Math.floor((now - d.getTime()) / 60000);
+    const locked  = agoMin > LOCK_MIN;
+    const agoTxt  = agoMin < 1 ? 'à l\'instant' : agoMin < 60 ? `il y a ${agoMin} min` : hm;
     return `
       <div class="mvt-item">
         <div class="mvt-badge ${m.type}">${m.type==='entree'?'↑':'↓'}</div>
         <div class="mvt-info">
           <div class="mvt-motif">${m.motif}</div>
-          ${m.note ? `<div class="mvt-note">${m.note}</div>` : ''}
+          <div class="mvt-note">${m.note||''} <span style="opacity:.4;font-size:10px">${agoTxt}</span></div>
         </div>
-        <div class="mvt-time">${hm}</div>
         <div class="mvt-montant ${m.type}">
           ${m.type==='entree'?'+':'−'} ${gnf(m.montant)}
         </div>
         ${!ro && !isVal
-          ? `<button class="mvt-del" onclick="deleteMouvement('${m.id}')" title="Supprimer">✕</button>`
+          ? locked
+            ? `<button class="mvt-del" title="Verrouillé après ${LOCK_MIN}min — contactez le manager"
+                 style="opacity:.25;cursor:not-allowed" disabled>🔒</button>`
+            : `<button class="mvt-del" onclick="deleteMouvement('${m.id}')" title="Supprimer (avant ${LOCK_MIN}min)">✕</button>`
           : ''}
       </div>`;
   }).join('') : `<div class="state-msg" style="padding:14px 0">Aucun mouvement.</div>`;
@@ -614,24 +626,53 @@ function renderCaisse() {
          </div>
        </div>`;
 
+  /* Bloc OM séparé si transactions OM */
+  const omBlock = totOM > 0 ? `
+    <div class="s-head">Orange Money</div>
+    <div style="background:rgba(255,120,0,.06);border:1px solid rgba(255,120,0,.25);
+      border-radius:var(--r);padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;
+        margin-bottom:8px">
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;
+            color:rgba(255,120,0,.6);margin-bottom:2px">Total OM à virer</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#FF7800;line-height:1">
+            ${gnf(totOM)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">
+            Ces fonds sont sur le compte OM — non inclus dans le comptage espèces
+          </div>
+        </div>
+      </div>
+      ${!isVal && !ro ? `
+        <div class="field" style="margin:0">
+          <label style="font-size:11px;color:rgba(255,120,0,.7)">OM vérifié (montant sur téléphone)</label>
+          <input type="number" id="om-verifie" inputmode="numeric"
+            value="${sessionData.total_om_verifie||''}"
+            placeholder="${totOM}"
+            style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#FF7800;
+              background:rgba(255,120,0,.07);border-color:rgba(255,120,0,.3)"
+            oninput="checkOmEcart(${totOM})">
+          <div id="om-ecart" style="font-size:12px;margin-top:4px;text-align:right;min-height:16px"></div>
+        </div>` : (sessionData.total_om_verifie != null
+          ? `<div style="font-size:13px;color:var(--muted)">OM vérifié : <strong style="color:#FF7800">${gnf(sessionData.total_om_verifie)}</strong>
+             ${sessionData.total_om_verifie===totOM?'<span style="color:var(--ok)"> ✓</span>':'<span style="color:var(--danger)"> ≠ attendu</span>'}</div>`
+          : '')}
+    </div>` : '';
+
   const recap = `
-    <div class="s-head">Récapitulatif</div>
+    <div class="s-head">Récapitulatif espèces</div>
     <div class="recap-card">
       <div class="recap-row">
         <span>Fond de caisse</span><span>${gnf(fond)}</span>
       </div>
       <div class="recap-row">
-        <span>Ventes staff</span><span>${gnf(totVentes)}</span>
+        <span>💵 Ventes espèces</span><span>${gnf(totEsp)}</span>
       </div>
-      ${totOM > 0 ? `
-      <div class="recap-sub-row">
-        <span>↳ 💵 Espèces</span>
-        <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:var(--text)">${gnf(totEsp)}</span>
-      </div>
-      <div class="recap-sub-row">
-        <span>↳ 📱 Orange Money</span>
-        <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;color:#FF7800">${gnf(totOM)}</span>
-      </div>` : ''}
+      ${totOM > 0
+        ? `<div class="recap-row" style="opacity:.5">
+             <span>📱 Ventes OM <em style="font-size:10px">(compte séparé)</em></span>
+             <span style="color:#FF7800 !important">${gnf(totOM)}</span>
+           </div>` : ''}
       ${totEntrees > 0
         ? `<div class="recap-row">
              <span style="color:var(--ok)">+ Entrées de caisse</span>
@@ -644,15 +685,16 @@ function renderCaisse() {
            </div>` : ''}
       ${totAchats > 0
         ? `<div class="recap-row">
-             <span style="color:var(--danger)">− Achats (${allAchats.length} article${allAchats.length>1?'s':''})</span>
+             <span style="color:var(--danger)">− Achats (${allAchats.length} art.)</span>
              <span style="color:var(--danger) !important">${gnf(totAchats)}</span>
            </div>` : ''}
       <div class="recap-total">
-        <span class="recap-total-lbl">Total théorique</span>
+        <span class="recap-total-lbl">Théorique espèces</span>
         <span class="recap-total-val">${gnf(theorique)}</span>
       </div>
       ${reelSection}
-    </div>`;
+    </div>
+    ${omBlock}`;
 
   /* ── 7. Clôture ── */
   let clotureBlock;
@@ -823,6 +865,14 @@ async function saveMouvement(type) {
   if (!motif)   { toast('Motif requis', 'ko'); return; }
   if (!montant) { toast('Montant requis', 'ko'); return; }
 
+  /* Protection grosse sortie > 500K GNF */
+  if (type === 'sortie' && montant >= 500000) {
+    const ok = confirm(
+      `⚠ Grosse sortie de ${gnf(montant)}\n\nMotif : ${motif}\n\nConfirmez-vous cette opération ?`
+    );
+    if (!ok) return;
+  }
+
   try {
     const { data, error } = await db.from('mouvements_caisse').insert({
       session_id: sessionData.id, type, motif, montant, note
@@ -930,6 +980,34 @@ function onCaisseNoteInput() {
 }
 
 /* ════════════════════════════════════════════
+   OM VERIFICATION
+════════════════════════════════════════════ */
+let _omSave;
+function checkOmEcart(attendu) {
+  const el    = document.getElementById('om-verifie');
+  const disp  = document.getElementById('om-ecart');
+  if (!el || !disp) return;
+  const val   = parseInt(el.value) || 0;
+  if (!el.value) { disp.textContent=''; return; }
+  const diff  = val - attendu;
+  if (diff === 0) {
+    disp.style.color = 'var(--ok)'; disp.textContent = '✓ OM conforme';
+  } else if (diff < 0) {
+    disp.style.color = 'var(--danger)'; disp.textContent = `Manque ${gnf(Math.abs(diff))} sur OM`;
+  } else {
+    disp.style.color = '#5BA3CC'; disp.textContent = `Excédent OM : ${gnf(diff)}`;
+  }
+  /* Sauvegarde après 800ms */
+  clearTimeout(_omSave);
+  _omSave = setTimeout(async () => {
+    await db.from('sessions_caisse')
+      .update({ total_om_verifie: val })
+      .eq('id', sessionData.id).catch(()=>{});
+    sessionData.total_om_verifie = val;
+  }, 800);
+}
+
+/* ════════════════════════════════════════════
    RÉCAPITULATIF ÉCART
 ════════════════════════════════════════════ */
 function updateEcart(theorique) {
@@ -986,16 +1064,22 @@ function confirmValidate(theorique) {
 async function validateSession(theorique, reel, note) {
   $('overlay').classList.remove('on');
   try {
+    const empId    = ML.getExtra()?.employe_id || null;
+    const ecartVal = (reel != null) ? (theorique - reel) : null;
+
     const { error } = await db.from('sessions_caisse').update({
       statut:        'valide_caissier',
       note_caissier: note || null,
-      total_reel:    reel ?? null
+      total_reel:    reel ?? null,
+      caissier_id:   empId,
+      ecart:         ecartVal   /* + = manque, − = excédent */
     }).eq('id', sessionData.id);
     if (error) throw error;
 
     sessionData.statut        = 'valide_caissier';
     sessionData.note_caissier = note;
     sessionData.total_reel    = reel;
+    sessionData.ecart         = ecartVal;
 
     ML.logAction(`💰 Caisse clôturée · Ventes ${gnf(allVentes.reduce((s,v)=>s+v.total,0))} · Théorique ${gnf(theorique)}`);
     toast('Caisse clôturée — gestionnaire notifié ✓', 'ok');
@@ -1006,6 +1090,85 @@ async function validateSession(theorique, reel, note) {
 document.addEventListener('click', e => {
   if (e.target === $('overlay')) $('overlay').classList.remove('on');
 });
+
+/* ════════════════════════════════════════════
+   REMBOURSEMENTS ÉCART — validation caissier
+════════════════════════════════════════════ */
+async function loadRemboursementsEnAttente() {
+  const wrap = $('remb-wrap');
+  if (!wrap || ML.getRole() !== 'caissier') return;
+
+  try {
+    const { data: rembs } = await db.from('remboursements_ecart')
+      .select('id,session_id,employe_id,montant,note,created_at')
+      .eq('statut', 'en_attente')
+      .order('created_at', { ascending: false });
+
+    if (!rembs?.length) { wrap.innerHTML = ''; return; }
+
+    const empIds = [...new Set(rembs.map(r => r.employe_id))];
+    const { data: emps } = await db.from('employes').select('id,nom,prenom').in('id', empIds);
+    const nomMap = {};
+    (emps||[]).forEach(e => nomMap[e.id] = [e.prenom, e.nom].filter(Boolean).join(' '));
+
+    wrap.innerHTML = `
+      <div class="card" style="border-left:3px solid var(--gold)">
+        <div class="card-head">
+          <div class="card-title">💰 Remboursements à confirmer</div>
+          <span style="font-size:11px;background:rgba(201,168,76,.15);color:var(--gold);
+            padding:2px 8px;border-radius:20px;font-weight:600">${rembs.length}</span>
+        </div>
+        <div class="card-body" style="gap:10px">
+          ${rembs.map(r => `
+            <div class="avance-item" id="rrow-${r.id}">
+              <div style="flex:1">
+                <div style="font-size:14px;font-weight:500">${nomMap[r.employe_id] || '?'}</div>
+                <div class="avance-info">
+                  ${gnf(r.montant)}${r.note ? ` · ${r.note}` : ''}
+                </div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">
+                  ${frDateShort(r.created_at?.slice(0,10))}
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;flex-shrink:0">
+                <button onclick="validerRemboursement('${r.id}')"
+                  style="padding:6px 12px;background:rgba(61,184,115,.1);
+                  border:1px solid rgba(61,184,115,.3);border-radius:6px;
+                  color:var(--ok);font-size:11px;font-weight:600;cursor:pointer">
+                  ✓ Confirmer
+                </button>
+                <button onclick="rejeterRemboursement('${r.id}')"
+                  style="padding:6px 10px;background:var(--bg2);border:1px solid var(--bg3);
+                  border-radius:6px;color:var(--muted);font-size:12px;cursor:pointer">
+                  ✕
+                </button>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  } catch(e) { console.warn('loadRemboursementsEnAttente', e.message); }
+}
+
+async function validerRemboursement(id) {
+  try {
+    const { error } = await db.from('remboursements_ecart')
+      .update({ statut: 'valide' }).eq('id', id);
+    if (error) throw error;
+    ML.logAction('✅ Remboursement écart confirmé');
+    toast('Remboursement confirmé ✓', 'ok');
+    loadRemboursementsEnAttente();
+  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+}
+
+async function rejeterRemboursement(id) {
+  try {
+    const { error } = await db.from('remboursements_ecart')
+      .update({ statut: 'rejete' }).eq('id', id);
+    if (error) throw error;
+    toast('Remboursement rejeté', 'ok');
+    loadRemboursementsEnAttente();
+  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+}
 </script>
 </body>
 </html>

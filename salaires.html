@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Salaires — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+/* ── Résumé mois ── */
+.recap-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.recap-cell{background:var(--bg2);border:1px solid var(--b1);border-radius:var(--rs);
+  padding:10px 8px;text-align:center}
+.recap-val{font-family:'Bebas Neue',sans-serif;font-size:18px;line-height:1}
+.recap-lbl{font-size:10px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+
+/* ── Fiche employé salaire ── */
+.sal-card{
+  background:var(--bg2);border-radius:var(--r);padding:14px;
+  border:1px solid var(--b1);
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 8px rgba(0,0,0,.3)}
+.sal-card.paye{border-color:rgba(61,184,115,.25);background:rgba(61,184,115,.04)}
+.sal-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.sal-avatar{width:36px;height:36px;border-radius:50%;background:var(--bg3);
+  border:1px solid var(--b1);display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;color:var(--text2);flex-shrink:0}
+.sal-name{font-size:14px;font-weight:600}
+.sal-poste{font-size:11px;color:var(--muted)}
+.paye-badge{background:rgba(61,184,115,.12);color:var(--ok);
+  border:1px solid rgba(61,184,115,.3);border-radius:20px;
+  font-size:10px;font-weight:700;padding:2px 8px}
+
+.sal-lignes{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;
+  border:1px solid var(--b1);border-radius:var(--rs);overflow:hidden}
+.sal-ligne{display:flex;justify-content:space-between;align-items:center;
+  padding:7px 10px;font-size:12px}
+.sal-ligne:nth-child(odd){background:rgba(255,255,255,.02)}
+.sal-ligne-lbl{color:var(--muted)}
+.sal-ligne-val{font-family:'Bebas Neue',sans-serif;font-size:14px}
+.sal-ligne.total{background:rgba(201,168,76,.06);border-top:1px solid rgba(201,168,76,.2)}
+.sal-ligne.total .sal-ligne-lbl{font-weight:600;color:var(--text1)}
+.sal-ligne.total .sal-ligne-val{font-size:18px;color:var(--gold)}
+.sal-ligne.deduc .sal-ligne-val{color:var(--danger)}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap" style="display:flex;flex-direction:column;gap:14px">
+
+    <div class="field" style="margin:0">
+      <label>Mois de paiement</label>
+      <input type="month" id="sel-mois" onchange="loadSalaires()">
+    </div>
+
+    <!-- Récap mois -->
+    <div class="recap-grid">
+      <div class="recap-cell">
+        <div class="recap-val" id="rec-emps">—</div>
+        <div class="recap-lbl">Employés</div>
+      </div>
+      <div class="recap-cell">
+        <div class="recap-val" id="rec-payes" style="color:var(--ok)">—</div>
+        <div class="recap-lbl">Payés</div>
+      </div>
+      <div class="recap-cell">
+        <div class="recap-val" id="rec-total" style="color:var(--gold)">—</div>
+        <div class="recap-lbl">Total versé</div>
+      </div>
+    </div>
+
+    <!-- Liste employés -->
+    <div id="sal-list"><div class="state-msg">Chargement…</div></div>
+
+  </div>
+  <div id="toast"></div>
+
+<script>
+/*
+  CALCUL SALAIRES — doit rester cohérent avec fiche.html et avances.html
+  ───────────────────────────────────────────────────────────────────────
+  avances_deduites = sum(avances WHERE statut='approuvee' AND rembourse=false)
+  net_a_verser     = max(0, salaire_base - avances_deduites)
+
+  Quand on PAIE un employé pour le mois :
+    1. INSERT salaires_verses { employe_id, mois, salaire_brut, avances_deduites, net_verse, paye_le }
+    2. UPDATE avances SET rembourse=true WHERE employe_id=X AND statut='approuvee' AND rembourse=false
+       → fiche.html n'affichera plus ces avances, le solde redevient salaire_base
+*/
+
+let _employes    = [];
+let _avancesMap  = {}; // employe_id → [avances approuvees non remboursees]
+let _payesMap    = {}; // employe_id → salaires_verses record
+let _tableOk     = false;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['owner','manager'])) return;
+  $('sel-mois').value = todayISO().slice(0,7);
+
+  /* Vérifie que la table salaires_verses existe */
+  const { error } = await db.from('salaires_verses').select('id').limit(0);
+  if (error) {
+    $('sal-list').innerHTML = sqlInstall();
+    return;
+  }
+  _tableOk = true;
+  loadSalaires();
+});
+
+function sqlInstall() {
+  return `<div class="card">
+    <div class="card-head"><div class="card-title" style="color:var(--gold)">⚙ Table "salaires_verses" à créer</div></div>
+    <div class="card-body">
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:10px">
+        Collez ce SQL dans l'éditeur Supabase puis rechargez :
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rs);
+        padding:12px;font-size:11px;font-family:monospace;color:rgba(255,255,255,.65);
+        white-space:pre-wrap;overflow-x:auto;line-height:1.8;user-select:all">CREATE TABLE IF NOT EXISTS salaires_verses (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  employe_id UUID REFERENCES employes(id) ON DELETE CASCADE,
+  mois TEXT NOT NULL,
+  salaire_brut INTEGER NOT NULL DEFAULT 0,
+  avances_deduites INTEGER NOT NULL DEFAULT 0,
+  net_verse INTEGER NOT NULL DEFAULT 0,
+  paye_le DATE,
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(employe_id, mois)
+);
+ALTER TABLE salaires_verses DISABLE ROW LEVEL SECURITY;</div>
+    </div>
+  </div>`;
+}
+
+async function loadSalaires() {
+  if (!_tableOk) return;
+  const mois = $('sel-mois').value;
+  if (!mois) return;
+  $('sal-list').innerHTML = '<div class="state-msg">Chargement…</div>';
+
+  /* Employés actifs */
+  const { data: emps } = await db.from('employes')
+    .select('id,nom,prenom,poste,role,salaire_base').eq('actif', true).order('nom');
+  _employes = emps || [];
+
+  /* Avances approuvées non remboursées (tous employés) */
+  const { data: avances } = await db.from('avances')
+    .select('*')
+    .eq('statut','approuvee')
+    .eq('rembourse', false);
+  _avancesMap = {};
+  (avances || []).forEach(a => {
+    if (!_avancesMap[a.employe_id]) _avancesMap[a.employe_id] = [];
+    _avancesMap[a.employe_id].push(a);
+  });
+
+  /* Salaires déjà versés pour ce mois */
+  const { data: payes } = await db.from('salaires_verses')
+    .select('*').eq('mois', mois);
+  _payesMap = {};
+  (payes || []).forEach(p => { _payesMap[p.employe_id] = p; });
+
+  renderSalaires();
+}
+
+function renderSalaires() {
+  if (!_employes.length) {
+    $('sal-list').innerHTML = '<div class="state-msg">Aucun employé actif.</div>';
+    updateRecap();
+    return;
+  }
+
+  $('sal-list').innerHTML = `<div style="display:flex;flex-direction:column;gap:12px">
+    ${_employes.map(emp => salCard(emp)).join('')}
+  </div>`;
+  updateRecap();
+}
+
+function salCard(emp) {
+  const nom  = [emp.prenom, emp.nom].filter(Boolean).join(' ');
+  const init = nom.split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?';
+  const brut = emp.salaire_base || 0;
+
+  const isPaid = !!_payesMap[emp.id];
+  const paidRec = _payesMap[emp.id];
+
+  /* Si déjà payé, on affiche ce qui a été versé (snapshot sauvegardé) */
+  const avancesDeduites = isPaid
+    ? (paidRec.avances_deduites || 0)
+    : (_avancesMap[emp.id]||[]).reduce((s,a)=>s+(a.montant||0),0);
+  const netVerser = isPaid
+    ? (paidRec.net_verse || 0)
+    : Math.max(0, brut - avancesDeduites);
+
+  const badgeHtml = isPaid
+    ? `<span class="paye-badge">✓ Payé le ${frDateShort(paidRec.paye_le)}</span>`
+    : '';
+
+  const actionHtml = isPaid
+    ? `<button class="btn-secondary" style="font-size:11px;height:36px"
+         onclick="annulerPaiement('${emp.id}')">↩ Annuler paiement</button>`
+    : `<button class="btn-primary" onclick="payer('${emp.id}')">
+         💵 Payer ${gnf(netVerser)}
+       </button>`;
+
+  return `<div class="sal-card ${isPaid?'paye':''}">
+    <div class="sal-head">
+      <div class="sal-avatar">${init}</div>
+      <div style="flex:1">
+        <div class="sal-name">${nom}</div>
+        <div class="sal-poste">${emp.poste||emp.role||'—'}</div>
+      </div>
+      ${badgeHtml}
+    </div>
+    <div class="sal-lignes">
+      <div class="sal-ligne">
+        <div class="sal-ligne-lbl">Salaire de base</div>
+        <div class="sal-ligne-val">${gnf(brut)}</div>
+      </div>
+      ${avancesDeduites > 0 ? `
+      <div class="sal-ligne deduc">
+        <div class="sal-ligne-lbl">Avances déduites</div>
+        <div class="sal-ligne-val">−${gnf(avancesDeduites)}</div>
+      </div>` : ''}
+      <div class="sal-ligne total">
+        <div class="sal-ligne-lbl">Net à verser</div>
+        <div class="sal-ligne-val">${gnf(netVerser)}</div>
+      </div>
+    </div>
+    ${actionHtml}
+  </div>`;
+}
+
+function updateRecap() {
+  const payes     = Object.keys(_payesMap).length;
+  const totalVerse = Object.values(_payesMap).reduce((s,p)=>s+(p.net_verse||0),0);
+  $('rec-emps').textContent  = _employes.length;
+  $('rec-payes').textContent = `${payes}/${_employes.length}`;
+  $('rec-total').textContent = payes ? gnf(totalVerse) : '—';
+}
+
+async function payer(empId) {
+  const mois = $('sel-mois').value;
+  const emp  = _employes.find(e=>e.id===empId);
+  if (!emp) return;
+
+  const brut           = emp.salaire_base || 0;
+  const avancesListe   = _avancesMap[empId] || [];
+  const avancesDeduites = avancesListe.reduce((s,a)=>s+(a.montant||0), 0);
+  const netVerse       = Math.max(0, brut - avancesDeduites);
+  const nom            = [emp.prenom,emp.nom].filter(Boolean).join(' ');
+  const today          = todayISO();
+
+  const confirmed = confirm(
+    `Payer ${nom} pour ${mois} ?\n\nSalaire : ${gnf(brut)}\nAvances : −${gnf(avancesDeduites)}\nNet     : ${gnf(netVerse)}\n\nLes avances approuvées seront marquées remboursées.`
+  );
+  if (!confirmed) return;
+
+  try {
+    /* 1) Enregistrer le paiement */
+    const { error: e1 } = await db.from('salaires_verses').insert({
+      employe_id:       empId,
+      mois,
+      salaire_brut:     brut,
+      avances_deduites: avancesDeduites,
+      net_verse:        netVerse,
+      paye_le:          today
+    });
+    if (e1) throw e1;
+
+    /* 2) Marquer les avances comme remboursées
+         → fiche.html ne les déduira plus du salaire */
+    if (avancesListe.length) {
+      const ids = avancesListe.map(a=>a.id);
+      const { error: e2 } = await db.from('avances')
+        .update({ rembourse: true })
+        .in('id', ids);
+      if (e2) throw e2; /* Si ça échoue, le paiement est quand même enregistré — on recharge */
+    }
+
+    toast(`${nom} — paiement enregistré ✓`, 'ok');
+    ML.logAction(`💵 Salaire versé · ${nom} · ${gnf(netVerse)} · ${mois}`);
+    await loadSalaires();
+  } catch(e) {
+    toast('Erreur : '+e.message, 'ko');
+    /* Resync en cas d'erreur partielle */
+    await loadSalaires();
+  }
+}
+
+async function annulerPaiement(empId) {
+  const emp  = _employes.find(e=>e.id===empId);
+  const nom  = emp ? [emp.prenom,emp.nom].filter(Boolean).join(' ') : 'cet employé';
+  const mois = $('sel-mois').value;
+
+  if (!confirm(`Annuler le paiement de ${nom} pour ${mois} ?\n\nNote : les avances ne seront PAS ré-activées automatiquement.`)) return;
+
+  try {
+    const { error } = await db.from('salaires_verses')
+      .delete()
+      .eq('employe_id', empId)
+      .eq('mois', mois);
+    if (error) throw error;
+    toast('Paiement annulé','ok');
+    await loadSalaires();
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+</script>
+</body>
+</html>

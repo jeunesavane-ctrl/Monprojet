@@ -11,127 +11,198 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
   <script src="shared.js" defer></script>
   <style>
-.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--bg3);margin-bottom:4px}
-.tab-btn{flex:1;padding:11px 8px;text-align:center;font-size:13px;font-weight:500;
+/* ─ Tabs ──────────────────────────────────────────────────────── */
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--bg3);margin-bottom:4px;
+  overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.tab-bar::-webkit-scrollbar{display:none}
+.tab-btn{flex:0 0 auto;padding:11px 14px;text-align:center;font-size:13px;font-weight:500;
   color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;
-  transition:all .15s;-webkit-tap-highlight-color:transparent}
+  white-space:nowrap;transition:all .15s;-webkit-tap-highlight-color:transparent}
 .tab-btn.active{color:var(--gold);border-bottom-color:var(--gold)}
 .panel{display:none}.panel.active{display:flex;flex-direction:column;gap:12px}
-.presence-grid{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
-.statut-sel{background:var(--bg3);border:1px solid var(--bg4);border-radius:var(--rs);
-  color:var(--text);padding:6px 10px;font-size:13px;outline:none;-webkit-appearance:none}
-.avance-item{background:var(--bg2);border-radius:var(--rs);padding:11px 14px}
+
+/* ─ Présences – boutons statut ────────────────────────────────── */
+.pst-btn{flex:1;padding:8px 2px;border:1px solid var(--bg3);border-radius:var(--rs);
+  font-size:11px;font-weight:600;cursor:pointer;text-align:center;background:var(--bg2);
+  transition:all .12s;-webkit-tap-highlight-color:transparent;line-height:1.3;
+  color:var(--muted)}
+.pst-btn:active{transform:scale(.92)}
+.pst-btn.pst-present.sel{background:rgba(80,200,120,.18);color:#50c878;border-color:#50c878}
+.pst-btn.pst-retard.sel{background:rgba(255,180,0,.18);color:#ffb400;border-color:#ffb400}
+.pst-btn.pst-absent.sel{background:rgba(255,80,80,.18);color:#ff5050;border-color:#ff5050}
+.pst-btn.pst-conge.sel{background:rgba(100,150,255,.18);color:#6496ff;border-color:#6496ff}
+
+/* ─ KPI strip présences ───────────────────────────────────────── */
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.kpi-m{background:var(--bg2);border-radius:var(--rs);padding:8px 4px;text-align:center}
+.kpi-m-v{font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1}
+.kpi-m-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
+.kpi-m.present .kpi-m-v{color:#50c878}
+.kpi-m.retard  .kpi-m-v{color:#ffb400}
+.kpi-m.absent  .kpi-m-v{color:#ff5050}
+.kpi-m.conge   .kpi-m-v{color:#6496ff}
+
+/* ─ Avances ───────────────────────────────────────────────────── */
+.avance-item{background:var(--bg2);border-radius:var(--rs);padding:12px 14px}
 .avance-montant{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--gold)}
 .avance-info{font-size:12px;color:var(--muted);margin-top:2px}
-.paie-card{background:var(--bg2);border-radius:var(--r);padding:14px 16px}
+
+/* ─ Paie ──────────────────────────────────────────────────────── */
+.paie-card{background:var(--bg2);border-radius:var(--r);padding:14px 16px;
+  border:1px solid var(--b1);transition:border-color .2s,background .2s}
+.paie-card.paid{border-color:rgba(80,200,120,.35);background:rgba(80,200,120,.03)}
 .paie-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
 .paie-nom{font-size:15px;font-weight:600}
 .paie-poste{font-size:12px;color:var(--muted);text-transform:capitalize;margin-top:2px}
-.paie-net{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold)}
-.paie-details{display:flex;flex-direction:column;gap:5px;
-  border-top:1px solid var(--bg3);padding-top:8px}
+.paie-net{font-family:'Bebas Neue',sans-serif;font-size:22px}
+.paie-details{display:flex;flex-direction:column;gap:5px;border-top:1px solid var(--bg3);padding-top:9px}
 .paie-row{display:flex;justify-content:space-between;font-size:13px}
 .paie-row span:first-child{color:var(--muted)}
-.paie-row span:last-child{font-weight:500}
+.code-block{background:rgba(0,0,0,.4);border:1px solid rgba(255,80,80,.2);border-radius:var(--rs);
+  padding:12px 14px;font-size:11px;color:var(--muted);line-height:1.7;font-family:monospace;
+  overflow-x:auto;white-space:pre}
+.impact-box{background:var(--bg2);border-radius:var(--rs);padding:10px 12px;
+  font-size:12px;line-height:1.8;color:var(--muted)}
   </style>
 </head>
 <body>
   <div id="__header__"></div>
   <div class="body-wrap">
-    <!-- Tabs internes -->
+
+    <!-- ══ TABS ══════════════════════════════════════════════════ -->
     <div class="tab-bar">
-      <div class="tab-btn active" onclick="switchRhTab('staff')">Équipe</div>
-      <div class="tab-btn" onclick="switchRhTab('presence')">Présences</div>
-      <div class="tab-btn" onclick="switchRhTab('demandes')" id="tab-demandes">Demandes</div>
-      <div class="tab-btn" onclick="switchRhTab('avances')">Avances</div>
-      <div class="tab-btn" onclick="switchRhTab('paie')">Paie</div>
+      <div class="tab-btn active" id="tab-staff"    onclick="switchRhTab('staff')">Équipe</div>
+      <div class="tab-btn"        id="tab-presence" onclick="switchRhTab('presence')">Présences</div>
+      <div class="tab-btn"        id="tab-demandes" onclick="switchRhTab('demandes')">Demandes</div>
+      <div class="tab-btn"        id="tab-avances"  onclick="switchRhTab('avances')">Avances</div>
+      <div class="tab-btn"        id="tab-paie"     onclick="switchRhTab('paie')">Paie</div>
     </div>
 
-    <!-- PANEL: Équipe -->
+    <!-- ══ ÉQUIPE ════════════════════════════════════════════════ -->
     <div id="panel-staff" class="panel active">
       <div class="sec-header">
         <div class="sec-title">Membres de l'équipe</div>
         <button class="btn-secondary" onclick="openAddStaff()">+ Ajouter</button>
       </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.6">
+        Pour créer un accès à l'application →
+        <a href="parametres.html" style="color:var(--gold);text-decoration:none">
+          Paramètres → Comptes</a>
+      </div>
       <div id="staff-list"><div class="state-msg">Chargement…</div></div>
     </div>
 
-    <!-- PANEL: Présences -->
+    <!-- ══ PRÉSENCES ═════════════════════════════════════════════ -->
     <div id="panel-presence" class="panel">
-      <div class="card">
-        <div class="card-head">
-          <div class="card-title">Présences du jour</div>
-          <div class="card-sub" id="pres-date"></div>
-        </div>
-        <div class="card-body" id="presence-list">
-          <div class="state-msg">Chargement…</div>
-        </div>
+      <!-- Sélecteur de date + titre -->
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:15px;font-weight:600">Présences</div>
+        <input type="date" id="pres-date-sel"
+          style="background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--rs);
+            color:var(--text);padding:5px 10px;font-size:12px;outline:none"
+          onchange="loadPresence()">
       </div>
-      <button class="btn-primary" onclick="savePresences()">ENREGISTRER</button>
+      <!-- KPI strip (4 compteurs) -->
+      <div id="pres-kpis" class="kpi-strip" style="display:none"></div>
+      <!-- Bouton rapide -->
+      <button class="btn-secondary" style="font-size:12px;padding:9px" onclick="tousPresents()">
+        ✅ Marquer tous présents
+      </button>
+      <!-- Liste employés -->
+      <div id="presence-list"><div class="state-msg">Chargement…</div></div>
     </div>
 
-    <!-- PANEL: Demandes d'avance -->
+    <!-- ══ DEMANDES D'AVANCE + JUSTIFICATIONS ═══════════════════ -->
     <div id="panel-demandes" class="panel">
+      <!-- Avances en attente -->
       <div class="sec-header">
-        <div class="sec-title">Demandes en attente</div>
+        <div class="sec-title">Avances en attente</div>
       </div>
       <div id="demandes-list"><div class="state-msg">Chargement…</div></div>
+
+      <!-- Justifications d'absence en attente -->
+      <div class="sec-header" style="margin-top:4px">
+        <div class="sec-title">Justifications d'absence</div>
+        <div class="card-sub" id="justif-count-sub"></div>
+      </div>
+      <div id="justif-list"><div class="state-msg">Chargement…</div></div>
     </div>
 
-    <!-- PANEL: Avances -->
+    <!-- ══ AVANCES ═══════════════════════════════════════════════ -->
     <div id="panel-avances" class="panel">
       <div class="card">
-        <div class="card-head"><div class="card-title">Nouvelle avance</div></div>
+        <div class="card-head">
+          <div class="card-title">Enregistrer une avance</div>
+        </div>
         <div class="card-body">
           <div class="field"><label>Employé</label>
-            <select id="av-employe" class="field input">
-              <option value="">Sélectionner…</option>
-            </select>
+            <select id="av-employe" onchange="updateAvImpact()"></select>
           </div>
+          <div id="av-impact" class="impact-box" style="display:none"></div>
           <div class="row2">
             <div class="field"><label>Montant (GNF)</label>
-              <input id="av-montant" type="number" inputmode="numeric" placeholder="0"></div>
+              <input id="av-montant" type="number" inputmode="numeric" placeholder="0"
+                oninput="updateAvImpact()"></div>
             <div class="field"><label>Date</label>
               <input id="av-date" type="date"></div>
           </div>
-          <div class="field"><label>Motif</label>
-            <input id="av-obs" type="text" placeholder="Raison de l'avance"></div>
-          <button class="btn-primary" onclick="saveAvance()">ENREGISTRER</button>
+          <div class="field"><label>Motif (optionnel)</label>
+            <input id="av-obs" type="text" placeholder="Urgence, achat…"></div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.6;
+            background:rgba(201,168,76,.06);border-radius:var(--rs);padding:8px 10px">
+            ⚠ Une avance ajoutée ici est <b>automatiquement approuvée</b>
+            et sera déduite du prochain salaire.
+          </div>
+          <button class="btn-primary" onclick="saveAvance()">ENREGISTRER L'AVANCE</button>
         </div>
       </div>
+      <!-- Liste avances en cours -->
       <div class="sec-header">
         <div class="sec-title">Avances en cours</div>
+        <div class="card-sub" style="font-size:10px">approuvées · non remboursées</div>
       </div>
       <div id="avances-list"><div class="state-msg">Chargement…</div></div>
     </div>
 
-    <!-- PANEL: Paie -->
+    <!-- ══ PAIE ══════════════════════════════════════════════════ -->
     <div id="panel-paie" class="panel">
       <div class="field">
-        <label>Mois</label>
+        <label>Mois de paie</label>
         <input type="month" id="paie-mois" onchange="loadPaie()">
       </div>
       <div id="paie-content"><div class="state-msg">Sélectionnez un mois</div></div>
-      <div id="paie-footer" style="display:none;flex-direction:column;gap:12px">
-        <div class="net-card">
-          <div class="net-title">MASSE SALARIALE</div>
-          <div id="paie-total" class="big" style="color:var(--gold)"></div>
+      <!-- Pied de page résumé -->
+      <div id="paie-footer" style="display:none;flex-direction:column;gap:10px">
+        <div style="background:var(--bg2);border-radius:var(--r);padding:14px 16px;
+          border:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:11px;color:var(--muted)">Masse salariale nette</div>
+            <div id="paie-total"
+              style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--gold)"></div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:var(--muted)">Versements</div>
+            <div id="paie-paycount"
+              style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--ok)"></div>
+          </div>
         </div>
-        <button class="btn-primary" id="btn-valider-paie" onclick="validerPaie()">
-          VALIDER ET ENREGISTRER COMME CHARGE
+        <button class="btn-secondary" id="btn-valider-paie" onclick="validerPaie()">
+          📊 Inscrire la masse salariale dans les Charges
         </button>
       </div>
     </div>
   </div>
 
-  <!-- Modal ajout staff -->
+  <!-- ══ MODAL AJOUT EMPLOYÉ ════════════════════════════════════ -->
   <div id="overlay">
     <div class="sheet">
       <div class="sheet-title">Nouvel employé</div>
       <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
         <div class="row2">
-          <div class="field"><label>Nom</label><input id="ns-nom" type="text" placeholder="Nom"></div>
-          <div class="field"><label>Prénom</label><input id="ns-prenom" type="text" placeholder="Prénom"></div>
+          <div class="field"><label>Nom</label>
+            <input id="ns-nom" type="text" placeholder="Nom"></div>
+          <div class="field"><label>Prénom</label>
+            <input id="ns-prenom" type="text" placeholder="Prénom"></div>
         </div>
         <div class="field"><label>Poste</label>
           <select id="ns-poste">
@@ -164,35 +235,58 @@
   <div id="toast"></div>
 
 <script>
-let employes    = [];
+/* ═══════════════════════════════════════════════════════════════
+   RH — Medellin Lounge
+   Onglets : Équipe · Présences · Demandes · Avances · Paie
+
+   RÈGLES DE CALCUL INVARIANTES (ne pas modifier) :
+   ─────────────────────────────────────────────────
+   • Avance déductible  = statut='approuvee' AND rembourse=false
+   • net_verse          = MAX(0, salaire_base − avances_approuvees_non_remboursees)
+   • La déduction s'applique sur TOUTES les avances en cours (sans filtre de date)
+   • PAYER un employé  → INSERT salaires_verses + UPDATE avances SET rembourse=true
+   • ANNULER versement → DELETE salaires_verses (avances gardent rembourse=true)
+════════════════════════════════════════════════════════════════ */
+
+let employes     = [];
 let _editStaffId = null;
+let _presStatuts = {};   /* { employe_id: statut } — état local présences */
+let _paieData    = {};   /* { empId: paieObj } — données de paie du mois affiché */
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
   if (!initPage(['owner','manager'])) return;
-  $('pres-date').textContent = frDateShort(todayISO());
-  $('av-date').value = todayISO();
-  const moisDef = todayISO().slice(0,7);
-  $('paie-mois').value = moisDef;
 
-  /* Le manager voit Présences + Demandes */
-  const isManager = ML.getRole() === 'manager';
-  if (isManager) {
-    document.querySelectorAll('.tab-btn').forEach((b,i) => {
-      if (i !== 1 && i !== 2) b.style.display = 'none';
-    });
-    switchRhTab('presence');
-  }
+  $('pres-date-sel').value = todayISO();
+  $('av-date').value       = todayISO();
+  $('paie-mois').value     = todayISO().slice(0,7);
+
+  if (ML.getRole() === 'manager') switchRhTab('presence');
 
   loadStaff();
+  checkDemandesCount(); /* Badge en attente dès le démarrage */
 });
 
+/* Pré-charge le badge Demandes sans charger tout le panel */
+async function checkDemandesCount() {
+  try {
+    const [avRes, jRes] = await Promise.all([
+      db.from('avances').select('id',{count:'exact',head:true}).eq('statut','en_attente'),
+      db.from('justifications').select('id',{count:'exact',head:true}).eq('statut','en_attente')
+    ]);
+    const total = (avRes.count||0) + (jRes.count||0);
+    const tab = $('tab-demandes');
+    if (tab) tab.textContent = total > 0 ? `Demandes (${total})` : 'Demandes';
+  } catch {}
+}
+
+/* ── Navigation ─────────────────────────────────────────────────── */
+const RH_TABS = ['staff','presence','demandes','avances','paie'];
+
 function switchRhTab(tab) {
-  ['staff','presence','demandes','avances','paie'].forEach(t => {
+  RH_TABS.forEach(t => {
     $('panel-'+t)?.classList.toggle('active', t===tab);
-    document.querySelectorAll('.tab-btn').forEach((b,i) => {
-      b.classList.toggle('active', ['staff','presence','demandes','avances','paie'][i]===tab);
-    });
+    $('tab-'+t)?.classList.toggle('active', t===tab);
   });
   if (tab==='presence') loadPresence();
   if (tab==='demandes') loadDemandes();
@@ -200,18 +294,25 @@ function switchRhTab(tab) {
   if (tab==='paie')     loadPaie();
 }
 
+/* ════════════════════════════════════════════════════════════════
+   ÉQUIPE
+════════════════════════════════════════════════════════════════ */
 async function loadStaff() {
   try {
-    const { data, error } = await db.from('employes').select('*').eq('actif',true).order('nom');
+    const { data, error } = await db.from('employes').select('*')
+      .eq('actif',true).order('nom');
     if (error) throw error;
     employes = data || [];
     renderStaffList();
-  } catch(e) { $('staff-list').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`; }
+  } catch(e) {
+    $('staff-list').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
 }
 
 function renderStaffList() {
   if (!employes.length) {
-    $('staff-list').innerHTML = '<div class="state-msg">Aucun membre d\'équipe.</div>'; return;
+    $('staff-list').innerHTML = '<div class="state-msg">Aucun membre d\'équipe.</div>';
+    return;
   }
   $('staff-list').innerHTML = employes.map(e => `
     <div class="list-item" style="flex-direction:column;align-items:stretch;gap:6px">
@@ -228,8 +329,11 @@ function renderStaffList() {
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);
         padding-top:4px;border-top:1px solid rgba(255,255,255,.04)">
-        ${e.telephone ? `<span>📱 ${e.telephone}</span>` : '<span style="opacity:.4">Pas de numéro</span>'}
-        ${e.date_embauche ? `<span>📅 Depuis ${frDateShort(e.date_embauche)}</span>` : ''}
+        ${e.telephone
+          ? `<span>📱 ${e.telephone}</span>`
+          : '<span style="opacity:.4">Pas de numéro</span>'}
+        ${e.date_embauche
+          ? `<span>📅 Depuis ${frDateShort(e.date_embauche)}</span>` : ''}
       </div>
     </div>`).join('');
 }
@@ -238,198 +342,38 @@ function editStaff(id) {
   const e = employes.find(x => x.id === id);
   if (!e) return;
   _editStaffId = id;
-  $('ns-nom').value     = e.nom    || '';
-  $('ns-prenom').value  = e.prenom || '';
-  $('ns-poste').value   = e.poste  || 'staff';
-  $('ns-tel').value     = e.telephone || '';
-  $('ns-date').value    = e.date_embauche || '';
-  $('ns-salaire').value = e.salaire_base  || '';
+  $('ns-nom').value     = e.nom          || '';
+  $('ns-prenom').value  = e.prenom       || '';
+  $('ns-poste').value   = e.poste        || 'staff';
+  $('ns-tel').value     = e.telephone    || '';
+  $('ns-date').value    = e.date_embauche|| '';
+  $('ns-salaire').value = e.salaire_base || '';
   document.querySelector('#overlay .sheet-title').textContent = 'Modifier l\'employé';
   $('overlay').classList.add('on');
 }
 
-async function loadPresence() {
-  if (!employes.length) await loadStaff();
-  const today = todayISO();
-  let existing = {};
-  try {
-    const { data } = await db.from('presences').select('*').eq('date',today);
-    (data||[]).forEach(p => { existing[p.employe_id] = p.statut; });
-  } catch {}
-
-  if (!employes.length) {
-    $('presence-list').innerHTML = '<div class="state-msg">Ajoutez des employés d\'abord.</div>'; return;
-  }
-  const statuts = ['present','absent','retard','conge'];
-  $('presence-list').innerHTML = employes.map(e => `
-    <div class="presence-grid">
-      <div>
-        <div style="font-size:14px;font-weight:500">${e.nom} ${e.prenom||''}</div>
-        <div style="font-size:12px;color:var(--muted)">${e.poste}</div>
-      </div>
-      <select class="statut-sel" id="pres-${e.id}">
-        ${statuts.map(s=>`<option value="${s}"${(existing[e.id]||'present')===s?' selected':''}>${
-          s==='present'?'✅ Présent':s==='absent'?'❌ Absent':s==='retard'?'⚠ Retard':'🏖 Congé'
-        }</option>`).join('')}
-      </select>
-    </div>`).join('');
-}
-
-async function savePresences() {
-  const today = todayISO();
-  try {
-    for (const e of employes) {
-      const statut = $('pres-'+e.id)?.value || 'present';
-      await db.from('presences').upsert({
-        employe_id:e.id, date:today, statut
-      }, { onConflict:'employe_id,date' });
-    }
-    toast('Présences enregistrées ✓','ok');
-  } catch(e) { toast('Erreur : '+e.message,'ko'); }
-}
-
-async function loadDemandes() {
-  try {
-    const { data } = await db.from('avances')
-      .select('*, employes(nom,prenom)')
-      .eq('statut','en_attente')
-      .order('date',{ascending:false});
-    const list = data || [];
-    const el = $('demandes-list');
-
-    if (!list.length) {
-      el.innerHTML = '<div class="state-msg">✅ Aucune demande en attente.</div>'; return;
-    }
-
-    /* Badge sur l'onglet */
-    const tab = $('tab-demandes');
-    if (tab) tab.textContent = `Demandes (${list.length})`;
-
-    el.innerHTML = list.map(a => `
-      <div class="avance-item" style="border-left:3px solid var(--gold)">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div>
-            <div style="font-size:14px;font-weight:600">
-              ${a.employes?.nom||'?'} ${a.employes?.prenom||''}</div>
-            <div class="avance-info">
-              ${frDateShort(a.date)} · ${a.note_demande||a.obs||'—'}</div>
-          </div>
-          <div style="text-align:right">
-            <div class="avance-montant">${gnf(a.montant)}</div>
-            <div style="display:flex;gap:8px;margin-top:6px;justify-content:flex-end">
-              <button style="font-size:11px;color:var(--ok);background:none;
-                border:none;cursor:pointer" onclick="validerDemande('${a.id}',${a.montant||0},'${(a.employes?.nom||'?')+' '+(a.employes?.prenom||'')}')">
-                ✓ Approuver
-              </button>
-              <button style="font-size:11px;color:var(--danger);background:none;
-                border:none;cursor:pointer" onclick="refuserDemande('${a.id}',${a.montant||0},'${(a.employes?.nom||'?')+' '+(a.employes?.prenom||'')}')">
-                ✕ Refuser
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>`).join('');
-  } catch(e) {
-    $('demandes-list').innerHTML = `<div class="state-msg err">${e.message}</div>`;
-  }
-}
-
-async function validerDemande(id, montant = 0, nom = '') {
-  try {
-    await db.from('avances').update({ statut:'approuvee', rembourse:false }).eq('id',id);
-    ML.logAction(`✅ Avance approuvée — ${nom.trim()} · ${gnf(montant)}`);
-    toast('Demande approuvée ✓','ok');
-    loadDemandes();
-  } catch(e) { toast('Erreur','ko'); }
-}
-
-async function refuserDemande(id, montant = 0, nom = '') {
-  try {
-    await db.from('avances').update({ statut:'refusee', rembourse:true }).eq('id',id);
-    ML.logAction(`❌ Avance refusée — ${nom.trim()} · ${gnf(montant)}`);
-    toast('Demande refusée','ok');
-    loadDemandes();
-  } catch(e) { toast('Erreur','ko'); }
-}
-
-async function loadAvances() {
-  try {
-    const { data } = await db.from('avances')
-      .select('*, employes(nom,prenom)')
-      .eq('rembourse',false)
-      .order('date',{ascending:false});
-    const list = data || [];
-    if (!list.length) {
-      $('avances-list').innerHTML = '<div class="state-msg">Aucune avance en cours.</div>'; return;
-    }
-    $('avances-list').innerHTML = list.map(a => `
-      <div class="avance-item">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div>
-            <div style="font-size:14px;font-weight:500">
-              ${a.employes?.nom||'?'} ${a.employes?.prenom||''}</div>
-            <div class="avance-info">${frDateShort(a.date)} · ${a.obs||'—'}</div>
-          </div>
-          <div>
-            <div class="avance-montant">${gnf(a.montant)}</div>
-            <button style="font-size:11px;color:var(--ok);background:none;
-              border:none;cursor:pointer;margin-top:4px"
-              onclick="marquerRembourse('${a.id}')">Remboursé ✓</button>
-          </div>
-        </div>
-      </div>`).join('');
-  } catch(e) { $('avances-list').innerHTML = `<div class="state-msg err">${e.message}</div>`; }
-}
-
-function populateAvEmploye() {
-  const sel = $('av-employe');
-  sel.innerHTML = '<option value="">Sélectionner…</option>' +
-    employes.map(e=>`<option value="${e.id}">${e.nom} ${e.prenom||''}</option>`).join('');
-}
-
-async function saveAvance() {
-  const empId   = $('av-employe').value;
-  const montant = parseFloat($('av-montant').value);
-  const date    = $('av-date').value;
-  if (!empId||!montant||!date) { toast('Remplissez tous les champs','ko'); return; }
-  try {
-    await db.from('avances').insert({
-      employe_id:empId, montant, date, obs:$('av-obs').value.trim()
-    });
-    toast('Avance enregistrée ✓','ok');
-    $('av-montant').value=''; $('av-obs').value='';
-    loadAvances();
-  } catch(e) { toast('Erreur : '+e.message,'ko'); }
-}
-
-async function marquerRembourse(id) {
-  try {
-    await db.from('avances').update({rembourse:true}).eq('id',id);
-    toast('Marqué remboursé ✓','ok');
-    loadAvances();
-  } catch(e) { toast('Erreur','ko'); }
-}
-
 function openAddStaff() {
   _editStaffId = null;
-  $('ns-nom').value = ''; $('ns-prenom').value = '';
-  $('ns-tel').value = ''; $('ns-salaire').value = '';
+  ['ns-nom','ns-prenom','ns-tel','ns-salaire'].forEach(id => { $(id).value = ''; });
   $('ns-poste').value = 'staff';
-  $('ns-date').value = todayISO();
+  $('ns-date').value  = todayISO();
   document.querySelector('#overlay .sheet-title').textContent = 'Nouvel employé';
   $('overlay').classList.add('on');
 }
+
 function closeOverlay() { $('overlay').classList.remove('on'); }
 
 async function saveStaff() {
   const nom = $('ns-nom').value.trim();
   if (!nom) { toast('Le nom est requis','ko'); return; }
   const payload = {
-    nom, prenom: $('ns-prenom').value.trim(),
-    poste: $('ns-poste').value,
-    telephone: $('ns-tel').value.trim() || null,
-    date_embauche: $('ns-date').value || null,
-    salaire_base: parseFloat($('ns-salaire').value) || 0
+    nom,
+    prenom:        $('ns-prenom').value.trim(),
+    poste:         $('ns-poste').value,
+    telephone:     $('ns-tel').value.trim()  || null,
+    date_embauche: $('ns-date').value        || null,
+    salaire_base:  parseFloat($('ns-salaire').value) || 0,
+    actif:         true
   };
   try {
     if (_editStaffId) {
@@ -440,7 +384,7 @@ async function saveStaff() {
       toast('Employé ajouté ✓','ok');
     }
     closeOverlay();
-    loadStaff();
+    await loadStaff();
   } catch(e) { toast('Erreur : '+e.message,'ko'); }
 }
 
@@ -450,9 +394,447 @@ async function archiveStaff(id) {
     await db.from('employes').update({actif:false}).eq('id',id);
     toast('Employé désactivé','ok');
     loadStaff();
-  } catch(e) { toast('Erreur','ko'); }
+  } catch { toast('Erreur','ko'); }
 }
 
+/* ════════════════════════════════════════════════════════════════
+   PRÉSENCES
+   Auto-save sur clic — optimistic UI (mise à jour locale immédiate)
+════════════════════════════════════════════════════════════════ */
+async function loadPresence() {
+  if (!employes.length) await loadStaff();
+  const date = $('pres-date-sel').value || todayISO();
+  _presStatuts = {};
+
+  try {
+    const { data, error } = await db.from('presences').select('*').eq('date', date);
+    if (error) throw error;
+    (data||[]).forEach(p => { _presStatuts[p.employe_id] = p.statut; });
+  } catch(e) {
+    const msg = e?.message || '';
+    if (msg.includes('presences') || msg.includes('relation') || msg.includes('does not exist')) {
+      $('pres-kpis').style.display = 'none';
+      $('presence-list').innerHTML = `
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px">
+          Table <b>presences</b> manquante — exécutez dans
+          <b>Supabase → SQL Editor</b> :
+        </div>
+        <div class="code-block">CREATE TABLE IF NOT EXISTS presences (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  employe_id UUID REFERENCES employes(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  statut TEXT NOT NULL DEFAULT 'present',
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(employe_id, date)
+);
+ALTER TABLE presences DISABLE ROW LEVEL SECURITY;</div>`;
+      return;
+    }
+    /* Autre erreur réseau → continuer avec valeurs par défaut */
+  }
+
+  /* Valeur par défaut : présent si pas encore enregistré */
+  employes.forEach(e => { if (!_presStatuts[e.id]) _presStatuts[e.id] = 'present'; });
+
+  renderPresence(date);
+  updatePresKpis();
+}
+
+function renderPresence(date) {
+  if (!employes.length) {
+    $('presence-list').innerHTML = '<div class="state-msg">Ajoutez des employés d\'abord.</div>';
+    $('pres-kpis').style.display = 'none';
+    return;
+  }
+  $('pres-kpis').style.display = 'grid';
+
+  const LABELS = {
+    present: '✅ Présent',
+    retard:  '⚠ Retard',
+    absent:  '❌ Absent',
+    conge:   '🏖 Congé'
+  };
+
+  $('presence-list').innerHTML = employes.map(e => {
+    const cur = _presStatuts[e.id] || 'present';
+    return `
+      <div style="padding:11px 0;border-bottom:1px solid var(--bg3)">
+        <div style="display:flex;justify-content:space-between;
+          align-items:center;margin-bottom:8px">
+          <div>
+            <div style="font-size:14px;font-weight:500">${e.nom} ${e.prenom||''}</div>
+            <div style="font-size:12px;color:var(--muted)">${e.poste||''}</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">
+          ${['present','retard','absent','conge'].map(s =>
+            `<button class="pst-btn pst-${s}${cur===s?' sel':''}"
+              onclick="setPresStatut('${e.id}','${s}','${date}')">
+              ${LABELS[s]}
+            </button>`
+          ).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function updatePresKpis() {
+  const c = {present:0, retard:0, absent:0, conge:0};
+  Object.values(_presStatuts).forEach(s => { if (c[s]!==undefined) c[s]++; });
+  $('pres-kpis').innerHTML = `
+    <div class="kpi-m present">
+      <div class="kpi-m-v">${c.present}</div>
+      <div class="kpi-m-l">Présents</div></div>
+    <div class="kpi-m retard">
+      <div class="kpi-m-v">${c.retard}</div>
+      <div class="kpi-m-l">Retards</div></div>
+    <div class="kpi-m absent">
+      <div class="kpi-m-v">${c.absent}</div>
+      <div class="kpi-m-l">Absents</div></div>
+    <div class="kpi-m conge">
+      <div class="kpi-m-v">${c.conge}</div>
+      <div class="kpi-m-l">Congés</div></div>`;
+}
+
+async function setPresStatut(empId, statut, date) {
+  /* 1. Mise à jour optimiste (instantanée pour l'UX) */
+  _presStatuts[empId] = statut;
+  renderPresence(date);
+  updatePresKpis();
+
+  /* 2. Sauvegarde en base */
+  try {
+    const { error } = await db.from('presences').upsert(
+      { employe_id: empId, date, statut },
+      { onConflict: 'employe_id,date' }
+    );
+    if (error) throw error;
+  } catch(e) {
+    toast('Erreur sauvegarde : '+e.message, 'ko');
+  }
+}
+
+async function tousPresents() {
+  const date = $('pres-date-sel').value || todayISO();
+  if (!employes.length) { toast('Aucun employé','ko'); return; }
+  employes.forEach(e => { _presStatuts[e.id] = 'present'; });
+  renderPresence(date);
+  updatePresKpis();
+  try {
+    for (const e of employes) {
+      await db.from('presences').upsert(
+        { employe_id: e.id, date, statut: 'present' },
+        { onConflict: 'employe_id,date' }
+      );
+    }
+    toast('Tous marqués présents ✓','ok');
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   DEMANDES D'AVANCE
+════════════════════════════════════════════════════════════════ */
+async function loadDemandes() {
+  /* ── 1. Avances en attente ── */
+  try {
+    const { data } = await db.from('avances')
+      .select('*, employes(nom,prenom)')
+      .eq('statut','en_attente')
+      .order('date',{ascending:false});
+    const list = data || [];
+    const el   = $('demandes-list');
+
+    if (!list.length) {
+      el.innerHTML = '<div class="state-msg">✅ Aucune demande d\'avance en attente.</div>';
+    } else {
+      el.innerHTML = list.map(a => {
+        const nom = `${a.employes?.nom||'?'} ${a.employes?.prenom||''}`.trim();
+        return `
+          <div class="avance-item" style="border-left:3px solid var(--gold)">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <div style="font-size:14px;font-weight:600">${nom}</div>
+                <div class="avance-info">
+                  ${frDateShort(a.date)} · ${a.note_demande||a.obs||'—'}</div>
+              </div>
+              <div style="text-align:right">
+                <div class="avance-montant">${gnf(a.montant)}</div>
+                <div style="display:flex;gap:10px;margin-top:7px;justify-content:flex-end">
+                  <button style="font-size:12px;color:var(--ok);background:none;border:none;
+                    cursor:pointer;font-weight:600"
+                    onclick="validerDemande('${a.id}',${a.montant||0},'${nom}')">
+                    ✓ Approuver
+                  </button>
+                  <button style="font-size:12px;color:var(--danger);background:none;border:none;
+                    cursor:pointer;font-weight:600"
+                    onclick="refuserDemande('${a.id}',${a.montant||0},'${nom}')">
+                    ✕ Refuser
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+  } catch(e) {
+    $('demandes-list').innerHTML = `<div class="state-msg err">${e.message}</div>`;
+  }
+
+  /* ── 2. Justifications d'absence ── */
+  await loadJustifDemandes();
+
+  /* Badge onglet */
+  checkDemandesCount();
+}
+
+async function loadJustifDemandes() {
+  const TYPES  = { maladie:'🤒 Maladie', urgence:'🚨 Urgence', conge:'📅 Congé demandé', autre:'📝 Autre' };
+  try {
+    const { data } = await db.from('justifications')
+      .select('*, employes(nom,prenom)')
+      .eq('statut','en_attente')
+      .order('date',{ascending:false});
+    const list = data || [];
+    const el   = $('justif-list');
+    const sub  = $('justif-count-sub');
+    if (sub) sub.textContent = list.length ? `${list.length} en attente` : '';
+
+    if (!list.length) {
+      el.innerHTML = '<div class="state-msg">✅ Aucune justification en attente.</div>';
+      return;
+    }
+    el.innerHTML = list.map(j => {
+      const nom = `${j.employes?.nom||'?'} ${j.employes?.prenom||''}`.trim();
+      return `
+        <div class="avance-item" style="border-left:3px solid #5BA3CC">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-size:14px;font-weight:600">${nom}</div>
+              <div class="avance-info">
+                ${frDateShort(j.date)} · ${TYPES[j.type]||j.type}
+                ${j.motif ? ` · "${j.motif}"` : ''}
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;margin-top:2px">
+              <button style="font-size:12px;color:var(--ok);background:none;border:none;
+                cursor:pointer;font-weight:600"
+                onclick="approuverJustif('${j.id}','${nom}')">
+                ✓ Accepter
+              </button>
+              <button style="font-size:12px;color:var(--danger);background:none;border:none;
+                cursor:pointer;font-weight:600"
+                onclick="rejeterJustif('${j.id}','${nom}')">
+                ✕ Refuser
+              </button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    $('justif-list').innerHTML = `<div class="state-msg err">${e.message}</div>`;
+  }
+}
+
+async function approuverJustif(id, nom) {
+  try {
+    const { error } = await db.from('justifications')
+      .update({ statut: 'approuvee' }).eq('id', id);
+    if (error) throw error;
+    ML.logAction(`✅ Justification acceptée — ${nom}`);
+    toast(`Justification de ${nom} acceptée ✓`, 'ok');
+    await loadJustifDemandes();
+    checkDemandesCount();
+  } catch(e) { toast('Erreur : '+e.message, 'ko'); }
+}
+
+async function rejeterJustif(id, nom) {
+  try {
+    const { error } = await db.from('justifications')
+      .update({ statut: 'rejetee' }).eq('id', id);
+    if (error) throw error;
+    ML.logAction(`❌ Justification refusée — ${nom}`);
+    toast(`Justification de ${nom} refusée`, 'ko');
+    await loadJustifDemandes();
+    checkDemandesCount();
+  } catch(e) { toast('Erreur : '+e.message, 'ko'); }
+}
+
+async function validerDemande(id, montant = 0, nom = '') {
+  try {
+    await db.from('avances').update({ statut:'approuvee', rembourse:false }).eq('id',id);
+    ML.logAction(`✅ Avance approuvée — ${nom} · ${gnf(montant)}`);
+    toast('Demande approuvée ✓','ok');
+    loadDemandes();
+  } catch { toast('Erreur','ko'); }
+}
+
+async function refuserDemande(id, montant = 0, nom = '') {
+  try {
+    await db.from('avances').update({ statut:'rejetee', rembourse:true }).eq('id',id);
+    ML.logAction(`❌ Avance refusée — ${nom} · ${gnf(montant)}`);
+    toast('Demande refusée','ok');
+    loadDemandes();
+  } catch { toast('Erreur','ko'); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   AVANCES
+   Seules les avances statut='approuvee' AND rembourse=false
+   sont affichées ici et déduites du salaire.
+════════════════════════════════════════════════════════════════ */
+async function loadAvances() {
+  try {
+    const { data } = await db.from('avances')
+      .select('*, employes(nom,prenom)')
+      .eq('statut','approuvee')
+      .eq('rembourse',false)
+      .order('date',{ascending:false});
+    const list = data || [];
+    const el = $('avances-list');
+
+    if (!list.length) {
+      el.innerHTML = '<div class="state-msg">Aucune avance active.</div>';
+      return;
+    }
+    el.innerHTML = list.map(a => {
+      const nom = `${a.employes?.nom||'?'} ${a.employes?.prenom||''}`.trim();
+      return `
+        <div class="avance-item">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-size:14px;font-weight:500">${nom}</div>
+              <div class="avance-info">
+                ${frDateShort(a.date)} · ${a.obs||a.note_demande||'—'}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="avance-montant">${gnf(a.montant)}</div>
+              <button style="font-size:11px;color:var(--ok);background:none;
+                border:none;cursor:pointer;margin-top:5px"
+                onclick="marquerRembourse('${a.id}')">
+                Remboursé ✓
+              </button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    const msg = e?.message || '';
+    let html = `<div class="state-msg err">Erreur : ${msg}</div>`;
+    if (msg.includes('avances') || msg.includes('relation') || msg.includes('does not exist')) {
+      html += `
+        <div style="margin-top:10px;font-size:12px;color:var(--muted)">
+          Table <b>avances</b> manquante — exécutez dans Supabase → SQL Editor :
+        </div>
+        <div class="code-block" style="margin-top:6px">CREATE TABLE IF NOT EXISTS avances (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  employe_id UUID REFERENCES employes(id) ON DELETE CASCADE,
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
+  montant INTEGER NOT NULL DEFAULT 0,
+  statut TEXT NOT NULL DEFAULT 'en_attente',
+  rembourse BOOLEAN NOT NULL DEFAULT false,
+  note_demande TEXT,
+  obs TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE avances DISABLE ROW LEVEL SECURITY;</div>`;
+    }
+    $('avances-list').innerHTML = html;
+  }
+}
+
+function populateAvEmploye() {
+  const sel = $('av-employe');
+  sel.innerHTML = '<option value="">Sélectionner un employé…</option>' +
+    employes.map(e =>
+      `<option value="${e.id}" data-brut="${e.salaire_base||0}">
+        ${e.nom} ${e.prenom||''} — ${gnf(e.salaire_base||0)}/mois
+      </option>`
+    ).join('');
+}
+
+/* Aperçu impact sur le salaire */
+async function updateAvImpact() {
+  const sel     = $('av-employe');
+  const empId   = sel.value;
+  const montant = parseFloat($('av-montant').value) || 0;
+  const el      = $('av-impact');
+  if (!empId || !montant) { el.style.display='none'; return; }
+
+  const brut = parseFloat(sel.options[sel.selectedIndex]?.dataset?.brut) || 0;
+  try {
+    const { data: avs } = await db.from('avances').select('montant')
+      .eq('employe_id', empId)
+      .eq('statut', 'approuvee')
+      .eq('rembourse', false);
+    const dejaAv     = (avs||[]).reduce((s,a) => s+(a.montant||0), 0);
+    const apresNvlle  = dejaAv + montant;
+    const netEstime   = Math.max(0, brut - apresNvlle);
+    const okColor    = netEstime > 0 ? 'var(--ok)' : 'var(--danger)';
+    el.style.display = '';
+    el.innerHTML     = `
+      <span>Salaire brut :</span> <b>${gnf(brut)}</b><br>
+      <span>Avances en cours :</span>
+        <b style="color:var(--danger)">${gnf(dejaAv)}</b><br>
+      <span>Avec cette avance :</span>
+        <b style="color:var(--danger)">${gnf(apresNvlle)}</b><br>
+      <span>Net estimé :</span>
+        <b style="color:${okColor}">${gnf(netEstime)}</b>`;
+  } catch {}
+}
+
+async function saveAvance() {
+  const empId   = $('av-employe').value;
+  const montant = parseFloat($('av-montant').value);
+  const date    = $('av-date').value;
+  if (!empId)   { toast('Sélectionnez un employé','ko'); return; }
+  if (!montant || montant <= 0) { toast('Montant invalide','ko'); return; }
+  if (!date)    { toast('Date requise','ko'); return; }
+
+  try {
+    const { error } = await db.from('avances').insert({
+      employe_id: empId,
+      montant,
+      date,
+      statut:    'approuvee',  /* Manager ajoute = approuvé immédiatement */
+      rembourse: false,
+      obs:       ($('av-obs').value||'').trim() || null
+    });
+    if (error) throw error;
+
+    const nomEmp = $('av-employe').options[$('av-employe').selectedIndex]?.text||'';
+    ML.logAction(`💵 Avance enregistrée — ${nomEmp.split('—')[0].trim()} · ${gnf(montant)}`);
+    toast('Avance enregistrée ✓','ok');
+    $('av-montant').value = '';
+    $('av-obs').value     = '';
+    $('av-impact').style.display = 'none';
+    loadAvances();
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+async function marquerRembourse(id) {
+  try {
+    await db.from('avances').update({rembourse:true}).eq('id',id);
+    toast('Marqué remboursé ✓','ok');
+    loadAvances();
+  } catch { toast('Erreur','ko'); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PAIE
+   ─────────────────────────────────────────────────────────────
+   FORMULE (invariante) :
+     avances_ded = SUM(avances WHERE statut='approuvee' AND rembourse=false)
+                   ← toutes dates confondues
+     ecarts_ded  = SUM(sessions_caisse.ecart WHERE caissier_id=X AND mois=M AND ecart>0)
+     net_verse   = MAX(0, salaire_base − avances_ded − ecarts_ded)
+
+   PAYER un employé :
+     1. INSERT salaires_verses (upsert par employe_id+mois)
+     2. UPDATE avances SET rembourse=true WHERE employe_id=X
+        AND statut='approuvee' AND rembourse=false
+        → les avances ne seront plus déduites le mois suivant
+════════════════════════════════════════════════════════════════ */
 async function loadPaie() {
   const mois = $('paie-mois').value;
   if (!mois) return;
@@ -466,107 +848,317 @@ async function loadPaie() {
       el.innerHTML = '<div class="state-msg">Aucun employé actif.</div>'; return;
     }
 
-    const debut = mois + '-01';
-    const fin   = new Date(+mois.slice(0,4), +mois.slice(5,7), 0).toISOString().slice(0,10);
+    /* Dernier jour du mois (évite le -31 invalide pour les mois courts) */
+    const finMois = new Date(+mois.slice(0,4), +mois.slice(5,7), 0)
+      .toISOString().slice(0,10);
 
-    const [presRes, avRes] = await Promise.all([
-      db.from('presences').select('employe_id,statut,date').gte('date',debut).lte('date',fin),
-      db.from('avances').select('employe_id,montant').gte('date',debut).lte('date',fin)
+    /* Tout en parallèle */
+    const [avRes, salaireRes, ecartsRes, surplusRes, rembValRes,
+           presRes, justifRes, retardRes] = await Promise.all([
+      db.from('avances').select('id,employe_id,montant')
+        .eq('statut','approuvee').eq('rembourse',false),
+      db.from('salaires_verses')
+        .select('employe_id,salaire_brut,avances_deduites,ecarts_deduits,net_verse,paye_le')
+        .eq('mois', mois),
+      db.from('sessions_caisse')           /* manques */
+        .select('id,caissier_id,ecart')
+        .gt('ecart', 0)
+        .gte('date', mois + '-01').lte('date', finMois),
+      db.from('sessions_caisse')           /* surplus */
+        .select('caissier_id,ecart')
+        .lt('ecart', 0)
+        .gte('date', mois + '-01').lte('date', finMois),
+      db.from('remboursements_ecart')      /* remboursements validés — sans filtre date, on match par session_id */
+        .select('session_id,employe_id,montant')
+        .eq('statut', 'valide'),
+      db.from('presences')
+        .select('employe_id')
+        .eq('statut', 'absent')
+        .gte('date', mois + '-01').lte('date', finMois),
+      db.from('justifications')
+        .select('employe_id')
+        .eq('statut', 'approuvee')
+        .gte('date', mois + '-01').lte('date', finMois),
+      db.from('presences')
+        .select('employe_id')
+        .eq('statut', 'retard')
+        .gte('date', mois + '-01').lte('date', finMois)
     ]);
 
-    const presences = presRes.data || [];
-    const avances   = avRes.data   || [];
+    const avances    = avRes.data     || [];
+    const ecartsSess = ecartsRes.data || [];
+    const dejaPayeMap = {};
+    (salaireRes.data||[]).forEach(s => { dejaPayeMap[s.employe_id] = s; });
 
-    /* Jours enregistrés dans le mois (dates distinctes présentes dans la table) */
-    const joursTotal = new Set(presences.map(p => p.date)).size || 30;
-
-    const paies = employes.map(e => {
-      const eP = presences.filter(p => p.employe_id === e.id);
-      const eA = avances.filter(a => a.employe_id === e.id);
-      const presents    = eP.filter(p => ['present','retard'].includes(p.statut)).length;
-      const absents     = eP.filter(p => p.statut === 'absent').length;
-      const conges      = eP.filter(p => p.statut === 'conge').length;
-      const totAvances  = eA.reduce((s,a) => s + (a.montant||0), 0);
-      const brut        = e.salaire_base || 0;
-      const net         = Math.max(0, brut - totAvances);
-      return { ...e, presents, absents, conges, joursTotal, totAvances, brut, net };
+    /* Remboursements validés — indexés par session_id pour matching précis */
+    const rembBySession = {};
+    (rembValRes.data||[]).forEach(r => {
+      rembBySession[r.session_id] = (rembBySession[r.session_id]||0) + r.montant;
     });
 
-    const totalMasse = paies.reduce((s,p) => s + p.net, 0);
+    /* Surplus par caissier */
+    const surplusMap = {};
+    (surplusRes.data||[]).forEach(s => {
+      surplusMap[s.caissier_id] = (surplusMap[s.caissier_id]||0) + Math.abs(s.ecart);
+    });
+
+    /* Comptages absences non justifiées + retards par employé */
+    const absMap    = {};
+    const justifMap = {};
+    const retardMap = {};
+    (presRes.data||[]).forEach(p  => { absMap[p.employe_id]    = (absMap[p.employe_id]||0)    + 1; });
+    (justifRes.data||[]).forEach(j => { justifMap[j.employe_id] = (justifMap[j.employe_id]||0) + 1; });
+    (retardRes.data||[]).forEach(r => { retardMap[r.employe_id] = (retardMap[r.employe_id]||0) + 1; });
+
+    const paies = employes.map(e => {
+      const eA            = avances.filter(a => a.employe_id === e.id);
+      const avancesDed    = eA.reduce((s,a) => s+(a.montant||0), 0);
+      const eE            = ecartsSess.filter(ec => ec.caissier_id === e.id);
+      const rawManques    = eE.reduce((s,ec) => s+(ec.ecart||0), 0);
+      const rembVal       = eE.reduce((s,ec) => s+(rembBySession[ec.id]||0), 0);
+      const surplusBonus  = surplusMap[e.id] || 0;
+      const ecartsDed     = Math.max(0, rawManques - rembVal);
+      const brut          = e.salaire_base || 0;
+
+      /* Sanctions absences non justifiées */
+      const absNJ           = Math.max(0, (absMap[e.id]||0) - (justifMap[e.id]||0));
+      const sanctionPct     = absNJ >= 3 ? 0.15 : absNJ === 2 ? 0.10 : 0;
+      const sanctionType    = absNJ >= 3 ? 'deduction_15'
+                            : absNJ === 2 ? 'deduction_10'
+                            : absNJ === 1 ? 'avertissement' : 'aucune';
+      const sanctionMontant = Math.round(brut * sanctionPct);
+
+      /* Sanctions retards (≥5 retards/mois = −10%) */
+      const retardsCount          = retardMap[e.id] || 0;
+      const sanctionRetardMontant = retardsCount >= 5 ? Math.round(brut * 0.10) : 0;
+
+      const net  = Math.max(0,
+        brut - sanctionMontant - sanctionRetardMontant - avancesDed - ecartsDed + surplusBonus
+      );
+      const paye = dejaPayeMap[e.id] || null;
+      return { ...e, avancesDed, ecartsDed, rembVal, surplusBonus,
+               absNJ, sanctionPct, sanctionType, sanctionMontant,
+               retardsCount, sanctionRetardMontant,
+               brut, net, paye };
+    });
+
+    /* Stocke pour payerEmploye() */
+    _paieData = {};
+    paies.forEach(p => { _paieData[p.id] = p; });
+
+    const totalNet = paies.reduce((s,p) => s+p.net, 0);
+    const nbPayes  = paies.filter(p => p.paye).length;
 
     el.innerHTML = paies.map(p => `
-      <div class="paie-card">
+      <div class="paie-card ${p.paye?'paid':''}">
         <div class="paie-head">
           <div>
             <div class="paie-nom">${p.nom} ${p.prenom||''}</div>
-            <div class="paie-poste">${p.poste}</div>
+            <div class="paie-poste">${p.poste||'—'}</div>
           </div>
-          <div class="paie-net">${gnf(p.net)}</div>
+          <div style="text-align:right">
+            <div class="paie-net" style="color:${p.paye?'var(--ok)':'var(--gold)'}">
+              ${gnf(p.net)}</div>
+            ${p.paye ? `<div style="font-size:11px;color:var(--ok);margin-top:2px">
+              ✓ Versé le ${frDateShort(p.paye.paye_le)}</div>` : ''}
+          </div>
         </div>
         <div class="paie-details">
           <div class="paie-row">
-            <span>Salaire base</span><span>${gnf(p.brut)}</span>
+            <span>Salaire brut</span><span>${gnf(p.brut)}</span>
           </div>
+          ${p.sanctionMontant > 0 ? `
           <div class="paie-row">
-            <span>Présences</span>
-            <span style="color:var(--ok)">${p.presents} j / ${p.joursTotal} j</span>
+            <span style="color:var(--danger)">🚫 Absences (${p.absNJ}) −${Math.round(p.sanctionPct*100)}%</span>
+            <span style="color:var(--danger)">− ${gnf(p.sanctionMontant)}</span>
+          </div>` : p.absNJ === 1 ? `
+          <div class="paie-row">
+            <span style="color:#ffb400">⚠ 1 absence non justifiée</span>
+            <span style="color:#ffb400;font-size:11px">Avertissement</span>
+          </div>` : ''}
+          ${p.sanctionRetardMontant > 0 ? `
+          <div class="paie-row">
+            <span style="color:var(--danger)">⏰ Retards (${p.retardsCount}) −10%</span>
+            <span style="color:var(--danger)">− ${gnf(p.sanctionRetardMontant)}</span>
+          </div>` : p.retardsCount >= 3 ? `
+          <div class="paie-row">
+            <span style="color:#ffb400">⚠ ${p.retardsCount} retards</span>
+            <span style="color:#ffb400;font-size:11px">${5-p.retardsCount} de plus = −10%</span>
+          </div>` : ''}
+          ${p.avancesDed ? `
+          <div class="paie-row">
+            <span>Avances déduites</span>
+            <span style="color:var(--danger)">− ${gnf(p.avancesDed)}</span>
+          </div>` : ''}
+          ${p.ecartsDed ? `
+          <div class="paie-row">
+            <span>⚠ Écarts caisse${p.rembVal ? ` (remb. ${gnf(p.rembVal)})` : ''}</span>
+            <span style="color:var(--danger)">− ${gnf(p.ecartsDed)}</span>
+          </div>` : p.rembVal ? `
+          <div class="paie-row">
+            <span style="color:var(--ok)">✓ Écart remboursé</span>
+            <span style="color:var(--ok);font-size:11px">${gnf(p.rembVal)}</span>
+          </div>` : ''}
+          ${p.surplusBonus ? `
+          <div class="paie-row">
+            <span style="color:var(--ok)">💰 Surplus caisse</span>
+            <span style="color:var(--ok)">+ ${gnf(p.surplusBonus)}</span>
+          </div>` : ''}
+          <div class="paie-row" style="margin-top:3px;padding-top:6px;
+            border-top:1px solid var(--bg3);font-weight:600">
+            <span style="color:var(--text)">Net à verser</span>
+            <span style="color:${p.paye?'var(--ok)':'var(--gold)'}">
+              ${gnf(p.net)}</span>
           </div>
-          ${p.absents ? `<div class="paie-row">
-            <span>Absences</span>
-            <span style="color:var(--danger)">${p.absents} j</span>
-          </div>` : ''}
-          ${p.conges ? `<div class="paie-row">
-            <span>Congés</span><span>${p.conges} j</span>
-          </div>` : ''}
-          ${p.totAvances ? `<div class="paie-row">
-            <span>Avances du mois</span>
-            <span style="color:var(--danger)">− ${gnf(p.totAvances)}</span>
-          </div>` : ''}
+          <div style="margin-top:10px">
+            ${p.paye
+              ? `<button style="width:100%;font-size:12px;color:var(--muted);
+                   background:var(--bg3);border:none;border-radius:var(--rs);
+                   padding:8px;cursor:pointer"
+                   onclick="annulerPaiement('${p.id}')">
+                   Annuler ce versement
+                 </button>`
+              : `<button class="btn-primary" style="width:100%;font-size:13px;padding:12px"
+                   onclick="payerEmploye('${p.id}')">
+                   VERSER ${gnf(p.net)} ›
+                 </button>`
+            }
+          </div>
         </div>
       </div>`).join('');
 
-    $('paie-total').textContent = gnf(totalMasse);
-    $('paie-footer').style.display  = 'flex';
-    $('paie-footer').dataset.total  = totalMasse;
-    $('paie-footer').dataset.mois   = mois;
+    $('paie-total').textContent    = gnf(totalNet);
+    $('paie-paycount').textContent = `${nbPayes} / ${paies.length}`;
+    $('paie-footer').style.display = 'flex';
+    $('paie-footer').dataset.total = totalNet;
+    $('paie-footer').dataset.mois  = mois;
 
   } catch(e) {
-    el.innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+    const msg = e.message || '';
+    el.innerHTML = `<div class="state-msg err">Erreur : ${msg}</div>`;
+
+    /* Table salaires_verses absente → afficher le SQL */
+    if (msg.includes('salaires_verses') || msg.includes('relation')
+        || msg.includes('does not exist')) {
+      el.innerHTML += `
+        <div style="margin-top:12px">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:8px">
+            Table <b>salaires_verses</b> manquante — exécutez dans
+            <b>Supabase → SQL Editor</b> :
+          </div>
+          <div class="code-block">CREATE TABLE IF NOT EXISTS salaires_verses (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  employe_id UUID REFERENCES employes(id) ON DELETE CASCADE,
+  mois TEXT NOT NULL,
+  salaire_brut INTEGER NOT NULL DEFAULT 0,
+  avances_deduites INTEGER NOT NULL DEFAULT 0,
+  ecarts_deduits INTEGER NOT NULL DEFAULT 0,
+  net_verse INTEGER NOT NULL DEFAULT 0,
+  paye_le DATE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(employe_id, mois)
+);
+ALTER TABLE salaires_verses DISABLE ROW LEVEL SECURITY;
+
+-- Si la table existe déjà :
+ALTER TABLE salaires_verses
+  ADD COLUMN IF NOT EXISTS ecarts_deduits         INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS nb_absences_nj         INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS sanction_type          TEXT    NOT NULL DEFAULT 'aucune',
+  ADD COLUMN IF NOT EXISTS sanction_montant       INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS nb_retards             INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS sanction_retard_montant INTEGER NOT NULL DEFAULT 0;</div>
+        </div>`;
+    }
   }
 }
 
+/* Payer un employé individuellement */
+async function payerEmploye(empId) {
+  const mois = $('paie-mois').value;
+  if (!mois) { toast('Mois non sélectionné','ko'); return; }
+  const p = _paieData[empId];
+  if (!p) { toast('Données introuvables — rechargez','ko'); return; }
+
+  try {
+    /* 1. Enregistrer le versement avec toutes les déductions */
+    const { error: e1 } = await db.from('salaires_verses').upsert({
+      employe_id:             empId,
+      mois,
+      salaire_brut:           p.brut,
+      avances_deduites:       p.avancesDed,
+      ecarts_deduits:          p.ecartsDed            || 0,
+      surplus_caisse:          p.surplusBonus         || 0,
+      nb_absences_nj:          p.absNJ               || 0,
+      sanction_type:           p.sanctionType         || 'aucune',
+      sanction_montant:        p.sanctionMontant      || 0,
+      nb_retards:              p.retardsCount         || 0,
+      sanction_retard_montant: p.sanctionRetardMontant || 0,
+      net_verse:               p.net,
+      paye_le:                todayISO()
+    }, { onConflict: 'employe_id,mois' });
+    if (e1) throw e1;
+
+    /* 2. Solder toutes ses avances approuvées non remboursées */
+    const { error: e2 } = await db.from('avances')
+      .update({ rembourse: true })
+      .eq('employe_id', empId)
+      .eq('statut', 'approuvee')
+      .eq('rembourse', false);
+    if (e2) throw e2;
+
+    const nom = `${p.nom} ${p.prenom||''}`.trim();
+    const parts = [`💸 Salaire versé — ${nom} · ${gnf(p.net)} · ${mois}`];
+    if (p.sanctionMontant)       parts.push(`Absences (${p.absNJ}) −${gnf(p.sanctionMontant)}`);
+    if (p.sanctionRetardMontant) parts.push(`Retards (${p.retardsCount}) −${gnf(p.sanctionRetardMontant)}`);
+    if (p.ecartsDed)             parts.push(`Écarts caisse −${gnf(p.ecartsDed)}`);
+    if (p.surplusBonus)          parts.push(`Surplus caisse +${gnf(p.surplusBonus)}`);
+    ML.logAction(parts.join(' · '));
+    toast(`${nom} payé ✓`, 'ok');
+    loadPaie();
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+/* Annuler un versement individuel */
+async function annulerPaiement(empId) {
+  const mois = $('paie-mois').value;
+  if (!confirm('Annuler ce versement ?\nLes avances restent soldées.')) return;
+  try {
+    await db.from('salaires_verses').delete()
+      .eq('employe_id', empId).eq('mois', mois);
+    toast('Versement annulé','ok');
+    loadPaie();
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+/* Inscrire la masse salariale totale dans les Charges */
 async function validerPaie() {
   const mois    = $('paie-footer').dataset.mois;
   const montant = parseFloat($('paie-footer').dataset.total) || 0;
-  if (!mois || !montant) { toast('Aucune donnée à valider','ko'); return; }
+  if (!mois || !montant) { toast('Aucune donnée','ko'); return; }
 
   const btn = $('btn-valider-paie');
   btn.disabled = true;
   try {
     const label = new Date(mois+'-15').toLocaleDateString('fr-FR',
       {month:'long', year:'numeric'});
-
-    /* Upsert : évite le doublon si on re-valide le même mois */
     const { data: ex } = await db.from('charges').select('id')
       .eq('mois',mois).eq('categorie','personnel').ilike('libelle','Salaires%');
-
     if (ex?.length) {
       await db.from('charges').update({montant, paye:false}).eq('id',ex[0].id);
       toast('Charge salaires mise à jour ✓','ok');
     } else {
       await db.from('charges').insert({
-        libelle: `Salaires ${label}`,
+        libelle:   `Salaires ${label}`,
         categorie: 'personnel',
         montant,
         mois,
         frequence: 'mensuel',
-        paye: false
+        paye:      false
       });
-      toast('Masse salariale enregistrée dans les charges ✓','ok');
+      toast('Masse salariale inscrite dans les charges ✓','ok');
     }
-  } catch(e) {
-    toast('Erreur : '+e.message,'ko');
-  }
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
   btn.disabled = false;
 }
 </script>

@@ -96,6 +96,11 @@ input,textarea,button,select{font-family:inherit;font-size:inherit;color:inherit
   color:var(--gold);background:var(--glow);
   box-shadow:inset 0 0 0 1px var(--gring)}
 .nav-item:not(.active):hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.nav-dot{
+  display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:var(--danger);vertical-align:middle;margin-left:5px;
+  box-shadow:0 0 0 1.5px rgba(9,9,11,.9);
+  animation:pulse 2s ease-in-out infinite;flex-shrink:0}
 
 /* ── BODY WRAP ──────────────────────────────────────────────── */
 .body-wrap{

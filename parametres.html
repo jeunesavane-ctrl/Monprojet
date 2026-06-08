@@ -11,6 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
   <script src="shared.js" defer></script>
   <style>
+/* PIN change */
 .pc-body{display:none;flex-direction:column;gap:14px;padding:14px 16px;
   border-top:1px solid var(--bg3)}
 .pc-body.open{display:flex}
@@ -28,32 +29,39 @@
 .pc-key:active{background:var(--bg4);transform:scale(.92)}
 .pc-key.del{font-size:15px;color:var(--muted)}
 .pc-key.void{visibility:hidden}
+
+/* Logs */
 .log-item{display:flex;justify-content:space-between;align-items:center;
   padding:8px 0;border-bottom:1px solid var(--bg3);font-size:13px}
 .log-item:last-child{border-bottom:none}
 .log-role{font-weight:500}
 .log-ts{font-size:11px;color:var(--muted)}
-.assoc-item{background:var(--bg2);border-radius:var(--rs);padding:12px 14px;
-  display:flex;justify-content:space-between;align-items:center;gap:8px}
-.assoc-nom{font-size:14px;font-weight:500}
-.assoc-pct{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--gold)}
-.assoc-info{font-size:12px;color:var(--muted);margin-top:2px}
-.emp-item{background:var(--bg2);border-radius:var(--rs);padding:12px 14px;
-  display:flex;justify-content:space-between;align-items:center;gap:10px}
-.emp-nom{font-size:14px;font-weight:500}
-.emp-meta{font-size:12px;color:var(--muted);margin-top:3px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* Comptes unifiés */
+.compte-item{
+  background:var(--bg2);border-radius:var(--rs);padding:12px 14px;
+  display:flex;justify-content:space-between;align-items:flex-start;gap:10px;
+  border:1px solid var(--b1)}
+.compte-nom{font-size:14px;font-weight:600}
+.compte-meta{font-size:12px;color:var(--muted);margin-top:3px;
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .role-chip{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600}
 .role-chip.manager{background:rgba(201,168,76,.15);color:var(--gold)}
 .role-chip.caissier{background:rgba(58,123,168,.18);color:#5BA3CC}
 .role-chip.staff{background:rgba(255,255,255,.06);color:var(--muted)}
 .role-chip.chicha{background:rgba(255,120,0,.15);color:#FF7A00}
 .role-chip.achats{background:rgba(140,80,220,.15);color:#B080F0}
-.emp-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:2px}
-.emp-dot.on{background:var(--ok)}
-.emp-dot.off{background:var(--danger)}
-.emp-dot.none{background:var(--bg4);border:1px solid var(--muted)}
-.emp-actions{display:flex;flex-direction:column;gap:3px;align-items:flex-end;flex-shrink:0}
-.emp-btn{font-size:11px;background:none;border:none;cursor:pointer;padding:2px 0;text-align:right}
+.role-chip.associe{background:rgba(61,184,115,.12);color:var(--ok)}
+.role-chip.owner{background:rgba(201,168,76,.25);color:var(--gold)}
+.compte-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.compte-dot.on{background:var(--ok)}
+.compte-dot.off{background:var(--danger)}
+.compte-actions{display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0}
+.ca-btn{font-size:11px;background:none;border:none;cursor:pointer;
+  padding:2px 0;text-align:right;line-height:1.4}
+.section-divider{font-size:10px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:1px;padding:8px 0 4px;
+  border-bottom:1px solid var(--b1);margin-bottom:6px}
   </style>
 </head>
 <body>
@@ -97,30 +105,21 @@
       </div>
     </div>
 
-    <!-- Changement PINs -->
+    <!-- Changer les PINs partagés -->
     <div class="card">
-      <div class="card-head"><div class="card-title">Changer les PINs</div></div>
+      <div class="card-head"><div class="card-title">PINs partagés</div></div>
       <div class="card-body" style="gap:8px" id="pin-sections"></div>
     </div>
 
-    <!-- Associés -->
+    <!-- ═══════════════════════════════════════════════════
+         COMPTES — Section unifiée (employés + associés)
+    ═══════════════════════════════════════════════════ -->
     <div class="card">
       <div class="card-head">
-        <div class="card-title">Associés</div>
-        <button class="btn-secondary" onclick="openAddAssoc()">+ Ajouter</button>
+        <div class="card-title">Comptes</div>
+        <button class="btn-secondary" onclick="openCompteModal()">+ Nouveau</button>
       </div>
-      <div class="card-body" id="assoc-list">
-        <div class="state-msg">Chargement…</div>
-      </div>
-    </div>
-
-    <!-- Comptes Employés -->
-    <div class="card">
-      <div class="card-head">
-        <div class="card-title">Comptes Employés</div>
-        <button class="btn-secondary" onclick="openEmpModal('create')">+ Créer</button>
-      </div>
-      <div class="card-body" id="employe-list">
+      <div class="card-body" id="comptes-list">
         <div class="state-msg">Chargement…</div>
       </div>
     </div>
@@ -129,72 +128,133 @@
     <div class="card">
       <div class="card-head">
         <div class="card-title">Journal de connexion</div>
-        <div class="card-sub">20 dernières</div>
+        <div class="card-sub">50 dernières</div>
       </div>
       <div class="card-body" id="logs-list">
         <div class="state-msg">Chargement…</div>
       </div>
     </div>
 
-  </div>
-  <!-- Modal ajout associé -->
-  <div id="overlay-assoc" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);
-    z-index:100;display:none;align-items:flex-end;justify-content:center">
-    <div class="sheet" style="width:100%;max-width:480px;padding:24px 20px 32px">
-      <div class="sheet-title" id="assoc-modal-title">Nouvel associé</div>
-      <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
-        <div class="field"><label>Nom</label>
-          <input id="as-nom" type="text" placeholder="Prénom Nom"></div>
-        <div class="row2">
-          <div class="field"><label>Part (%)</label>
-            <input id="as-pct" type="number" inputmode="decimal" placeholder="10" min="0" max="100" step="0.5"></div>
-          <div class="field"><label>PIN (4 chiffres)</label>
-            <input id="as-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
-        </div>
-        <div class="field"><label>Confirmer le PIN</label>
-          <input id="as-pin2" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
-        <div id="as-err" style="font-size:13px;color:var(--danger);min-height:14px"></div>
+    <!-- ⚠ Zone dangereuse — Réinitialisation -->
+    <div class="card" style="border:1px solid rgba(255,80,80,.25)">
+      <div class="card-head">
+        <div class="card-title" style="color:var(--danger)">⚠ Zone dangereuse</div>
       </div>
-      <div class="sheet-btns">
-        <button class="btn-cancel" onclick="closeAssocModal()">Annuler</button>
-        <button class="btn-ok" onclick="saveAssoc()">ENREGISTRER</button>
+      <div class="card-body">
+        <div style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:12px">
+          Efface toutes les données transactionnelles (rapports, présences, avances, caisse, logs).
+          Les comptes, produits et charges sont conservés.
+          <br><b style="color:var(--danger)">Action irréversible.</b>
+        </div>
+        <button onclick="openReset()"
+          style="width:100%;padding:12px;border:1px solid var(--danger);border-radius:var(--r);
+            background:rgba(255,80,80,.08);color:var(--danger);font-size:13px;font-weight:600;
+            cursor:pointer;-webkit-tap-highlight-color:transparent">
+          🗑 Réinitialiser les données de test
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       MODAL RÉINITIALISATION — PIN propriétaire requis
+  ═══════════════════════════════════════════════════ -->
+  <div id="overlay-reset" style="display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,.88);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg2);border:1px solid rgba(255,80,80,.3);border-radius:var(--r);
+      padding:24px 20px;width:calc(100% - 40px);max-width:400px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--danger);
+        letter-spacing:1px;margin-bottom:6px">Confirmer la réinitialisation</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5">
+        Entrez votre PIN propriétaire pour confirmer.<br>
+        Cette action est <b style="color:var(--danger)">irréversible</b>.
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <label>PIN propriétaire</label>
+        <input id="reset-pin" type="password" inputmode="numeric" maxlength="4"
+          placeholder="••••" style="font-size:22px;text-align:center;letter-spacing:8px"
+          onkeydown="if(event.key==='Enter')confirmReset()">
+      </div>
+      <div id="reset-err" style="font-size:13px;color:var(--danger);min-height:14px;margin-bottom:10px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="btn-secondary" onclick="closeReset()">Annuler</button>
+        <button onclick="confirmReset()"
+          style="padding:14px;background:var(--danger);border:none;border-radius:var(--r);
+            color:#fff;font-size:13px;font-weight:700;cursor:pointer">
+          RÉINITIALISER
+        </button>
       </div>
     </div>
   </div>
-  <!-- Modal compte employé -->
-  <div id="overlay-employe" style="display:none;position:fixed;inset:0;
-    background:rgba(0,0,0,.85);z-index:100;align-items:flex-end;justify-content:center">
-    <div class="sheet" style="width:100%;max-width:480px;padding:24px 20px 32px">
-      <div class="sheet-title" id="emp-modal-title">Nouveau compte employé</div>
+
+  <!-- ═══════════════════════════════════════════════════
+       MODAL UNIFIÉ — Nouveau compte / Modification
+  ═══════════════════════════════════════════════════ -->
+  <div id="overlay-compte" style="display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,.85);z-index:100;align-items:flex-end;justify-content:center;
+    overflow-y:auto">
+    <div class="sheet" style="width:100%;max-width:480px;padding:24px 20px 36px;
+      margin-top:auto">
+      <div class="sheet-title" id="nc-title">Nouveau compte</div>
+
+      <!-- 1. Rôle en PREMIER → détermine les champs suivants -->
       <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
-        <div class="row2" id="em-name-row">
-          <div class="field"><label>Prénom</label>
-            <input id="em-prenom" type="text" placeholder="Prénom"></div>
-          <div class="field"><label>Nom</label>
-            <input id="em-nom" type="text" placeholder="Nom"></div>
-        </div>
-        <div class="field" id="em-poste-field"><label>Poste</label>
-          <input id="em-poste" type="text" placeholder="Ex: Serveur, Caissier…"></div>
-        <div class="field" id="em-role-field"><label>Rôle &amp; accès</label>
-          <select id="em-role">
-            <option value="staff">Staff — Saisie ventes + historique perso</option>
-            <option value="caissier">Caissier — Gestion caisse + validation</option>
-            <option value="chicha">Chicha — Suivi sorties chichas + aromes</option>
-            <option value="achats">Achats — Enregistrement achats + stocks</option>
-            <option value="manager">Manager — Dashboard, RH, Produits…</option>
+        <div class="field" id="nc-role-field">
+          <label>Rôle &amp; accès</label>
+          <select id="nc-role" onchange="updateModalFields()">
+            <option value="staff">Staff — Saisie ventes + historique</option>
+            <option value="caissier">Caissier — Gestion caisse + clôture</option>
+            <option value="chicha">Chicha — Suivi sorties chichas</option>
+            <option value="achats">Achats — Stocks + approvisionnement</option>
+            <option value="manager">Manager — Dashboard complet + RH</option>
+            <option value="associe">Associé — Suivi rapports + parts</option>
           </select>
         </div>
-        <div class="row2">
-          <div class="field"><label>PIN (4 chiffres)</label>
-            <input id="em-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
-          <div class="field"><label>Confirmer PIN</label>
-            <input id="em-pin2" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+
+        <!-- Identité -->
+        <div id="nc-identity-row" class="row2">
+          <div class="field"><label>Prénom</label>
+            <input id="nc-prenom" type="text" placeholder="Prénom"></div>
+          <div class="field"><label>Nom</label>
+            <input id="nc-nom" type="text" placeholder="Nom"></div>
         </div>
-        <div id="em-err" style="font-size:13px;color:var(--danger);min-height:14px"></div>
+
+        <!-- Champ associé : Part -->
+        <div class="field" id="nc-pct-field" style="display:none">
+          <label>Part dans les bénéfices (%)</label>
+          <input id="nc-pct" type="number" inputmode="decimal"
+            min="0" max="100" step="0.5" placeholder="Ex: 30">
+        </div>
+
+        <!-- Champs employé : Poste + Salaire -->
+        <div id="nc-emp-fields">
+          <div class="row2">
+            <div class="field"><label>Poste</label>
+              <input id="nc-poste" type="text" placeholder="Ex: Barman, Serveur…"></div>
+            <div class="field"><label>Salaire base (GNF)</label>
+              <input id="nc-salaire" type="number" inputmode="numeric" placeholder="0"></div>
+          </div>
+        </div>
+
+        <!-- PIN -->
+        <div id="nc-pin-fields">
+          <div class="row2">
+            <div class="field"><label>PIN (4 chiffres)</label>
+              <input id="nc-pin" type="password" inputmode="numeric"
+                maxlength="4" placeholder="••••"></div>
+            <div class="field"><label>Confirmer PIN</label>
+              <input id="nc-pin2" type="password" inputmode="numeric"
+                maxlength="4" placeholder="••••"></div>
+          </div>
+        </div>
+
+        <div id="nc-err" style="font-size:13px;color:var(--danger);min-height:14px"></div>
       </div>
+
       <div class="sheet-btns">
-        <button class="btn-cancel" onclick="closeEmpModal()">Annuler</button>
-        <button class="btn-ok" onclick="saveEmploye()">ENREGISTRER</button>
+        <button class="btn-cancel" onclick="closeCompteModal()">Annuler</button>
+        <button class="btn-ok" id="nc-submit-btn" onclick="saveCompte()">CRÉER LE COMPTE</button>
       </div>
     </div>
   </div>
@@ -205,8 +265,14 @@
 const H_STAFF_DEF   = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
 const H_MANAGER_DEF = 'b8dc2c143be8994682b08461f46487e05874e59dd9ab65cf973e3a3c67a763aa';
 
-let hOwner=null, hStaff=H_STAFF_DEF, hManager=H_MANAGER_DEF;
-let pcTarget=null, pcStep=0, pcBufs=['','',''];
+let hOwner = null, hStaff = H_STAFF_DEF, hManager = H_MANAGER_DEF;
+let pcTarget = null, pcStep = 0, pcBufs = ['','',''];
+
+/* Mode modal : 'create' | 'reset' | 'role' */
+let _ncMode   = 'create';
+let _ncType   = null;  // 'employe' | 'associe'
+let _ncId     = null;
+let _ncNom    = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
@@ -214,28 +280,70 @@ document.addEventListener('DOMContentLoaded', async () => {
   buildPinSections();
   await loadConfig();
   loadLogs();
-  loadAssocs();
-  loadEmployeComptes();
+  loadComptes();
 });
 
+/* ── Config ── */
+async function loadConfig() {
+  try {
+    const { data } = await db.from('config').select('key,value');
+    const cfg = {};
+    (data||[]).forEach(r => cfg[r.key] = r.value);
+    hOwner   = cfg.pin_owner   || null;
+    hStaff   = cfg.pin_staff   || H_STAFF_DEF;
+    hManager = cfg.pin_manager || H_MANAGER_DEF;
+    if (cfg.owner_nom)           $('owner-nom').value    = cfg.owner_nom;
+    if (cfg.objectif_journalier) $('obj-val').value      = cfg.objectif_journalier;
+    if (cfg.note_manager !== undefined) $('note-manager').value = cfg.note_manager || '';
+  } catch {}
+}
+
+async function saveOwnerNom() {
+  const val = ($('owner-nom')?.value || '').trim();
+  if (!val) { toast('Nom requis','ko'); return; }
+  try {
+    await db.from('config').upsert({ key:'owner_nom', value:val });
+    toast('Nom mis à jour ✓','ok');
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+async function saveNoteManager() {
+  const val = ($('note-manager').value || '').trim();
+  try {
+    const { data: ex } = await db.from('config').select('key').eq('key','note_manager');
+    if (ex?.length) {
+      await db.from('config').update({ value:val }).eq('key','note_manager');
+    } else {
+      await db.from('config').insert({ key:'note_manager', value:val });
+    }
+    toast('Note enregistrée ✓','ok');
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+async function saveObjectif() {
+  const val = parseFloat($('obj-val').value);
+  if (!val || val < 0) { toast('Valeur invalide','ko'); return; }
+  try {
+    await db.from('config').upsert({ key:'objectif_journalier', value:String(val) });
+    toast('Objectif enregistré ✓','ok');
+  } catch(e) { toast('Erreur','ko'); }
+}
+
+/* ── PINs partagés ── */
 function buildPinSections() {
   const targets = [
     { id:'owner',   label:'PIN Gestionnaire' },
     { id:'manager', label:'PIN Manager' },
   ];
   const keys = [1,2,3,4,5,6,7,8,9,'void',0,'del'];
-
-  document.getElementById('pin-sections').innerHTML = targets.map(t => `
+  $('pin-sections').innerHTML = targets.map(t => `
     <div>
       <button class="btn-secondary" style="width:100%;text-align:left"
         onclick="togglePc('${t.id}')">${t.label}</button>
       <div class="pc-body" id="pcb-${t.id}">
         <div class="pc-hint" id="pch-${t.id}">Entrez votre PIN actuel</div>
         <div class="pc-dots" id="pcd-${t.id}">
-          <div class="pc-dot" id="pcd-${t.id}-0"></div>
-          <div class="pc-dot" id="pcd-${t.id}-1"></div>
-          <div class="pc-dot" id="pcd-${t.id}-2"></div>
-          <div class="pc-dot" id="pcd-${t.id}-3"></div>
+          ${[0,1,2,3].map(i=>`<div class="pc-dot" id="pcd-${t.id}-${i}"></div>`).join('')}
         </div>
         <div class="pc-err" id="pce-${t.id}"></div>
         <div class="pc-keypad">
@@ -249,62 +357,318 @@ function buildPinSections() {
     </div>`).join('');
 }
 
-async function loadConfig() {
+/* ══════════════════════════════════════════════════════════
+   COMPTES UNIFIÉS — charge employés + associés ensemble
+══════════════════════════════════════════════════════════ */
+async function loadComptes() {
+  const el = $('comptes-list');
+  el.innerHTML = '<div class="state-msg">Chargement…</div>';
   try {
-    const { data } = await db.from('config').select('key,value');
-    const cfg = {};
-    (data||[]).forEach(r => cfg[r.key]=r.value);
-    hOwner   = cfg.pin_owner   || null;
-    hStaff   = cfg.pin_staff   || H_STAFF_DEF;
-    hManager = cfg.pin_manager || H_MANAGER_DEF;
-    if (cfg.owner_nom)           $('owner-nom').value   = cfg.owner_nom;
-    if (cfg.objectif_journalier) $('obj-val').value     = cfg.objectif_journalier;
-    if (cfg.note_manager !== undefined) $('note-manager').value = cfg.note_manager || '';
-  } catch {}
-}
+    const { data: emps } = await db.from('employes')
+      .select('id,nom,prenom,poste,actif,pin_hash,role,salaire_base,pourcentage')
+      .order('nom');
 
-async function saveOwnerNom() {
-  const val = ($('owner-nom')?.value || '').trim();
-  if (!val) { toast('Nom requis', 'ko'); return; }
-  try {
-    await db.from('config').upsert({ key:'owner_nom', value:val });
-    toast('Nom mis à jour ✓', 'ok');
-  } catch(e) { toast('Erreur : '+e.message, 'ko'); }
-}
+    const accounts = emps || [];
 
-async function saveNoteManager() {
-  const val = ($('note-manager').value || '').trim();
-  try {
-    const { data: existing } = await db.from('config').select('key').eq('key','note_manager');
-    if (existing?.length) {
-      await db.from('config').update({value: val}).eq('key','note_manager');
-    } else {
-      await db.from('config').insert({key:'note_manager', value: val});
+    if (!accounts.length) {
+      el.innerHTML = '<div class="state-msg">Aucun compte. Créez le premier.</div>';
+      return;
     }
-    toast('Note enregistrée ✓','ok');
-  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+
+    const ROLE_LBL = {
+      staff:'Staff', caissier:'Caissier', chicha:'Chicha',
+      achats:'Achats', manager:'Manager', associe:'Associé'
+    };
+    const ROLE_CYCLE = {
+      staff:'caissier', caissier:'chicha', chicha:'achats', achats:'manager', manager:'staff'
+    };
+
+    el.innerHTML = `
+      <div class="section-divider">Comptes (${accounts.length})</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${accounts.map(e => {
+          const hasPin     = !!e.pin_hash;
+          const nomComplet = [e.prenom, e.nom].filter(Boolean).join(' ') || e.nom;
+          const curRole    = e.role || 'staff';
+          const isAssoc    = curRole === 'associe';
+          const nextRole   = !isAssoc ? (ROLE_CYCLE[curRole] || 'caissier') : null;
+          const nextLbl    = nextRole ? (ROLE_LBL[nextRole] || '') : null;
+
+          return `<div class="compte-item">
+            <div style="display:flex;gap:10px;align-items:flex-start;flex:1;min-width:0">
+              <div class="compte-dot ${e.actif&&hasPin?'on':'off'}" style="margin-top:5px"></div>
+              <div>
+                <div class="compte-nom">${nomComplet}</div>
+                <div class="compte-meta">
+                  ${!isAssoc && e.poste ? `<span>${e.poste}</span>` : ''}
+                  ${hasPin ? `<span class="role-chip ${curRole}">${ROLE_LBL[curRole]||curRole}</span>` : ''}
+                  ${isAssoc ? `<span style="color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:14px">${e.pourcentage||0}%</span>` : ''}
+                  <span style="color:${hasPin&&e.actif?'var(--ok)':hasPin?'var(--danger)':'var(--muted)'}">
+                    ${!hasPin?'Sans accès':e.actif?'Actif':'Inactif'}</span>
+                </div>
+              </div>
+            </div>
+            <div class="compte-actions">
+              ${hasPin ? `
+                <button class="ca-btn" style="color:${e.actif?'var(--danger)':'var(--ok)'}"
+                  onclick="toggleEmpActif('${e.id}','${nomComplet}',${e.actif})">
+                  ${e.actif?'Désactiver':'Réactiver'}
+                </button>
+                <button class="ca-btn" style="color:var(--muted)"
+                  onclick="openResetPin('employe','${e.id}','${nomComplet}')">
+                  Reset PIN
+                </button>
+                ${!isAssoc && nextLbl ? `
+                  <button class="ca-btn" style="color:var(--gold)"
+                    onclick="cyclerRole('${e.id}','${curRole}','${nomComplet}')">
+                    → ${nextLbl}
+                  </button>` : ''}
+                ${isAssoc ? `
+                  <button class="ca-btn" style="color:var(--gold)"
+                    onclick="openEditPct('${e.id}','${nomComplet}',${e.pourcentage||0})">
+                    Modifier %
+                  </button>` : ''}
+              ` : `
+                <button class="ca-btn" style="color:var(--ok)"
+                  onclick="openDonnerAcces('${e.id}','${nomComplet}')">
+                  Donner accès
+                </button>
+              `}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+  } catch(e) {
+    el.innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
 }
 
-async function saveObjectif() {
-  const val = parseFloat($('obj-val').value);
-  if (!val||val<0) { toast('Valeur invalide','ko'); return; }
+/* ── Ouvrir modal création ── */
+function openCompteModal() {
+  _ncMode = 'create';
+  _ncType = null; _ncId = null; _ncNom = '';
+  $('nc-title').textContent = 'Nouveau compte';
+  $('nc-submit-btn').textContent = 'CRÉER LE COMPTE';
+  $('nc-err').textContent  = '';
+  $('nc-pin').value  = ''; $('nc-pin2').value = '';
+  $('nc-prenom').value = ''; $('nc-nom').value  = '';
+  $('nc-poste').value  = ''; $('nc-salaire').value = '';
+  $('nc-pct').value    = '';
+  $('nc-role').value   = 'staff';
+  $('nc-role-field').style.display    = '';
+  $('nc-identity-row').style.display  = '';
+  $('nc-pin-fields').style.display    = '';
+  updateModalFields();
+  $('overlay-compte').style.display   = 'flex';
+  setTimeout(() => $('nc-prenom').focus(), 80);
+}
+
+/* ── Ouvrir modal modification de part (associé) ── */
+function openEditPct(id, nom, pct) {
+  _ncMode = 'edit-pct'; _ncType = 'associe'; _ncId = id; _ncNom = nom;
+  $('nc-title').textContent      = `Part — ${nom}`;
+  $('nc-submit-btn').textContent = 'ENREGISTRER';
+  $('nc-err').textContent        = '';
+  $('nc-pct').value              = pct;
+  $('nc-role-field').style.display   = 'none';
+  $('nc-identity-row').style.display = 'none';
+  $('nc-pct-field').style.display    = '';
+  $('nc-emp-fields').style.display   = 'none';
+  $('nc-pin-fields').style.display   = 'none';
+  $('overlay-compte').style.display  = 'flex';
+  setTimeout(() => $('nc-pct').focus(), 80);
+}
+
+/* ── Ouvrir modal reset PIN ── */
+function openResetPin(type, id, nom) {
+  _ncMode = 'reset'; _ncType = type; _ncId = id; _ncNom = nom;
+  $('nc-title').textContent = `Nouveau PIN — ${nom}`;
+  $('nc-submit-btn').textContent = 'ENREGISTRER LE PIN';
+  $('nc-err').textContent = '';
+  $('nc-pin').value  = ''; $('nc-pin2').value = '';
+  $('nc-role-field').style.display   = 'none';
+  $('nc-identity-row').style.display = 'none';
+  $('nc-pct-field').style.display    = 'none';
+  $('nc-emp-fields').style.display   = 'none';
+  $('nc-pin-fields').style.display   = '';
+  $('overlay-compte').style.display  = 'flex';
+  setTimeout(() => $('nc-pin').focus(), 80);
+}
+
+/* ── Ouvrir modal "donner accès" à un employé existant ── */
+function openDonnerAcces(id, nom) {
+  _ncMode = 'access'; _ncType = 'employe'; _ncId = id; _ncNom = nom;
+  $('nc-title').textContent = `Accès — ${nom}`;
+  $('nc-submit-btn').textContent = 'DONNER L\'ACCÈS';
+  $('nc-err').textContent = '';
+  $('nc-pin').value  = ''; $('nc-pin2').value = '';
+  $('nc-role').value = 'staff';
+  $('nc-role-field').style.display    = '';
+  $('nc-identity-row').style.display  = 'none';
+  $('nc-pct-field').style.display     = 'none';
+  $('nc-emp-fields').style.display    = 'none';
+  $('nc-pin-fields').style.display    = '';
+  $('overlay-compte').style.display   = 'flex';
+}
+
+function closeCompteModal() {
+  $('overlay-compte').style.display = 'none';
+}
+
+/* ── Met à jour les champs visibles selon le rôle choisi ── */
+function updateModalFields() {
+  const role = $('nc-role')?.value;
+  const isAssoc = role === 'associe';
+  $('nc-pct-field').style.display  = isAssoc ? '' : 'none';
+  $('nc-emp-fields').style.display = isAssoc ? 'none' : '';
+}
+
+/* ── Sauvegarder le compte ── */
+async function saveCompte() {
+  $('nc-err').textContent = '';
+
+  /* ── Mode modification de part ── */
+  if (_ncMode === 'edit-pct') {
+    const pct = parseFloat($('nc-pct')?.value);
+    if (isNaN(pct) || pct < 0 || pct > 100) {
+      $('nc-err').textContent = 'Pourcentage invalide (0–100)'; return;
+    }
+    try {
+      const { error } = await db.from('employes')
+        .update({ pourcentage: pct }).eq('id', _ncId);
+      if (error) throw error;
+      ML.logAction(`📊 Part modifiée → ${_ncNom} : ${pct}%`);
+      toast(`Part de ${_ncNom} → ${pct}% ✓`, 'ok');
+      closeCompteModal(); loadComptes();
+    } catch(e) { $('nc-err').textContent = e.message; }
+    return;
+  }
+
+  const role   = $('nc-role')?.value;
+  const pin    = $('nc-pin').value.trim();
+  const pin2   = $('nc-pin2').value.trim();
+
+  /* Validation PIN (toujours requis sauf si mode role) */
+  if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+    $('nc-err').textContent = 'PIN : exactement 4 chiffres requis'; return;
+  }
+  if (pin !== pin2) {
+    $('nc-err').textContent = 'Les PINs ne correspondent pas'; return;
+  }
+  const hNew = await sha256(pin);
+
+  /* Vérifier conflits PIN */
+  if (hNew === hOwner || hNew === hManager) {
+    $('nc-err').textContent = 'Ce PIN est déjà utilisé par le gestionnaire ou manager'; return;
+  }
+  const eQuery = db.from('employes').select('id').eq('pin_hash', hNew);
+  if (_ncId) eQuery.neq('id', _ncId);
+  const { data: eConf } = await eQuery;
+  if (eConf?.length) { $('nc-err').textContent = 'Ce PIN est déjà utilisé par un autre compte'; return; }
+
   try {
-    await db.from('config').upsert({key:'objectif_journalier',value:String(val)});
-    toast('Objectif enregistré ✓','ok');
-  } catch(e) { toast('Erreur','ko'); }
+    /* ── Mode reset PIN ── */
+    if (_ncMode === 'reset') {
+      const { error } = await db.from('employes').update({ pin_hash: hNew }).eq('id', _ncId);
+      if (error) throw error;
+      toast('PIN réinitialisé ✓','ok');
+      closeCompteModal(); loadComptes(); return;
+    }
+
+    /* ── Mode donner accès ── */
+    if (_ncMode === 'access') {
+      const { error } = await db.from('employes').update({
+        pin_hash: hNew, actif: true, role
+      }).eq('id', _ncId);
+      if (error) throw error;
+      toast('Accès donné ✓','ok');
+      ML.logAction(`🔑 Accès ${role} → ${_ncNom}`);
+      closeCompteModal(); loadComptes(); return;
+    }
+
+    /* ── Mode création ── */
+    const nom    = ($('nc-nom')?.value || '').trim();
+    const prenom = ($('nc-prenom')?.value || '').trim();
+    if (!nom) { $('nc-err').textContent = 'Le nom est requis'; return; }
+
+    /* → Tous les comptes dans employes (rôle détermine les droits) */
+    if (role === 'associe') {
+      const pct = parseFloat($('nc-pct')?.value);
+      if (isNaN(pct) || pct < 0 || pct > 100) {
+        $('nc-err').textContent = 'Pourcentage invalide (0 à 100)'; return;
+      }
+      const nomComplet = [prenom, nom].filter(Boolean).join(' ');
+      const { error } = await db.from('employes').insert({
+        nom, prenom: prenom || null,
+        poste: 'Associé',
+        role: 'associe',
+        pourcentage: pct,
+        salaire_base: 0,
+        pin_hash: hNew,
+        actif: true
+      });
+      if (error) throw error;
+      ML.logAction(`👤 Nouveau compte Associé · ${nomComplet} · ${pct}%`);
+
+    } else {
+      const poste   = ($('nc-poste')?.value || '').trim() || null;
+      const salaire = parseFloat($('nc-salaire')?.value) || 0;
+      const { error } = await db.from('employes').insert({
+        nom, prenom: prenom || null, poste, role,
+        salaire_base: salaire,
+        pourcentage: 0,
+        pin_hash: hNew,
+        actif: true
+      });
+      if (error) throw error;
+      const ROLE_LBL = { staff:'Staff',caissier:'Caissier',chicha:'Chicha',
+        achats:'Achats',manager:'Manager' };
+      ML.logAction(`👤 Nouveau compte ${ROLE_LBL[role]||role} · ${prenom} ${nom}`);
+    }
+
+    toast('Compte créé ✓','ok');
+    closeCompteModal();
+    loadComptes();
+
+  } catch(e) { $('nc-err').textContent = 'Erreur : '+e.message; }
 }
 
+/* ── Actions sur comptes existants ── */
+async function toggleEmpActif(id, nom, actuel) {
+  try {
+    await db.from('employes').update({ actif: !actuel }).eq('id', id);
+    toast(`${nom} ${!actuel?'réactivé':'désactivé'} ✓`,'ok');
+    loadComptes();
+  } catch { toast('Erreur','ko'); }
+}
+
+async function cyclerRole(id, curRole, nom) {
+  const cycle = {
+    staff:'caissier', caissier:'chicha', chicha:'achats', achats:'manager', manager:'staff'
+  };
+  const lbl = { staff:'Staff',caissier:'Caissier',chicha:'Chicha',achats:'Achats',manager:'Manager' };
+  const newRole = cycle[curRole] || 'caissier';
+  try {
+    await db.from('employes').update({ role: newRole }).eq('id', id);
+    toast(`${nom} → ${lbl[newRole]} ✓`,'ok');
+    loadComptes();
+  } catch { toast('Erreur','ko'); }
+}
+
+/* ── Logs ── */
 async function loadLogs() {
   try {
     const { data } = await db.from('logs').select('*')
       .order('timestamp',{ascending:false}).limit(50);
     const list = data || [];
     if (!list.length) {
-      $('logs-list').innerHTML = '<div class="state-msg">Aucune activité enregistrée.</div>'; return;
+      $('logs-list').innerHTML = '<div class="state-msg">Aucune activité.</div>'; return;
     }
-
-    const ROLE_LABEL = { owner:'Gestionnaire', manager:'Manager', associe:'Associé', staff:'Staff' };
-    const isActivity = a => a && a !== 'login' && /[📋✅❌📦💰⚠🔒]/u.test(a);
+    const ROLE_LABEL = {
+      owner:'Gestionnaire', manager:'Manager', associe:'Associé', staff:'Staff',
+      caissier:'Caissier', chicha:'Chicha', achats:'Achats'
+    };
+    const isActivity = a => a && a !== 'login' && /[📋✅❌📦💰⚠🔒👤💵💸🏖]/u.test(a);
 
     $('logs-list').innerHTML = list.map(l => {
       const d       = new Date(l.timestamp);
@@ -313,17 +677,16 @@ async function loadLogs() {
       const role    = ROLE_LABEL[l.role] || l.role;
       const activ   = isActivity(l.action);
 
-      if (activ) {
-        return `<div class="log-item" style="flex-direction:column;align-items:flex-start;gap:3px;
-            background:rgba(201,168,76,.05);border-radius:8px;padding:9px 12px;
-            border:1px solid rgba(201,168,76,.12)">
+      if (activ) return `
+        <div class="log-item" style="flex-direction:column;align-items:flex-start;gap:3px;
+          background:rgba(201,168,76,.05);border-radius:8px;padding:9px 12px;
+          border:1px solid rgba(201,168,76,.12)">
           <div style="font-size:13px;font-weight:500;line-height:1.4">${l.action}</div>
           <div class="log-ts">
-            <span style="color:var(--gold);font-size:10px;text-transform:uppercase;letter-spacing:.5px">${role}</span>
-            · ${dateStr} à ${timeStr}
+            <span style="color:var(--gold);font-size:10px;text-transform:uppercase;
+              letter-spacing:.5px">${role}</span> · ${dateStr} à ${timeStr}
           </div>
         </div>`;
-      }
 
       const who = l.action && l.action !== 'login' ? l.action : role;
       return `<div class="log-item">
@@ -341,284 +704,74 @@ async function loadLogs() {
   }
 }
 
-/* ── ASSOCIÉS ── */
-async function loadAssocs() {
-  try {
-    const { data } = await db.from('associes').select('*').order('nom');
-    const list = data || [];
-    if (!list.length) {
-      $('assoc-list').innerHTML = '<div class="state-msg">Aucun associé.</div>'; return;
-    }
-    $('assoc-list').innerHTML = list.map(a => `
-      <div class="assoc-item">
-        <div>
-          <div class="assoc-nom">${a.nom}</div>
-          <div class="assoc-info">${a.actif ? 'Actif' : 'Inactif'}</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <div class="assoc-pct">${a.pourcentage}%</div>
-          <button style="font-size:11px;color:var(--danger);background:none;
-            border:none;cursor:pointer" onclick="archiveAssoc('${a.id}','${a.nom}')">
-            ${a.actif ? 'Désactiver' : 'Réactiver'}
-          </button>
-        </div>
-      </div>`).join('');
-  } catch(e) {
-    $('assoc-list').innerHTML = `<div class="state-msg err">Table "associes" manquante — créez-la dans Supabase.</div>`;
-  }
+/* ── Réinitialisation des données ── */
+function openReset() {
+  $('reset-pin').value = '';
+  $('reset-err').textContent = '';
+  $('overlay-reset').style.display = 'flex';
+  setTimeout(() => $('reset-pin').focus(), 80);
+}
+function closeReset() {
+  $('overlay-reset').style.display = 'none';
 }
 
-function openAddAssoc() {
-  $('as-nom').value  = '';
-  $('as-pct').value  = '';
-  $('as-pin').value  = '';
-  $('as-pin2').value = '';
-  $('as-err').textContent = '';
-  const ov = $('overlay-assoc');
-  ov.style.display = 'flex';
-}
-
-function closeAssocModal() {
-  $('overlay-assoc').style.display = 'none';
-}
-
-async function saveAssoc() {
-  const nom = $('as-nom').value.trim();
-  const pct = parseFloat($('as-pct').value);
-  const pin = $('as-pin').value.trim();
-  const pin2= $('as-pin2').value.trim();
-
-  if (!nom)            { $('as-err').textContent = 'Le nom est requis'; return; }
-  if (isNaN(pct)||pct<0||pct>100) { $('as-err').textContent = 'Pourcentage invalide (0–100)'; return; }
-  if (pin.length !== 4 || !/^\d{4}$/.test(pin)) { $('as-err').textContent = 'PIN : 4 chiffres requis'; return; }
-  if (pin !== pin2)    { $('as-err').textContent = 'Les PINs ne correspondent pas'; return; }
-
-  /* Vérifier conflit avec PINs existants */
-  const hNew = await sha256(pin);
-  if (hNew === hOwner || hNew === hStaff || hNew === hManager) {
-    $('as-err').textContent = 'Ce PIN est déjà utilisé par un autre rôle'; return;
-  }
-
-  try {
-    await db.from('associes').insert({ nom, pourcentage:pct, pin_hash:hNew });
-    toast('Associé ajouté ✓','ok');
-    closeAssocModal();
-    loadAssocs();
-  } catch(e) { $('as-err').textContent = 'Erreur : '+e.message; }
-}
-
-async function archiveAssoc(id, nom) {
-  const { data: cur } = await db.from('associes').select('actif').eq('id',id).single();
-  const newState = !cur?.actif;
-  try {
-    await db.from('associes').update({actif:newState}).eq('id',id);
-    toast(`${nom} ${newState?'réactivé':'désactivé'} ✓`, 'ok');
-    loadAssocs();
-  } catch(e) { toast('Erreur','ko'); }
-}
-
-/* ── COMPTES EMPLOYÉS ── */
-let _empMode = 'create', _empId = null;
-
-async function loadEmployeComptes() {
-  try {
-    const { data } = await db.from('employes')
-      .select('id,nom,prenom,poste,actif,pin_hash,role').order('nom');
-    const list = data || [];
-    if (!list.length) {
-      $('employe-list').innerHTML = '<div class="state-msg">Aucun employé. Créez un compte.</div>'; return;
-    }
-    $('employe-list').innerHTML = list.map(e => {
-      const hasAcc  = !!e.pin_hash;
-      const dotCls  = !hasAcc ? 'none' : e.actif ? 'on' : 'off';
-      const statusTxt = !hasAcc ? 'Sans compte' : e.actif ? 'Actif' : 'Inactif';
-      const ROLE_LBL      = { staff:'Staff', caissier:'Caissier', chicha:'Chicha', achats:'Achats', manager:'Manager' };
-      const ROLE_NEXT     = { staff:'caissier', caissier:'chicha', chicha:'achats', achats:'manager', manager:'staff' };
-      const ROLE_NEXT_LBL = { staff:'Caissier', caissier:'Chicha', chicha:'Achats', achats:'Manager', manager:'Staff' };
-      const curRole   = e.role || 'staff';
-      const roleLbl   = ROLE_LBL[curRole] || 'Staff';
-      const nomComplet = [e.prenom, e.nom].filter(Boolean).join(' ');
-      return `
-        <div class="emp-item">
-          <div style="display:flex;gap:10px;align-items:flex-start;flex:1;min-width:0">
-            <div class="emp-dot ${dotCls}" style="margin-top:5px"></div>
-            <div>
-              <div class="emp-nom">${nomComplet}</div>
-              <div class="emp-meta">
-                <span>${e.poste||'—'}</span>
-                ${hasAcc?`<span class="role-chip ${curRole}">${roleLbl}</span>`:''}
-                <span style="color:${e.actif&&hasAcc?'var(--ok)':hasAcc?'var(--danger)':'var(--muted)'}">${statusTxt}</span>
-              </div>
-            </div>
-          </div>
-          <div class="emp-actions">
-            ${hasAcc ? `
-              <button class="emp-btn" style="color:${e.actif?'var(--danger)':'var(--ok)'}"
-                onclick="toggleEmpAcces('${e.id}','${nomComplet}',${e.actif})">
-                ${e.actif?'Désactiver':'Réactiver'}
-              </button>
-              <button class="emp-btn" style="color:var(--muted)"
-                onclick="openEmpModal('reset','${e.id}','${nomComplet}')">
-                Reset PIN
-              </button>
-              <button class="emp-btn" style="color:var(--gold)"
-                onclick="toggleRole('${e.id}','${curRole}','${nomComplet}')">
-                → ${ROLE_NEXT_LBL[curRole]||'Caissier'}
-              </button>
-            ` : `
-              <button class="emp-btn" style="color:var(--ok)"
-                onclick="openEmpModal('access','${e.id}','${nomComplet}')">
-                Donner accès
-              </button>
-            `}
-          </div>
-        </div>`;
-    }).join('');
-  } catch(e) {
-    $('employe-list').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
-  }
-}
-
-function openEmpModal(mode, id = null, nomComplet = '') {
-  _empMode = mode;
-  _empId   = id;
-  $('em-err').textContent = '';
-  $('em-pin').value  = '';
-  $('em-pin2').value = '';
-
-  const nameRow   = $('em-name-row');
-  const posteField = $('em-poste-field');
-  const roleField  = $('em-role-field');
-
-  if (mode === 'create') {
-    $('emp-modal-title').textContent = 'Nouveau compte employé';
-    $('em-prenom').value = ''; $('em-nom').value = '';
-    $('em-poste').value  = ''; $('em-role').value = 'staff';
-    nameRow.style.display = ''; posteField.style.display = '';
-    roleField.style.display = '';
-    $('em-prenom').disabled = false; $('em-nom').disabled = false;
-
-  } else if (mode === 'access') {
-    $('emp-modal-title').textContent = `Donner accès — ${nomComplet}`;
-    $('em-prenom').value = ''; $('em-nom').value = nomComplet;
-    $('em-role').value = 'staff';
-    nameRow.style.display = 'none'; posteField.style.display = 'none';
-    roleField.style.display = '';
-
-  } else if (mode === 'reset') {
-    $('emp-modal-title').textContent = `Nouveau PIN — ${nomComplet}`;
-    nameRow.style.display = 'none'; posteField.style.display = 'none';
-    roleField.style.display = 'none';
-  }
-
-  $('overlay-employe').style.display = 'flex';
-}
-
-function closeEmpModal() {
-  $('overlay-employe').style.display = 'none';
-  $('em-name-row').style.display    = '';
-  $('em-poste-field').style.display = '';
-  $('em-role-field').style.display  = '';
-}
-
-async function saveEmploye() {
-  const pin  = $('em-pin').value.trim();
-  const pin2 = $('em-pin2').value.trim();
-
+async function confirmReset() {
+  const pin = $('reset-pin').value.trim();
   if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-    $('em-err').textContent = 'PIN : 4 chiffres requis'; return;
+    $('reset-err').textContent = 'PIN : 4 chiffres requis'; return;
   }
-  if (pin !== pin2) {
-    $('em-err').textContent = 'Les PINs ne correspondent pas'; return;
+  const h       = await sha256(pin);
+  const hashes  = ML.getHashes();
+  if (h !== hashes.hOwner) {
+    $('reset-err').textContent = 'PIN incorrect — réinitialisation annulée';
+    $('reset-pin').value = '';
+    $('reset-pin').focus();
+    return;
   }
 
-  const hNew = await sha256(pin);
-
-  /* Conflits PINs */
-  if (hNew === hOwner || hNew === hManager) {
-    $('em-err').textContent = 'Ce PIN est déjà utilisé par un autre rôle'; return;
-  }
-  const { data: aConf } = await db.from('associes').select('id').eq('pin_hash', hNew);
-  if (aConf?.length) { $('em-err').textContent = 'Ce PIN est déjà utilisé par un associé'; return; }
-
-  const eQuery = db.from('employes').select('id').eq('pin_hash', hNew);
-  if (_empId) eQuery.neq('id', _empId);
-  const { data: eConf } = await eQuery;
-  if (eConf?.length) { $('em-err').textContent = 'Ce PIN est déjà utilisé par un autre employé'; return; }
-
+  /* PIN validé → effacement des données transactionnelles */
+  const TABLES = ['salaires_verses','avances','presences','rapports','sessions_caisse','logs'];
   try {
-    if (_empMode === 'create') {
-      const nom    = $('em-nom').value.trim();
-      const prenom = $('em-prenom').value.trim();
-      if (!nom) { $('em-err').textContent = 'Le nom est requis'; return; }
-      await db.from('employes').insert({
-        nom, prenom,
-        poste:    $('em-poste').value.trim() || null,
-        role:     $('em-role').value,
-        pin_hash: hNew, actif: true
-      });
-    } else if (_empMode === 'access') {
-      await db.from('employes').update({
-        pin_hash: hNew, actif: true, role: $('em-role').value
-      }).eq('id', _empId);
-    } else if (_empMode === 'reset') {
-      await db.from('employes').update({ pin_hash: hNew }).eq('id', _empId);
+    for (const t of TABLES) {
+      await db.from(t).delete().not('id','is',null);
     }
-    toast('Enregistré ✓', 'ok');
-    closeEmpModal();
-    loadEmployeComptes();
-  } catch(e) { $('em-err').textContent = 'Erreur : ' + e.message; }
+    ML.logAction('🗑 Réinitialisation des données de test');
+    toast('Données réinitialisées ✓ Base propre.','ok');
+    closeReset();
+  } catch(e) {
+    $('reset-err').textContent = 'Erreur : ' + e.message;
+  }
 }
 
-async function toggleEmpAcces(id, nom, currentActif) {
-  try {
-    await db.from('employes').update({ actif: !currentActif }).eq('id', id);
-    toast(`${nom} ${!currentActif ? 'réactivé' : 'désactivé'} ✓`, 'ok');
-    loadEmployeComptes();
-  } catch { toast('Erreur', 'ko'); }
-}
-
-async function toggleRole(id, currentRole, nom) {
-  const cycle = { staff:'caissier', caissier:'chicha', chicha:'achats', achats:'manager', manager:'staff' };
-  const newRole = cycle[currentRole] || 'caissier';
-  try {
-    await db.from('employes').update({ role: newRole }).eq('id', id);
-    const lbl = { staff:'Staff', caissier:'Caissier', chicha:'Chicha', achats:'Achats', manager:'Manager' };
-    toast(`${nom} → ${lbl[newRole]} ✓`, 'ok');
-    loadEmployeComptes();
-  } catch { toast('Erreur', 'ko'); }
-}
-
-/* ── PIN CHANGE ── */
+/* ── PIN partagé (Gestionnaire / Manager) ── */
 function togglePc(target) {
   const body = $('pcb-'+target);
   const isOpen = body?.classList.contains('open');
-  ['owner','manager','staff'].forEach(t => $('pcb-'+t)?.classList.remove('open'));
+  ['owner','manager'].forEach(t => $('pcb-'+t)?.classList.remove('open'));
   if (!isOpen) {
     body?.classList.add('open');
-    pcTarget = target;
-    pcStep   = target==='owner' ? 0 : 1;
-    pcBufs   = ['','',''];
+    pcTarget = target; pcStep = target==='owner' ? 0 : 1;
+    pcBufs = ['','',''];
     updatePcHint(); renderPcDots();
     $('pce-'+target).textContent = '';
   }
 }
 
 function pcKey(target, k) {
-  if (pcTarget!==target) { pcTarget=target; }
+  pcTarget = target;
   if (k==='del') {
     pcBufs[pcStep] = pcBufs[pcStep].slice(0,-1);
   } else {
-    if (pcBufs[pcStep].length>=4) return;
+    if (pcBufs[pcStep].length >= 4) return;
     pcBufs[pcStep] += k;
-    if (pcBufs[pcStep].length===4) setTimeout(()=>pcNext(), 150);
+    if (pcBufs[pcStep].length === 4) setTimeout(() => pcNext(), 150);
   }
   renderPcDots();
 }
 
 function renderPcDots() {
   for (let i=0;i<4;i++)
-    $('pcd-'+pcTarget+'-'+i)?.classList.toggle('on', i<pcBufs[pcStep].length);
+    $('pcd-'+pcTarget+'-'+i)?.classList.toggle('on', i < pcBufs[pcStep].length);
 }
 
 function updatePcHint() {
@@ -626,8 +779,8 @@ function updatePcHint() {
     owner:   ['Entrez votre PIN actuel','Nouveau PIN Gestionnaire','Confirmez le nouveau PIN'],
     manager: ['','Nouveau PIN Manager','Confirmez'],
   };
-  const $h = $('pch-'+pcTarget);
-  if ($h) $h.textContent = hints[pcTarget][pcStep]||'';
+  const el = $('pch-'+pcTarget);
+  if (el) el.textContent = hints[pcTarget]?.[pcStep] || '';
 }
 
 async function pcNext() {
@@ -635,7 +788,7 @@ async function pcNext() {
   $('pce-'+pcTarget).textContent = '';
 
   if (pcTarget==='owner' && pcStep===0) {
-    if (h!==hOwner) {
+    if (h !== hOwner && hOwner !== null) {
       $('pce-'+pcTarget).textContent = 'PIN incorrect';
       pcBufs[0]=''; renderPcDots(); return;
     }
@@ -643,7 +796,8 @@ async function pcNext() {
   }
 
   if (pcStep===1) {
-    const conflict = (pcTarget!=='staff'&&h===hStaff)||(pcTarget!=='manager'&&h===hManager)||(pcTarget!=='owner'&&h===hOwner);
+    const conflict = (pcTarget!=='manager' && h===hManager)
+                  || (pcTarget!=='owner'   && h===hOwner);
     if (conflict) {
       $('pce-'+pcTarget).textContent = 'Ce PIN est déjà utilisé';
       pcBufs[1]=''; renderPcDots(); return;
@@ -653,14 +807,13 @@ async function pcNext() {
 
   if (pcStep===2) {
     const hNew = await sha256(pcBufs[1]);
-    if (h!==hNew) {
+    if (h !== hNew) {
       $('pce-'+pcTarget).textContent = 'Les codes ne correspondent pas';
       pcStep=1; pcBufs[1]=''; renderPcDots(); updatePcHint(); return;
     }
     try {
-      await db.from('config').upsert({key:'pin_'+pcTarget, value:hNew});
+      await db.from('config').upsert({ key:'pin_'+pcTarget, value:hNew });
       if (pcTarget==='owner')   hOwner   = hNew;
-      if (pcTarget==='staff')   hStaff   = hNew;
       if (pcTarget==='manager') hManager = hNew;
       toast('PIN mis à jour ✓','ok');
       togglePc(pcTarget);

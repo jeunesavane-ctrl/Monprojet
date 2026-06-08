@@ -1,0 +1,7 @@
+# Claude worktrees — ne pas tracker
+.claude/worktrees/
+.claude/settings.local.json
+
+# Divers
+*.DS_Store
+Thumbs.db

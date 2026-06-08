@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Avances — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+/* ── Tabs ── */
+.page-tabs{display:flex;border-bottom:1px solid var(--b1);margin-bottom:14px;overflow-x:auto}
+.page-tab{padding:10px 16px;font-size:13px;font-weight:600;color:var(--muted);
+  cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;
+  transition:all var(--t);-webkit-tap-highlight-color:transparent}
+.page-tab.active{color:var(--gold);border-color:var(--gold)}
+
+/* ── Avance item ── */
+.avance-item{
+  background:var(--bg2);border-radius:var(--r);padding:14px;
+  border:1px solid var(--b1);
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 8px rgba(0,0,0,.3)}
+.avance-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.avance-emp{font-size:14px;font-weight:600}
+.avance-date{font-size:11px;color:var(--muted)}
+.avance-montant{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold)}
+.avance-note{font-size:12px;color:var(--muted);margin:4px 0 10px}
+.avance-actions{display:flex;gap:8px}
+.btn-ok{
+  flex:1;padding:8px;border-radius:var(--rs);border:1px solid rgba(61,184,115,.3);
+  background:rgba(61,184,115,.1);color:var(--ok);font-size:12px;font-weight:600;
+  cursor:pointer;transition:all var(--t)}
+.btn-ok:active{transform:scale(.95)}
+.btn-ko{
+  flex:1;padding:8px;border-radius:var(--rs);border:1px solid rgba(201,73,74,.3);
+  background:rgba(201,73,74,.1);color:var(--danger);font-size:12px;font-weight:600;
+  cursor:pointer;transition:all var(--t)}
+.btn-ko:active{transform:scale(.95)}
+.btn-blue{
+  flex:1;padding:8px;border-radius:var(--rs);border:1px solid rgba(100,150,255,.3);
+  background:rgba(100,150,255,.08);color:#6496FF;font-size:12px;font-weight:600;
+  cursor:pointer;transition:all var(--t)}
+.btn-blue:active{transform:scale(.95)}
+
+/* ── Badge statut ── */
+.chip-wait{background:rgba(255,180,0,.12);color:#FFB400;border:1px solid rgba(255,180,0,.3);
+  border-radius:20px;font-size:10px;font-weight:700;padding:2px 8px;display:inline-block}
+.chip-ok{background:rgba(61,184,115,.12);color:var(--ok);border:1px solid rgba(61,184,115,.3);
+  border-radius:20px;font-size:10px;font-weight:700;padding:2px 8px;display:inline-block}
+
+/* ── Résumé employé ── */
+.emp-summary{
+  background:var(--bg2);border-radius:var(--rs);padding:10px 12px;
+  border:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center}
+.emp-summary-label{font-size:12px;color:var(--muted)}
+.emp-summary-val{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--danger)}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap" style="display:flex;flex-direction:column;gap:0">
+
+    <div class="page-tabs">
+      <div class="page-tab active" id="tab-attente" onclick="switchTab('attente')">
+        ⏳ À approuver <span id="badge-attente" style="display:none;background:var(--danger);
+          color:#fff;border-radius:20px;font-size:10px;padding:0 6px;margin-left:4px"></span>
+      </div>
+      <div class="page-tab" id="tab-cours"   onclick="switchTab('cours')">💸 En cours</div>
+      <div class="page-tab" id="tab-add"     onclick="switchTab('add')">➕ Ajouter</div>
+    </div>
+
+    <div id="pane-attente" class="tab-pane"></div>
+    <div id="pane-cours"   class="tab-pane" style="display:none"></div>
+    <div id="pane-add"     class="tab-pane" style="display:none"></div>
+
+  </div>
+  <div id="toast"></div>
+
+<script>
+/*
+  LOGIQUE CALCUL (critique, doit rester cohérent avec fiche.html) :
+  ──────────────────────────────────────────────────────────────────
+  Une avance est déduite du salaire SI ET SEULEMENT SI :
+    statut = 'approuvee'  AND  rembourse = false
+
+  En attente = montré dans fiche.html mais NON déduit du salaire
+  Remboursé  = n'apparaît plus du tout
+
+  solde = max(0, salaire_base - sum(approuvees non remboursées))
+*/
+
+let _employes = {}; // id → { nom, prenom, salaire_base }
+let _avances  = [];
+let _tab      = 'attente';
+let _tableOk  = false;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['owner','manager'])) return;
+
+  /* Vérifie que la table avances existe */
+  const { error } = await db.from('avances').select('id').limit(0);
+  if (error) {
+    ['pane-attente','pane-cours','pane-add'].forEach(id => {
+      $(id).innerHTML = sqlInstall();
+      $(id).style.display = '';
+    });
+    document.querySelectorAll('.page-tab').forEach(t => t.style.display='none');
+    return;
+  }
+  _tableOk = true;
+
+  /* Charge les employés (pour noms + salaires) */
+  const { data: emps } = await db.from('employes')
+    .select('id,nom,prenom,salaire_base').eq('actif', true);
+  (emps || []).forEach(e => { _employes[e.id] = e; });
+
+  await reload();
+  renderAdd();
+});
+
+function sqlInstall() {
+  return `<div class="card" style="margin-top:0">
+    <div class="card-head"><div class="card-title" style="color:var(--gold)">⚙ Table "avances" à créer</div></div>
+    <div class="card-body">
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:10px">
+        Collez ce SQL dans l'éditeur Supabase puis rechargez :
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rs);
+        padding:12px;font-size:11px;font-family:monospace;color:rgba(255,255,255,.65);
+        white-space:pre-wrap;overflow-x:auto;line-height:1.8;user-select:all">CREATE TABLE IF NOT EXISTS avances (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  employe_id UUID REFERENCES employes(id) ON DELETE CASCADE,
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
+  montant INTEGER NOT NULL DEFAULT 0,
+  statut TEXT NOT NULL DEFAULT 'en_attente',
+  rembourse BOOLEAN NOT NULL DEFAULT false,
+  note_demande TEXT,
+  obs TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE avances DISABLE ROW LEVEL SECURITY;</div>
+    </div>
+  </div>`;
+}
+
+async function reload() {
+  /* Charge toutes les avances non remboursées + en attente */
+  const { data, error } = await db.from('avances')
+    .select('*')
+    .in('statut', ['en_attente','approuvee'])
+    .order('created_at', { ascending: false });
+
+  if (error) { toast('Erreur chargement : '+error.message,'ko'); return; }
+  _avances = data || [];
+  renderTab(_tab);
+  updateBadge();
+}
+
+function updateBadge() {
+  const n = _avances.filter(a => a.statut==='en_attente').length;
+  const b = $('badge-attente');
+  if (n > 0) {
+    b.textContent = n;
+    b.style.display = 'inline';
+  } else {
+    b.style.display = 'none';
+  }
+}
+
+function switchTab(t) {
+  _tab = t;
+  document.querySelectorAll('.page-tab').forEach(el => el.classList.remove('active'));
+  $('tab-'+t).classList.add('active');
+  document.querySelectorAll('.tab-pane').forEach(el => el.style.display='none');
+  $('pane-'+t).style.display = '';
+  if (t !== 'add') renderTab(t);
+}
+
+function renderTab(t) {
+  if (t === 'attente') renderAttente();
+  if (t === 'cours')   renderCours();
+}
+
+function nomEmp(id) {
+  const e = _employes[id];
+  if (!e) return 'Employé inconnu';
+  return [e.prenom, e.nom].filter(Boolean).join(' ');
+}
+
+/* ── Onglet : À approuver ──────────────────────────────── */
+function renderAttente() {
+  const list = _avances.filter(a => a.statut === 'en_attente');
+  if (!list.length) {
+    $('pane-attente').innerHTML = '<div class="state-msg">Aucune avance en attente d\'approbation.</div>';
+    return;
+  }
+  $('pane-attente').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px;padding-top:4px">
+      ${list.map(a => avanceCard(a, 'attente')).join('')}
+    </div>`;
+}
+
+/* ── Onglet : En cours ─────────────────────────────────── */
+function renderCours() {
+  /* CRITIQUE : uniquement statut='approuvee' AND rembourse=false = ce qui est déduit du salaire */
+  const list = _avances.filter(a => a.statut === 'approuvee' && a.rembourse === false);
+
+  if (!list.length) {
+    $('pane-cours').innerHTML = '<div class="state-msg">Aucune avance en cours de déduction.</div>';
+    return;
+  }
+
+  /* Total global */
+  const total = list.reduce((s,a) => s+(a.montant||0), 0);
+
+  /* Regrouper par employé pour afficher total par personne */
+  const byEmp = {};
+  list.forEach(a => {
+    if (!byEmp[a.employe_id]) byEmp[a.employe_id] = { nom: nomEmp(a.employe_id), avances:[], total:0 };
+    byEmp[a.employe_id].avances.push(a);
+    byEmp[a.employe_id].total += a.montant||0;
+  });
+
+  $('pane-cours').innerHTML = `
+    <div style="padding-top:4px;display:flex;flex-direction:column;gap:14px">
+      <!-- Total global -->
+      <div class="emp-summary">
+        <div>
+          <div style="font-size:12px;font-weight:600">Total avances en déduction</div>
+          <div class="emp-summary-label">Déduit des prochains salaires</div>
+        </div>
+        <div class="emp-summary-val">${gnf(total)}</div>
+      </div>
+
+      ${Object.entries(byEmp).map(([empId, grp]) => `
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;
+            text-transform:uppercase;letter-spacing:.5px">${grp.nom}
+            <span style="color:var(--danger);font-family:'Bebas Neue',sans-serif;font-size:14px;margin-left:8px">
+              −${gnf(grp.total)}</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${grp.avances.map(a => avanceCard(a, 'cours')).join('')}
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function avanceCard(a, mode) {
+  const note = a.note_demande || a.obs || '';
+  const chip = a.statut==='en_attente'
+    ? '<span class="chip-wait">En attente</span>'
+    : '<span class="chip-ok">Approuvée</span>';
+
+  const actions = mode === 'attente'
+    ? `<div class="avance-actions">
+        <button class="btn-ok" onclick="approuver('${a.id}')">✅ Approuver</button>
+        <button class="btn-ko" onclick="rejeter('${a.id}')">❌ Rejeter</button>
+       </div>`
+    : `<div class="avance-actions">
+        <button class="btn-blue" onclick="rembourser('${a.id}')">✓ Marquer remboursée</button>
+       </div>`;
+
+  return `<div class="avance-item">
+    <div class="avance-header">
+      <div>
+        <div class="avance-emp">${nomEmp(a.employe_id)}</div>
+        <div class="avance-date">${frDate(a.date)} ${chip}</div>
+      </div>
+      <div class="avance-montant">${gnf(a.montant)}</div>
+    </div>
+    ${note ? `<div class="avance-note">"${note}"</div>` : ''}
+    ${actions}
+  </div>`;
+}
+
+/* ── Onglet : Ajouter ──────────────────────────────────── */
+function renderAdd() {
+  const empList = Object.entries(_employes)
+    .map(([id,e]) => {
+      const nom = [e.prenom,e.nom].filter(Boolean).join(' ');
+      return `<option value="${id}">${nom} (salaire: ${gnf(e.salaire_base||0)})</option>`;
+    }).join('');
+
+  $('pane-add').innerHTML = `
+    <div class="card" style="margin-top:4px">
+      <div class="card-head"><div class="card-title">Nouvelle avance sur salaire</div></div>
+      <div class="card-body">
+        <div class="field">
+          <label>Employé</label>
+          <select id="add-emp">
+            <option value="">Sélectionnez un employé…</option>
+            ${empList}
+          </select>
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="add-date" value="${todayISO()}">
+        </div>
+        <div class="field">
+          <label>Montant (GNF)</label>
+          <input type="number" id="add-montant" inputmode="numeric" placeholder="0"
+            style="font-size:20px;font-family:'Bebas Neue',sans-serif;text-align:right"
+            oninput="previewSolde()">
+        </div>
+        <div id="solde-preview" style="display:none;
+          background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rs);
+          padding:10px 12px;margin-bottom:12px;font-size:12px">
+          <div style="color:var(--muted);margin-bottom:4px">Impact sur le salaire net :</div>
+          <div id="solde-detail" style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--danger)"></div>
+        </div>
+        <div class="field">
+          <label>Motif / Note (optionnel)</label>
+          <input type="text" id="add-note" placeholder="Ex: urgence médicale, frais transport…">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <button class="btn-secondary" onclick="addAvance('en_attente')">
+            ⏳ Envoyer en attente
+          </button>
+          <button class="btn-primary" onclick="addAvance('approuvee')">
+            ✅ Approuver direct
+          </button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5">
+          ⚠ Seules les avances <strong>approuvées</strong> sont déduites du salaire net.
+        </div>
+      </div>
+    </div>`;
+}
+
+function previewSolde() {
+  const empId  = $('add-emp')?.value;
+  const montant = parseInt($('add-montant')?.value)||0;
+  const pane   = $('solde-preview');
+  const detail = $('solde-detail');
+  if (!empId || !montant || !pane || !detail) {
+    if (pane) pane.style.display='none'; return;
+  }
+  const emp = _employes[empId];
+  if (!emp) { pane.style.display='none'; return; }
+
+  /* Calcul identique à fiche.html */
+  const dejaApprouveesTotal = _avances
+    .filter(a => a.employe_id===empId && a.statut==='approuvee' && a.rembourse===false)
+    .reduce((s,a) => s+(a.montant||0), 0);
+  const salaire    = emp.salaire_base || 0;
+  const avecNouveau = dejaApprouveesTotal + montant;
+  const netFinal   = Math.max(0, salaire - avecNouveau);
+
+  detail.innerHTML = `${gnf(salaire)} − ${gnf(avecNouveau)} avances = <span style="color:${netFinal<salaire*0.3?'var(--danger)':netFinal<salaire*0.6?'#FFB400':'var(--ok)'}">${gnf(netFinal)}</span>`;
+  pane.style.display='';
+}
+
+async function addAvance(statut) {
+  const empId   = $('add-emp')?.value;
+  const date    = $('add-date')?.value || todayISO();
+  const montant = parseInt($('add-montant')?.value)||0;
+  const note    = ($('add-note')?.value||'').trim();
+
+  if (!empId)   { toast('Sélectionnez un employé','ko'); return; }
+  if (!montant) { toast('Montant requis','ko'); return; }
+
+  try {
+    const { error } = await db.from('avances').insert({
+      employe_id: empId,
+      date,
+      montant,
+      statut,
+      rembourse: false,
+      note_demande: note || null
+    });
+    if (error) throw error;
+
+    const emp = _employes[empId];
+    const nom = emp ? [emp.prenom,emp.nom].filter(Boolean).join(' ') : 'Employé';
+    const label = statut==='approuvee' ? 'avance approuvée' : 'avance en attente';
+    ML.logAction(`💸 ${nom} · ${label} · ${gnf(montant)}`);
+    toast(`Avance enregistrée (${label}) ✓`, 'ok');
+
+    /* Reset form */
+    $('add-emp').value     = '';
+    $('add-montant').value = '';
+    $('add-note').value    = '';
+    $('solde-preview').style.display='none';
+
+    await reload();
+    switchTab(statut==='approuvee' ? 'cours' : 'attente');
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+/* ── Actions ───────────────────────────────────────────── */
+async function approuver(id) {
+  /* Approuver = statut devient 'approuvee' → DÉDUIRE du salaire (fiche.html le verra) */
+  try {
+    const { error } = await db.from('avances').update({ statut:'approuvee' }).eq('id', id);
+    if (error) throw error;
+    toast('Avance approuvée — déduction active ✓','ok');
+    ML.logAction(`✅ Avance approuvée id:${id}`);
+    await reload();
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+async function rejeter(id) {
+  if (!confirm('Rejeter cette avance ? Elle ne sera plus visible.')) return;
+  try {
+    /* On marque comme rejetée — elle disparaît des vues (fiche.html ne charge que en_attente/approuvee) */
+    const { error } = await db.from('avances').update({ statut:'rejetee' }).eq('id', id);
+    if (error) throw error;
+    toast('Avance rejetée','ok');
+    await reload();
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+async function rembourser(id) {
+  /* CRITIQUE : rembourse=true → fiche.html exclut cette avance du calcul du solde */
+  if (!confirm('Marquer comme remboursée ?\nElle ne sera plus déduite du salaire.')) return;
+  try {
+    const { error } = await db.from('avances').update({ rembourse: true }).eq('id', id);
+    if (error) throw error;
+    toast('Avance marquée remboursée — plus déduite du salaire ✓','ok');
+    ML.logAction(`💚 Avance remboursée id:${id}`);
+    await reload();
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+/* ── Ajouter oninput listener pour select ── */
+document.addEventListener('change', e => {
+  if (e.target?.id==='add-emp') previewSolde();
+});
+</script>
+</body>
+</html>

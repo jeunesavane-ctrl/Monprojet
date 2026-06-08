@@ -126,19 +126,19 @@ function toast(msg, type = '') {
 
 /* ── NAVIGATION ──────────────────────────────────────────────── */
 const NAV = [
-  { href:'dashboard.html',  label:'Dashboard',   roles:['manager','owner','associe'] },
-  { href:'saisie.html',     label:'Saisie',       roles:['staff'] },
-  { href:'chicha.html',     label:'Chicha',       roles:['chicha','manager','owner'] },
-  { href:'achats.html',     label:'Achats',       roles:['achats','manager','owner'] },
-  { href:'caisse.html',     label:'Caisse',       roles:['caissier','manager','owner','associe'] },
-  { href:'rapport.html',    label:'Rapport',      roles:['manager','owner'] },
-  { href:'historique.html', label:'Historique',   roles:['staff','caissier','chicha','achats','manager','owner','associe'] },
-  { href:'fiche.html',      label:'Ma Fiche',     roles:['staff','caissier','chicha','achats'] },
-  { href:'produits.html',   label:'Produits',     roles:['manager','owner'] },
-  { href:'rh.html',         label:'RH',           roles:['manager','owner'] },
-  { href:'finances.html',   label:'Finances',     roles:['owner'] },
-  { href:'associes.html',   label:'Associés',     roles:['owner','associe'] },
-  { href:'parametres.html', label:'Paramètres',   roles:['owner'] },
+  { href:'dashboard.html',  label:'Dashboard',  roles:['manager','owner','associe'] },
+  { href:'saisie.html',     label:'Saisie',     roles:['staff'] },
+  { href:'chicha.html',     label:'Chicha',     roles:['chicha','manager','owner'] },
+  { href:'achats.html',     label:'Achats',     roles:['achats','manager','owner'] },
+  { href:'caisse.html',     label:'Caisse',     roles:['caissier','manager','owner','associe'] },
+  { href:'rapport.html',    label:'Rapport',    roles:['manager','owner'] },
+  { href:'historique.html', label:'Historique', roles:['staff','caissier','chicha','achats','manager','owner','associe'] },
+  { href:'fiche.html',      label:'Ma Fiche',   roles:['staff','caissier','chicha','achats'] },
+  { href:'avance.html',     label:'Avance',     roles:['staff','caissier','chicha','achats'] },
+  { href:'produits.html',   label:'Produits',   roles:['manager','owner'] },
+  { href:'rh.html',         label:'RH',         roles:['manager','owner'] },
+  { href:'finances.html',   label:'Finances',   roles:['owner','manager','associe'] },
+  { href:'parametres.html', label:'Paramètres', roles:['owner'] },
 ];
 
 function renderNav() {
@@ -164,8 +164,11 @@ function renderNav() {
 
   nav.innerHTML = NAV
     .filter(n => n.roles.includes(role))
-    .map(n => `<a class="nav-item${n.href===cur?' active':''}"
-        href="${n.href}">${n.label}</a>`)
+    .map(n => {
+      const dotId = n.href.replace('.html','');
+      const dot = `<span id="nbadge-${dotId}" class="nav-dot" style="display:none"></span>`;
+      return `<a class="nav-item${n.href===cur?' active':''}" href="${n.href}">${n.label}${dot}</a>`;
+    })
     .join('');
 }
 
@@ -178,7 +181,25 @@ function initPage(allowedRoles) {
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission().catch(() => {});
   }
+  loadNavBadges();
   return true;
+}
+
+/* ── BADGES NAV ──────────────────────────────────────────────── */
+async function loadNavBadges() {
+  if (!db) return;
+  const role = ML.getRole();
+  if (!['caissier','manager','owner'].includes(role)) return;
+  try {
+    const { data } = await db.from('remboursements_ecart')
+      .select('id').eq('statut','en_attente');
+    const count = (data || []).length;
+    const badge = $('nbadge-caisse');
+    if (badge && count > 0) {
+      badge.style.display = 'inline-block';
+      badge.title = `${count} remboursement${count > 1 ? 's' : ''} en attente`;
+    }
+  } catch {}
 }
 
 /* ── SHARED HTML BLOCKS ──────────────────────────────────────── */

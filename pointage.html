@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Pointage — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat-chip{border-radius:var(--rs);padding:10px 6px;text-align:center;border:1px solid var(--b1)}
+.stat-chip-val{font-family:'Bebas Neue',sans-serif;font-size:24px;line-height:1}
+.stat-chip-lbl{font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.6px}
+
+.emp-row{
+  background:var(--bg2);border-radius:var(--r);padding:12px 14px;
+  border:1px solid var(--b1);
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 8px rgba(0,0,0,.3)}
+.emp-row-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.emp-avatar{
+  width:36px;height:36px;border-radius:50%;
+  background:var(--bg3);border:1px solid var(--b1);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;color:var(--text2);flex-shrink:0}
+.emp-nom{font-size:14px;font-weight:600}
+.emp-poste{font-size:11px;color:var(--muted);margin-top:1px}
+
+.statut-btns{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.sb{
+  padding:8px 4px;border-radius:var(--rs);border:1px solid var(--b1);
+  background:var(--bg3);font-size:11px;font-weight:600;cursor:pointer;
+  text-align:center;transition:all var(--t);-webkit-tap-highlight-color:transparent;
+  color:var(--muted);line-height:1.5;user-select:none}
+.sb:active{transform:scale(.93)}
+.sb.present.sel{background:rgba(61,184,115,.15);border-color:rgba(61,184,115,.4);color:var(--ok)}
+.sb.retard.sel{background:rgba(255,180,0,.12);border-color:rgba(255,180,0,.35);color:#FFB400}
+.sb.absent.sel{background:rgba(201,73,74,.15);border-color:rgba(201,73,74,.4);color:var(--danger)}
+.sb.conge.sel{background:rgba(100,150,255,.12);border-color:rgba(100,150,255,.3);color:#6496FF}
+
+.saving{width:7px;height:7px;border-radius:50%;background:var(--gold);
+  display:inline-block;animation:pulse .9s ease-in-out infinite;flex-shrink:0}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap" style="display:flex;flex-direction:column;gap:14px">
+
+    <!-- Date + action rapide -->
+    <div style="display:flex;gap:8px;align-items:flex-end">
+      <div class="field" style="flex:1;margin:0">
+        <label>Date</label>
+        <input type="date" id="sel-date" onchange="loadPointage()">
+      </div>
+      <button class="btn-secondary" onclick="toutPresent()"
+        style="height:42px;flex-shrink:0;white-space:nowrap;font-size:12px">
+        ✅ Tous Présents
+      </button>
+    </div>
+
+    <!-- Stats jour -->
+    <div class="stats-bar">
+      <div class="stat-chip" style="background:rgba(61,184,115,.06);border-color:rgba(61,184,115,.2)">
+        <div class="stat-chip-val" style="color:var(--ok)" id="cnt-present">—</div>
+        <div class="stat-chip-lbl">Présents</div>
+      </div>
+      <div class="stat-chip" style="background:rgba(255,180,0,.06);border-color:rgba(255,180,0,.2)">
+        <div class="stat-chip-val" style="color:#FFB400" id="cnt-retard">—</div>
+        <div class="stat-chip-lbl">Retards</div>
+      </div>
+      <div class="stat-chip" style="background:rgba(201,73,74,.06);border-color:rgba(201,73,74,.2)">
+        <div class="stat-chip-val" style="color:var(--danger)" id="cnt-absent">—</div>
+        <div class="stat-chip-lbl">Absents</div>
+      </div>
+      <div class="stat-chip" style="background:rgba(100,150,255,.06);border-color:rgba(100,150,255,.2)">
+        <div class="stat-chip-val" style="color:#6496FF" id="cnt-conge">—</div>
+        <div class="stat-chip-lbl">Congés</div>
+      </div>
+    </div>
+
+    <!-- Liste employés -->
+    <div id="emp-list"><div class="state-msg">Chargement…</div></div>
+
+  </div>
+  <div id="toast"></div>
+
+<script>
+let _employes = [];
+let _presDay  = {}; // employe_id → { statut }
+let _tableOk  = false;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['owner','manager'])) return;
+  $('sel-date').value = todayISO();
+
+  /* ── Vérifie que la table presences existe ── */
+  const { error } = await db.from('presences').select('id').limit(0);
+  if (error) {
+    $('emp-list').innerHTML = sqlInstall(
+      'presences',
+      `CREATE TABLE IF NOT EXISTS presences (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  employe_id UUID REFERENCES employes(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  statut TEXT NOT NULL DEFAULT 'present',
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(employe_id, date)
+);
+ALTER TABLE presences DISABLE ROW LEVEL SECURITY;`);
+    return;
+  }
+  _tableOk = true;
+
+  const { data: emps } = await db.from('employes')
+    .select('id,nom,prenom,poste,role')
+    .eq('actif', true)
+    .order('nom');
+  _employes = emps || [];
+
+  loadPointage();
+});
+
+/* ── Affiche un bloc SQL à copier si la table est manquante ── */
+function sqlInstall(name, sql) {
+  return `<div class="card">
+    <div class="card-head"><div class="card-title" style="color:var(--gold)">⚙ Table "${name}" à créer</div></div>
+    <div class="card-body">
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:10px">
+        Collez ce SQL dans l'éditeur Supabase puis rechargez la page :
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rs);
+        padding:12px;font-size:11px;font-family:monospace;color:rgba(255,255,255,.65);
+        white-space:pre-wrap;overflow-x:auto;line-height:1.8;user-select:all">${sql}</div>
+    </div>
+  </div>`;
+}
+
+async function loadPointage() {
+  if (!_tableOk || !_employes.length) return;
+  const date = $('sel-date').value;
+  if (!date) return;
+
+  const { data: pres } = await db.from('presences').select('*').eq('date', date);
+  _presDay = {};
+  (pres || []).forEach(p => { _presDay[p.employe_id] = p; });
+
+  renderEmployes();
+  updateStats();
+}
+
+function renderEmployes() {
+  if (!_employes.length) {
+    $('emp-list').innerHTML = '<div class="state-msg">Aucun employé actif. Ajoutez-en dans RH → Équipe.</div>';
+    return;
+  }
+  $('emp-list').innerHTML = `<div style="display:flex;flex-direction:column;gap:10px">
+    ${_employes.map(emp => {
+      const nom    = [emp.prenom, emp.nom].filter(Boolean).join(' ');
+      const init   = nom.split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?';
+      const statut = _presDay[emp.id]?.statut || null;
+      const sel    = s => statut === s ? 'sel' : '';
+      return `
+      <div class="emp-row">
+        <div class="emp-row-head">
+          <div class="emp-avatar">${init}</div>
+          <div style="flex:1;min-width:0">
+            <div class="emp-nom">${nom}</div>
+            <div class="emp-poste">${emp.poste||emp.role||''}</div>
+          </div>
+          <div id="sv-${emp.id}" style="width:8px"></div>
+        </div>
+        <div class="statut-btns">
+          <button class="sb present ${sel('present')}" onclick="setStatut('${emp.id}','present')">✅<br>Présent</button>
+          <button class="sb retard  ${sel('retard')}"  onclick="setStatut('${emp.id}','retard')">⚠<br>Retard</button>
+          <button class="sb absent  ${sel('absent')}"  onclick="setStatut('${emp.id}','absent')">❌<br>Absent</button>
+          <button class="sb conge   ${sel('conge')}"   onclick="setStatut('${emp.id}','conge')">🏖<br>Congé</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+async function setStatut(empId, statut) {
+  const date = $('sel-date').value;
+
+  /* UI optimiste : applique avant la réponse réseau */
+  document.querySelectorAll(`#emp-list .sb`).forEach(b => {
+    /* Seulement les boutons du bon employé */
+  });
+  /* Mise à jour directe du bouton cliqué */
+  _presDay[empId] = { ...(_presDay[empId]||{}), statut };
+  renderEmployes();
+  updateStats();
+
+  const dot = document.getElementById('sv-'+empId);
+  if (dot) dot.innerHTML = '<span class="saving"></span>';
+
+  try {
+    const { error } = await db.from('presences').upsert(
+      { employe_id: empId, date, statut },
+      { onConflict: 'employe_id,date' }
+    );
+    if (error) throw error;
+  } catch(e) {
+    toast('Erreur enregistrement : '+e.message, 'ko');
+    /* Revenir en arrière si erreur */
+    delete _presDay[empId];
+    renderEmployes();
+    updateStats();
+  } finally {
+    const d = document.getElementById('sv-'+empId);
+    if (d) d.innerHTML = '';
+  }
+}
+
+async function toutPresent() {
+  if (!_employes.length) return;
+  const date = $('sel-date').value;
+
+  /* Optimiste */
+  _employes.forEach(e => { _presDay[e.id] = { statut:'present' }; });
+  renderEmployes();
+  updateStats();
+
+  try {
+    const rows = _employes.map(e => ({ employe_id:e.id, date, statut:'present' }));
+    const { error } = await db.from('presences').upsert(rows, { onConflict:'employe_id,date' });
+    if (error) throw error;
+    toast(`${_employes.length} employés marqués présents ✓`, 'ok');
+    ML.logAction(`✅ Pointage tous présents · ${date}`);
+  } catch(e) {
+    toast('Erreur : '+e.message, 'ko');
+    await loadPointage(); /* Resync si erreur */
+  }
+}
+
+function updateStats() {
+  const c = { present:0, retard:0, absent:0, conge:0 };
+  Object.values(_presDay).forEach(p => { if (c[p.statut]!==undefined) c[p.statut]++; });
+  $('cnt-present').textContent = c.present;
+  $('cnt-retard').textContent  = c.retard;
+  $('cnt-absent').textContent  = c.absent;
+  $('cnt-conge').textContent   = c.conge;
+}
+</script>
+</body>
+</html>

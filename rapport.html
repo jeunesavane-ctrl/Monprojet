@@ -115,6 +115,9 @@
         <div class="row-labels buy">
           <span>Article</span><span>Qté</span><span>Montant</span><span></span>
         </div>
+        <div id="achats-prefill-notice" style="display:none;font-size:12px;
+          color:var(--ok);background:rgba(52,199,89,.08);border-radius:6px;
+          padding:6px 10px;margin-bottom:6px">✅ Pré-rempli depuis les achats enregistrés aujourd'hui</div>
         <div id="rows-achats"></div>
         <button class="btn-add-row" onclick="addRow('achats')">+ Ajouter une ligne</button>
         <div class="sec-sum">
@@ -260,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['staff','manager','owner'])) return;
+  if (!initPage(['manager','owner'])) return;
 
   /* Bloquer si le rapport du jour précédent est manquant */
   const check = await checkJourPrecedent();
@@ -293,7 +296,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await Promise.all([fetchNextNum(), loadProducts(), loadJ1(), checkDejaEnvoye()]);
   loadStockForm();
-  addRow('chicha'); addRow('boissons'); addRow('achats');
+  addRow('chicha'); addRow('boissons');
+  await prefillAchatsFromSession();
 });
 
 async function checkJourPrecedent() {
@@ -381,6 +385,48 @@ async function loadProducts() {
     prodCache.boisson = data.filter(p=>p.type==='boisson');
     updateDL('chicha'); updateDL('boisson');
   } catch {}
+}
+
+/* ── PRÉFILL ACHATS depuis achats_session du jour ─────────────────────── */
+async function prefillAchatsFromSession() {
+  try {
+    /* cherche la session caisse du jour */
+    const { data: sess } = await db.from('sessions_caisse')
+      .select('id').eq('date', todayISO()).maybeSingle();
+    if (!sess) { addRow('achats'); return; }
+
+    /* charge les achats enregistrés dans cette session */
+    const { data: ach } = await db.from('achats_session')
+      .select('produit_nom,qty,prix_unitaire')
+      .eq('session_id', sess.id)
+      .order('created_at');
+    if (!ach?.length) { addRow('achats'); return; }
+
+    /* on affiche le bandeau de confirmation */
+    const notice = $('achats-prefill-notice');
+    if (notice) {
+      notice.textContent =
+        `✅ ${ach.length} achat${ach.length>1?'s':''} du jour pré-rempli${ach.length>1?'s':''} — modifiable si besoin`;
+      notice.style.display = 'block';
+    }
+
+    /* on crée une ligne par achat et on remplit les champs */
+    for (const a of ach) {
+      addRow('achats');
+      const allRows = $('rows-achats').querySelectorAll('.drow');
+      const last = allRows[allRows.length - 1];
+      if (!last) continue;
+      const lbl = last.querySelector('.lbl');
+      const qty = last.querySelector('.qty');
+      const prc = last.querySelector('.prc');
+      if (lbl) lbl.value = a.produit_nom || '';
+      if (qty) qty.value = a.qty        || 0;
+      if (prc) prc.value = a.prix_unitaire || 0;
+      calcSection('achats');
+    }
+  } catch {
+    addRow('achats'); /* fallback silencieux */
+  }
 }
 
 function updateDL(type) {
@@ -549,7 +595,7 @@ async function doSubmit() {
     const tA  = aR.reduce((s,r)=>s+r.total,0);
     const qC  = chR.reduce((s,r)=>s+r.qty,0);
     const net = tC+tB-tA;
-    const part= net*0.21;
+    const part= Math.max(0, net*0.21);
 
     const hashStr = [nextNum,now.toISOString().slice(0,10),manager,caissier,
       tC,tB,tA,net].join('|');

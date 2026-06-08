@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Bilan mensuel — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+/* ── KPI row ── */
+.kpi-row{display:grid;gap:8px;grid-template-columns:1fr 1fr 1fr}
+.kpi-cell{border-radius:var(--rs);padding:12px 8px;text-align:center;border:1px solid var(--b1)}
+.kpi-val{font-family:'Bebas Neue',sans-serif;font-size:16px;line-height:1.1;word-break:break-all}
+.kpi-lbl{font-size:10px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+
+/* ── Bloc comptable ── */
+.compte-bloc{display:flex;flex-direction:column;gap:0;
+  border:1px solid var(--b1);border-radius:var(--r);overflow:hidden}
+.compte-ligne{display:flex;justify-content:space-between;align-items:center;
+  padding:9px 14px;font-size:13px;border-bottom:1px solid var(--b1)}
+.compte-ligne:last-child{border-bottom:none}
+.compte-ligne.subtotal{background:rgba(255,255,255,.03);font-weight:600}
+.compte-ligne.resultat{background:rgba(201,168,76,.07);border-top:2px solid rgba(201,168,76,.25)}
+.compte-lbl{color:var(--text2)}
+.compte-plus{color:var(--ok)}
+.compte-moins{color:var(--danger)}
+.compte-resultat-val{
+  font-family:'Bebas Neue',sans-serif;font-size:22px}
+
+/* ── Sessions table ── */
+.sessions-table{display:flex;flex-direction:column;gap:6px}
+.sess-row{background:var(--bg2);border:1px solid var(--b1);border-radius:var(--rs);
+  padding:9px 12px;display:flex;justify-content:space-between;align-items:center}
+.sess-date{font-size:12px;font-weight:600}
+.sess-vals{display:flex;gap:14px;font-size:11px;color:var(--muted)}
+.sess-net{font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--gold)}
+
+/* ── Parts associés ── */
+.part-row{display:flex;justify-content:space-between;align-items:center;
+  padding:8px 14px;border-bottom:1px solid var(--b1);font-size:13px}
+.part-row:last-child{border-bottom:none}
+.part-pct{font-size:10px;color:var(--muted);margin-left:4px}
+.part-val{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--gold)}
+
+/* ── Print ── */
+@media print {
+  .no-print{display:none!important}
+  body{background:#fff;color:#111}
+  .body-wrap{padding:0;max-width:100%}
+  .app-header,.app-nav{display:none!important}
+  .bilan-title{font-size:20px;font-weight:700;margin-bottom:8px;color:#111}
+  .compte-lbl,.kpi-lbl{color:#555}
+  .compte-ligne,.kpi-cell{border-color:#ccc}
+  .kpi-val,.compte-resultat-val,.sess-net,.part-val{color:#111}
+}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap" style="display:flex;flex-direction:column;gap:14px">
+
+    <!-- Sélecteur mois + bouton print -->
+    <div style="display:flex;gap:8px;align-items:flex-end" class="no-print">
+      <div class="field" style="flex:1;margin:0">
+        <label>Mois</label>
+        <input type="month" id="sel-mois" onchange="loadBilan()">
+      </div>
+      <button class="btn-secondary" onclick="window.print()"
+        style="height:42px;flex-shrink:0">🖨 Imprimer</button>
+    </div>
+
+    <!-- Titre (visible à l'impression) -->
+    <div id="bilan-title" class="bilan-title" style="display:none;font-family:'Bebas Neue',sans-serif;
+      font-size:20px;letter-spacing:1px;border-bottom:2px solid #ccc;padding-bottom:8px"></div>
+
+    <!-- KPI row 1 : Recettes, Achats, Marge -->
+    <div>
+      <div class="sec-header no-print"><div class="sec-title">Exploitation du mois</div></div>
+      <div class="kpi-row">
+        <div class="kpi-cell" style="background:rgba(61,184,115,.05);border-color:rgba(61,184,115,.2)">
+          <div class="kpi-val" style="color:var(--ok)" id="kpi-recettes">—</div>
+          <div class="kpi-lbl">Recettes</div>
+        </div>
+        <div class="kpi-cell" style="background:rgba(201,73,74,.05);border-color:rgba(201,73,74,.15)">
+          <div class="kpi-val" style="color:var(--danger)" id="kpi-achats">—</div>
+          <div class="kpi-lbl">Achats</div>
+        </div>
+        <div class="kpi-cell" style="background:rgba(201,168,76,.05);border-color:rgba(201,168,76,.2)">
+          <div class="kpi-val" style="color:var(--gold)" id="kpi-marge">—</div>
+          <div class="kpi-lbl">Marge brute</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI row 2 : Charges, Salaires, Résultat -->
+    <div class="kpi-row">
+      <div class="kpi-cell" style="background:rgba(201,73,74,.03)">
+        <div class="kpi-val" style="color:var(--danger)" id="kpi-charges">—</div>
+        <div class="kpi-lbl">Charges fixes</div>
+      </div>
+      <div class="kpi-cell" style="background:rgba(201,73,74,.03)">
+        <div class="kpi-val" style="color:var(--danger)" id="kpi-salaires">—</div>
+        <div class="kpi-lbl">Salaires</div>
+      </div>
+      <div class="kpi-cell" style="background:rgba(201,168,76,.06);border-color:rgba(201,168,76,.3)">
+        <div class="kpi-val" id="kpi-net">—</div>
+        <div class="kpi-lbl">Résultat net</div>
+      </div>
+    </div>
+
+    <!-- Compte de résultat détaillé -->
+    <div>
+      <div class="sec-header"><div class="sec-title">Compte de résultat</div></div>
+      <div id="compte-resultat"><div class="state-msg">Sélectionnez un mois…</div></div>
+    </div>
+
+    <!-- Détail sessions -->
+    <div id="section-sessions" style="display:none">
+      <div class="sec-header">
+        <div class="sec-title" id="sessions-title">Sessions du mois</div>
+      </div>
+      <div id="sessions-list" class="sessions-table"></div>
+    </div>
+
+    <!-- Parts associés -->
+    <div id="section-parts" style="display:none">
+      <div class="sec-header"><div class="sec-title">Parts associés (sur résultat net)</div></div>
+      <div id="parts-list" class="card" style="padding:0;overflow:hidden"></div>
+    </div>
+
+    <div style="font-size:11px;color:var(--muted);text-align:center;line-height:1.6;padding-bottom:4px" class="no-print">
+      Résultat net = Marge brute − Charges fixes − Salaires versés
+    </div>
+  </div>
+  <div id="toast" class="no-print"></div>
+
+<script>
+/*
+  ═══════════════════════════════════════════════════════════════════
+  BILAN MENSUEL — CALCULS CRITIQUES
+  ═══════════════════════════════════════════════════════════════════
+  Données sources :
+    rapports      → recettes (chicha + boissons), total_achats, net
+    charges       → montant (loyer, électricité, etc.)
+    salaires_verses → salaire_brut (coût total de la masse salariale)
+    associes      → nom, pourcentage
+
+  Formules :
+    recettes_total = sum(rapports.recettes)  [ou sum(total_chicha + total_boissons)]
+    achats_total   = sum(rapports.total_achats)
+    marge_brute    = recettes_total - achats_total
+                   = sum(rapports.net)  ← identique si bien enregistré
+
+    charges_total  = sum(charges.montant) WHERE mois = YYYY-MM
+    salaires_total = sum(salaires_verses.salaire_brut) WHERE mois = YYYY-MM
+
+    resultat_net   = marge_brute - charges_total - salaires_total
+
+    part_associe_X = max(0, resultat_net) * pourcentage_X / 100
+
+  ⚠ On utilise sum(rapports.net) comme marge brute
+    car net = recettes - achats est déjà calculé et vérifié par caisse.html.
+    On ne recalcule pas à partir des colonnes brutes pour éviter les désynchronisations.
+  ═══════════════════════════════════════════════════════════════════
+*/
+
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['owner','manager'])) return;
+  $('sel-mois').value = todayISO().slice(0,7);
+  loadBilan();
+});
+
+async function loadBilan() {
+  const mois = $('sel-mois').value;
+  if (!mois) return;
+
+  /* Plage de dates pour la recherche dans rapports */
+  const [yr, mo]   = mois.split('-').map(Number);
+  const nextYr     = mo === 12 ? yr + 1 : yr;
+  const nextMo     = mo === 12 ? 1 : mo + 1;
+  const dateDebut  = `${yr}-${String(mo).padStart(2,'0')}-01`;
+  const dateFin    = `${nextYr}-${String(nextMo).padStart(2,'0')}-01`; /* exclu */
+
+  /* Affichage chargement */
+  $('compte-resultat').innerHTML = '<div class="state-msg">Calcul en cours…</div>';
+  ['section-sessions','section-parts'].forEach(id => $(id).style.display='none');
+
+  /* ── Fetch parallèle des 4 sources ── */
+  const [
+    { data: rapportsData },
+    { data: chargesData  },
+    { data: salairesData },
+    { data: associesData }
+  ] = await Promise.all([
+    db.from('rapports').select('date,total_chicha,total_boissons,total_achats,recettes,net,statut')
+      .gte('date', dateDebut).lt('date', dateFin).order('date'),
+    db.from('charges').select('montant,categorie').eq('mois', mois),
+    db.from('salaires_verses').select('employe_id,salaire_brut,net_verse,avances_deduites').eq('mois', mois),
+    db.from('employes').select('nom,prenom,pourcentage').eq('role','associe').eq('actif',true).order('nom')
+  ]);
+
+  const rapports  = rapportsData  || [];
+  const charges   = chargesData   || [];
+  const salaires  = salairesData  || [];
+  const associes  = associesData  || [];
+
+  /* ── CALCULS PRINCIPAUX ─────────────────────────────────────────
+     Priorité : utiliser rapports.net (déjà vérifié par caisse.html)
+     Fallback  : recalculer si la colonne est absente             */
+
+  const recettesTotal = rapports.reduce((s,r) => {
+    /* Préfère la colonne recettes si disponible, sinon additionne */
+    const rec = r.recettes ?? ((r.total_chicha||0) + (r.total_boissons||0));
+    return s + rec;
+  }, 0);
+
+  const achatsTotal = rapports.reduce((s,r) => s + (r.total_achats||0), 0);
+
+  /* Marge brute = sum(rapports.net) ← source vérité (caisse.html) */
+  const margeRapports = rapports.reduce((s,r) => s + (r.net||0), 0);
+  /* Vérification cohérence : doit être ≈ recettesTotal - achatsTotal */
+  const margeBrute    = margeRapports > 0 ? margeRapports : (recettesTotal - achatsTotal);
+
+  const chargesTotal  = charges.reduce((s,c) => s + (c.montant||0), 0);
+  const salairesTotal = salaires.reduce((s,v) => s + (v.salaire_brut||0), 0);
+
+  /* RÉSULTAT NET = Marge − Charges fixes − Salaires */
+  const resultatNet = margeBrute - chargesTotal - salairesTotal;
+
+  /* ── Mise à jour KPI ── */
+  $('kpi-recettes').textContent = fmtM(recettesTotal);
+  $('kpi-achats').textContent   = fmtM(achatsTotal);
+  $('kpi-marge').textContent    = fmtM(margeBrute);
+  $('kpi-charges').textContent  = fmtM(chargesTotal);
+  $('kpi-salaires').textContent = fmtM(salairesTotal);
+  $('kpi-net').textContent      = fmtM(resultatNet);
+  $('kpi-net').style.color      = resultatNet >= 0 ? 'var(--ok)' : 'var(--danger)';
+
+  /* Titre impression */
+  $('bilan-title').textContent  = `MEDELLIN LOUNGE — Bilan ${frMonth(mois+'-01')}`;
+
+  /* ── Compte de résultat ── */
+  renderCompte({ recettesTotal, achatsTotal, margeBrute, chargesTotal, salairesTotal, resultatNet });
+
+  /* ── Sessions détail ── */
+  if (rapports.length) {
+    $('section-sessions').style.display = '';
+    $('sessions-title').textContent     = `${rapports.length} session${rapports.length>1?'s':''} — détail`;
+    $('sessions-list').innerHTML = rapports.map(r => {
+      const rec = r.recettes ?? ((r.total_chicha||0)+(r.total_boissons||0));
+      const net = r.net ?? (rec - (r.total_achats||0));
+      return `<div class="sess-row">
+        <div class="sess-date">${frDate(r.date)}</div>
+        <div class="sess-vals">
+          <span>Ventes ${gnf(rec)}</span>
+          <span>Achats ${gnf(r.total_achats||0)}</span>
+        </div>
+        <div class="sess-net">${gnf(net)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  /* ── Parts associés ── */
+  if (associes.length && resultatNet > 0) {
+    const partBase = resultatNet; /* on ne distribue que si positif */
+    $('section-parts').style.display = '';
+    $('parts-list').innerHTML = associes.map(a => {
+      const part = Math.round(partBase * (a.pourcentage||0) / 100);
+      return `<div class="part-row">
+        <div>${a.nom}<span class="part-pct">${a.pourcentage||0}%</span></div>
+        <div class="part-val">${gnf(part)}</div>
+      </div>`;
+    }).join('') + `<div class="part-row" style="background:rgba(201,168,76,.05)">
+        <div style="font-weight:600">Total distribué</div>
+        <div class="part-val">${gnf(associes.reduce((s,a) => s+Math.round(partBase*(a.pourcentage||0)/100),0))}</div>
+      </div>`;
+  } else if (associes.length && resultatNet <= 0) {
+    $('section-parts').style.display = '';
+    $('parts-list').innerHTML = `<div class="part-row"><div style="color:var(--muted)">
+      Résultat net négatif — aucune distribution</div></div>`;
+  }
+}
+
+function renderCompte({ recettesTotal, achatsTotal, margeBrute, chargesTotal, salairesTotal, resultatNet }) {
+  const netColor = resultatNet >= 0 ? 'var(--ok)' : 'var(--danger)';
+  const netSign  = resultatNet >= 0 ? '+' : '';
+
+  $('compte-resultat').innerHTML = `
+    <div class="compte-bloc">
+      <div class="compte-ligne">
+        <div class="compte-lbl">Recettes brutes (chicha + boissons)</div>
+        <div class="compte-plus">${gnf(recettesTotal)}</div>
+      </div>
+      <div class="compte-ligne">
+        <div class="compte-lbl">Coût des achats (bar + chicha)</div>
+        <div class="compte-moins">−${gnf(achatsTotal)}</div>
+      </div>
+      <div class="compte-ligne subtotal">
+        <div class="compte-lbl">= Marge brute d'exploitation</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;
+          color:${margeBrute>=0?'var(--gold)':'var(--danger)'}">
+          ${gnf(margeBrute)}</div>
+      </div>
+      <div class="compte-ligne">
+        <div class="compte-lbl">Charges fixes (loyer, eau, élec…)</div>
+        <div class="compte-moins">−${gnf(chargesTotal)}</div>
+      </div>
+      <div class="compte-ligne">
+        <div class="compte-lbl">Masse salariale (brut versé)</div>
+        <div class="compte-moins">−${gnf(salairesTotal)}</div>
+      </div>
+      <div class="compte-ligne resultat">
+        <div class="compte-lbl" style="font-size:14px;font-weight:700">RÉSULTAT NET DU MOIS</div>
+        <div class="compte-resultat-val" style="color:${netColor}">
+          ${netSign}${gnf(resultatNet)}</div>
+      </div>
+    </div>`;
+}
+
+/* ── Format compact pour les KPI ── */
+function fmtM(n) {
+  const abs = Math.abs(Math.round(n ?? 0));
+  const neg = n < 0;
+  let str;
+  if (abs >= 1_000_000_000) str = (abs/1_000_000_000).toFixed(1).replace('.0','') + 'G';
+  else if (abs >= 1_000_000) str = (abs/1_000_000).toFixed(1).replace('.0','') + 'M';
+  else if (abs >= 1_000)     str = (abs/1_000).toFixed(0) + 'K';
+  else                       str = String(abs);
+  return (neg ? '−' : '') + str + ' GNF';
+}
+
+/* Impression : afficher le titre */
+window.addEventListener('beforeprint', () => {
+  $('bilan-title').style.display = '';
+});
+window.addEventListener('afterprint', () => {
+  $('bilan-title').style.display = 'none';
+});
+</script>
+</body>
+</html>

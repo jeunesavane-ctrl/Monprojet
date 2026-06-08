@@ -116,16 +116,18 @@ async function loadDash() {
     body.innerHTML = '<div class="state-msg">Chargement…</div>';
 
   try {
-    const [rapRes, prodRes, cfgRes, assocRes, sessRes] = await Promise.all([
+    const [rapRes, prodRes, cfgRes, assocRes, sessRes, rembPendRes] = await Promise.all([
       db.from('rapports').select('*').order('date',{ascending:false}),
       db.from('produits').select('*').eq('actif',true),
       db.from('config').select('key,value'),
-      db.from('associes').select('pourcentage').eq('actif',true),
+      db.from('employes').select('pourcentage').eq('role','associe').eq('actif',true),
       db.from('sessions_caisse').select('id,date,statut,note_caissier')
-        .eq('statut','valide_caissier').order('date',{ascending:false})
+        .eq('statut','valide_caissier').order('date',{ascending:false}),
+      db.from('remboursements_ecart').select('id,employe_id,montant').eq('statut','en_attente')
     ]);
     if (rapRes.error) throw rapRes.error;
     const pendingSessions = sessRes.data || [];
+    const pendingRemb     = rembPendRes.data || [];
 
     const data    = rapRes.data || [];
     const prods   = prodRes.data || [];
@@ -389,10 +391,26 @@ async function loadDash() {
         </div>
       </div>`).join('');
 
+    const rembPendCard = pendingRemb.length ? `
+      <div class="kpi-card wide" style="background:rgba(91,163,204,.08);border:1px solid rgba(91,163,204,.3)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div>
+            <div class="kpi-label">💳 Remboursements à valider</div>
+            <div style="font-size:14px;font-weight:600;color:#5BA3CC">
+              ${pendingRemb.length} en attente · Total ${gnf(pendingRemb.reduce((s,r)=>s+r.montant,0))}
+            </div>
+          </div>
+          <a href="caisse.html" style="flex-shrink:0;padding:8px 14px;background:rgba(91,163,204,.15);border:1px solid rgba(91,163,204,.3);border-radius:var(--rs);color:#5BA3CC;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;text-decoration:none">
+            VOIR →
+          </a>
+        </div>
+      </div>` : '';
+
     /* ── INJECTION HTML ── */
     destroyCharts();
     body.innerHTML = `
       ${pendingCards}
+      ${rembPendCard}
       ${svcBadge}${alerteRap}${noteCard}${objCard}${ownerCard}
 
       <div class="s-head">Performance</div>
@@ -1102,6 +1120,7 @@ function renderCharts(data) {
 async function loadDashAssoc() {
   const body = $('main-body');
   body.innerHTML = '<div class="state-msg">Chargement…</div>';
+  const grid = {color:'rgba(255,255,255,.04)'};
   try {
     const extra = ML.getExtra();
     const pct   = parseFloat(extra.pourcentage) || 0;
