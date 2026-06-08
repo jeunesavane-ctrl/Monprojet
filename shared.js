@@ -139,6 +139,7 @@ const NAV = [
   { href:'produits.html',   label:'Produits',   roles:['manager','owner'] },
   { href:'rh.html',         label:'RH',         roles:['manager','owner'] },
   { href:'avances.html',    label:'Avances',    roles:['manager','owner'] },
+  { href:'charges.html',    label:'Charges',    roles:['manager','owner'] },
   { href:'finances.html',   label:'Finances',   roles:['owner','manager','associe'] },
   { href:'bilan.html',      label:'Bilan',      roles:['owner','manager','associe'] },
   { href:'parametres.html', label:'Paramètres', roles:['owner'] },
