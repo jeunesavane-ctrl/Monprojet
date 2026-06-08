@@ -1,314 +1,299 @@
-# Medellin Lounge — Directive de session v4.0
+# Medellin Lounge — CLAUDE.md v6.0
 
 ## Projet
-Application web de gestion interne pour **Medellin Lounge** (Conakry, Guinée).
-Activité : chicha + boissons. Architecture multi-fichiers statique (HTML/CSS/JS pur).
-Pas de framework, pas de build step. Supabase JS v2 via CDN.
+Application web de gestion interne — **Medellin Lounge** (Conakry, Guinée).
+Activité : chicha + boissons. HTML/CSS/JS pur, Supabase JS v2 via CDN, auto-deploy Netlify.
 
 ---
 
-## Chemins importants
-- **Dossier de travail (worktree actif) :** `C:\Users\jeune\Monprojet\.claude\worktrees\gracious-pare-d38438\`
-- **Dossier de déploiement Netlify :** `C:\Users\jeune\Downloads\medellin\`
-- **Netlify URL :** https://zesty-sunshine-d148e0.netlify.app
-- Après toute modification : copier les fichiers modifiés dans `Downloads\medellin\` puis glisser sur Netlify
-
----
-
-## Structure des fichiers
-```
-medellin/
-├── index.html        ← Login PIN (5 rôles, comptes individuels)
-├── dashboard.html    ← Stats + résumé hebdo + validation sessions caisse → rapport
-├── saisie.html       ← Staff : saisie live des ventes en service (tablette)
-├── caisse.html       ← Caissier : suivi temps réel + validation → manager
-├── rapport.html      ← Formulaire rapport (legacy, reste pour historique) 
-├── historique.html   ← Historique (staff voit ses propres rapports)
-├── produits.html     ← Stocks chicha + boissons + onglet Commande (alertes)
-├── rh.html           ← Équipe + Présences + Demandes + Avances + Paie
-├── finances.html     ← Bilan, Dividendes, Trésorerie, Charges, +Charge, Évolution
-├── parametres.html   ← PINs Gestionnaire+Manager, Comptes Employés+Caissiers, journal
-├── associes.html     ← Page associés (owner voir tout, associé voir son %)
-├── fiche.html        ← Fiche perso staff (présences, avances, solde)
-├── shared.css        ← Styles communs (v4.0 Enterprise Edition)
-├── shared.js         ← Auth (ML) + nav + utils + logConnection
-├── manifest.json     ← PWA
-└── sw.js             ← Cache offline ml-v4 (production uniquement)
-```
+## Chemins & déploiement
+- **Dossier :** `C:\Users\jeune\Monprojet`
+- **GitHub :** `https://github.com/Jlefasavane/Monprojet.git` (branche `main`)
+- **Netlify :** `https://medellin-lounge.netlify.app` — auto-deploy sur `git push`
+- **Serveur local :** `python -m http.server 8080` depuis `C:\Users\jeune\Monprojet`
+- **⚠ Ne plus utiliser Netlify Drop** — tout passe par `git push origin main`
 
 ---
 
 ## Credentials Supabase
 - **URL :** `https://stpmokparkaybgkabbeo.supabase.co`
 - **Anon Key :** `sb_publishable_3L6fyV-zEZMX-EZaNHBPPQ_Hnsmee0Z`
-- **RLS :** DÉSACTIVÉ sur toutes les tables (obligatoire — client anon JS)
+- **RLS :** DÉSACTIVÉ sur toutes les tables
 
 ---
 
-## Tables Supabase (état actuel)
+## 7 rôles
+| Rôle | Pages accessibles |
+|------|-------------------|
+| `owner` | Tout (17 pages) |
+| `manager` | Dashboard, Chicha, Achats, Caisse, Rapport, Pointage, Historique, RH, Avances, Charges, Finances, Bilan |
+| `associe` | Dashboard, Caisse (lecture), Historique, Finances (Mes Parts), Bilan |
+| `caissier` | Caisse, Historique, Ma Fiche, Avance |
+| `staff` | Saisie, Historique, Ma Fiche, Avance |
+| `chicha` | Chicha, Historique, Ma Fiche, Avance |
+| `achats` | Achats, Historique, Ma Fiche, Avance |
+
+---
+
+## Navigation — 17 items (shared.js)
+```javascript
+{ href:'dashboard.html',  roles:['manager','owner','associe'] },
+{ href:'saisie.html',     roles:['staff'] },
+{ href:'chicha.html',     roles:['chicha','manager','owner'] },
+{ href:'achats.html',     roles:['achats','manager','owner'] },
+{ href:'caisse.html',     roles:['caissier','manager','owner','associe'] },
+{ href:'rapport.html',    roles:['manager','owner'] },
+{ href:'pointage.html',   roles:['manager','owner'] },
+{ href:'historique.html', roles:['staff','caissier','chicha','achats','manager','owner','associe'] },
+{ href:'fiche.html',      roles:['staff','caissier','chicha','achats'] },
+{ href:'avance.html',     roles:['staff','caissier','chicha','achats'] },
+{ href:'produits.html',   roles:['manager','owner'] },
+{ href:'rh.html',         roles:['manager','owner'] },
+{ href:'avances.html',    roles:['manager','owner'] },
+{ href:'charges.html',    roles:['manager','owner'] },
+{ href:'finances.html',   roles:['owner','manager','associe'] },
+{ href:'bilan.html',      roles:['owner','manager','associe'] },
+{ href:'parametres.html', roles:['owner'] },
+```
+
+### Badges nav (points rouges)
+- `nbadge-caisse` → remboursements_ecart `en_attente`
+- `nbadge-avances` → avances `en_attente` (manager/owner seulement)
+- Chargés par `loadNavBadges()` dans `shared.js` → appelé depuis `initPage()`
+
+---
+
+## Tables Supabase
 | Table | Colonnes clés |
 |-------|--------------|
-| `rapports` | id, date, recettes, depenses, net, manager, employe_id, montant_exceptionnel, note_exception, **session_id** |
-| `produits` | id, nom, type, quantite, seuil_bas, prix |
-| `config` | key, value — PINs hashés + objectif + note_manager |
-| `logs` | id, role, action (= nom employé ou 'login'), timestamp |
-| `employes` | id, nom, prenom, poste, salaire, **pin_hash**, **role** (staff/caissier/manager), actif |
-| `presences` | id, employe_id, date, statut |
-| `avances` | id, employe_id, montant, date, rembourse, **statut** (en_attente/approuvee/refusee), **demandeur_id**, **note_demande** |
-| `charges` | id, label, montant, mois |
-| `associes` | id, nom, pin_hash, pourcentage, actif |
-| `sessions_caisse` | id, date (UNIQUE), statut (ouvert→valide_caissier→valide_manager), note_caissier, note_manager, created_at |
-| `ventes_session` | id, session_id→sessions_caisse, employe_id→employes, label, type (chicha/boisson/autre), qty, prix_unit, total, valide_staff, created_at |
+| `employes` | id, nom, prenom, poste, role, salaire_base, **pourcentage** (associés), pin_hash, actif |
+| `config` | key, value |
+| `rapports` | id, date, num, total_chicha, total_boissons, total_achats, net, recettes, manager, caissier, session_id, chicha_rows, boissons_rows, achats_rows, part |
+| `presences` | id, employe_id, date, statut (present/absent/retard/conge) — UNIQUE(employe_id, date) |
+| `justifications` | id, employe_id, date, type, motif, statut (en_attente/approuvee/rejetee) |
+| `avances` | id, employe_id, montant, date, statut (en_attente/approuvee/rejetee), rembourse, obs, note_demande |
+| `salaires_verses` | id, employe_id, mois, salaire_brut, avances_deduites, ecarts_deduits, surplus_caisse, net_verse, nb_absences_nj, sanction_type, sanction_montant, nb_retards, sanction_retard_montant, paye_le — UNIQUE(employe_id, mois) |
+| `charges` | id, libelle, montant, mois, categorie, paye, date_paiement, recurrence |
+| `produits` | id, nom, type, stock_actuel, seuil_bas, prix, prix_achat, unite_vente, packaging_label, unite_par_packaging, actif |
+| `sessions_caisse` | id, date, statut, fond_caisse, total_reel, total_om_verifie, ecart, caissier_id, note_caissier, note_manager |
+| `remboursements_ecart` | id, session_id, employe_id, montant, note, statut (en_attente/valide/rejete), created_at |
+| `logs` | id, role, action, timestamp |
+| `credits` | id, employe_id, session_id, montant, rembourse |
 
-### SQL à exécuter si pas encore fait (IMPORTANT)
-```sql
--- Colonnes individuelles employés
-ALTER TABLE employes ADD COLUMN IF NOT EXISTS pin_hash TEXT;
-ALTER TABLE employes ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'staff';
+> ⚠ La table `associes` N'EXISTE PLUS — tout est dans `employes` (colonne `pourcentage`)
+> ⚠ `salaires.html` EXISTE mais est **exclu de la nav** (logique périmée, conflit avec rh.html)
 
--- Colonnes avances (demandes depuis rapport.html)
-ALTER TABLE avances ADD COLUMN IF NOT EXISTS statut TEXT DEFAULT 'approuvee';
-ALTER TABLE avances ADD COLUMN IF NOT EXISTS demandeur_id UUID;
-ALTER TABLE avances ADD COLUMN IF NOT EXISTS note_demande TEXT;
-
--- Colonnes rapport (dépense exceptionnelle + lien employé + session + caisse complète)
-ALTER TABLE rapports ADD COLUMN IF NOT EXISTS montant_exceptionnel INTEGER DEFAULT 0;
-ALTER TABLE rapports ADD COLUMN IF NOT EXISTS note_exception TEXT;
-ALTER TABLE rapports ADD COLUMN IF NOT EXISTS employe_id UUID;
-ALTER TABLE rapports ADD COLUMN IF NOT EXISTS session_id UUID;
-ALTER TABLE rapports ADD COLUMN IF NOT EXISTS fond_caisse INTEGER DEFAULT 0;
-ALTER TABLE rapports ADD COLUMN IF NOT EXISTS entrees_caisse INTEGER DEFAULT 0;
-ALTER TABLE rapports ADD COLUMN IF NOT EXISTS sorties_caisse INTEGER DEFAULT 0;
-ALTER TABLE rapports ADD COLUMN IF NOT EXISTS total_reel INTEGER;
-ALTER TABLE rapports ADD COLUMN IF NOT EXISTS ecart INTEGER;
-
--- Nouvelles tables workflow caisse
-CREATE TABLE IF NOT EXISTS sessions_caisse (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  date DATE UNIQUE NOT NULL,
-  statut TEXT DEFAULT 'ouvert',
-  note_caissier TEXT,
-  note_manager TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS ventes_session (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  session_id UUID REFERENCES sessions_caisse(id) ON DELETE CASCADE,
-  employe_id UUID REFERENCES employes(id),
-  label TEXT NOT NULL,
-  type TEXT NOT NULL DEFAULT 'chicha',
-  qty INTEGER NOT NULL DEFAULT 1,
-  prix_unit INTEGER NOT NULL DEFAULT 0,
-  total INTEGER NOT NULL DEFAULT 0,
-  valide_staff BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
+### Config keys
+| Clé | Description | Défaut |
+|-----|-------------|--------|
+| `pin_owner` | Hash SHA-256 du PIN gestionnaire | — |
+| `pin_manager` | Hash SHA-256 du PIN manager | `b8dc2c1...` |
+| `pin_staff` | Hash SHA-256 du PIN staff | `03ac674...` |
+| `owner_nom` | Nom affiché pour le gestionnaire | — |
+| `note_manager` | Message visible par les managers | — |
+| `objectif_journalier` | Objectif de net par jour (GNF) | — |
+| `part_lounge` | % du net réservé au lounge avant distribution | `10` |
+| `owner_pct` | % fixe du gestionnaire (si absent : 100 - assocs%) | auto |
 
 ---
 
-## Système d'authentification (5 rôles)
-| Rôle | Source | Accès | Redirection après login |
-|------|--------|-------|------------------------|
-| `owner` | PIN dans `config.pin_owner` | TOUT — caisse en **lecture seule** | dashboard.html |
-| `manager` | PIN dans `config.pin_manager` | Dashboard, Rapport, Historique, Produits, RH, Caisse **lecture seule** | dashboard.html |
-| `caissier` | Compte individuel `employes` (role='caissier') | Caisse (lecture + validation), Historique | caisse.html |
-| `staff` | Compte individuel `employes` (role='staff') | Saisie ventes, Historique perso, Ma Fiche | saisie.html |
-| `associe` | Compte individuel table `associes` (pin_hash) | Dashboard, Historique, Finances, Associés, Caisse **lecture seule** | dashboard.html |
-
-### Règles importantes
-- **Caissier** créé par l'owner dans Paramètres → Comptes Employés (role='caissier')
-- **Caisse en lecture seule** pour owner/manager/associé — aucune modification possible
-- `owner` s'appelle **Gestionnaire** dans l'UI (pas "Propriétaire")
-- Le gestionnaire est aussi associé (son % = 100 - somme des autres associés)
-- `sessionStorage` stocke : `ml_role`, `ml_hashes`, `ml_extra`
-- `ml_extra` contient : `{ nom, employe_id }` pour staff/caissier · `{ nom, pourcentage, id }` pour associé
-- Auto-lock : 10 min d'inactivité → retour index.html
-- Cycle de rôle dans Paramètres : staff → caissier → manager → staff
-
----
-
-## shared.js — points clés
-```javascript
-// Badge affichage selon rôle
-badge.textContent =
-  role==='owner'    ? 'Gestionnaire' :
-  role==='manager'  ? (extra.nom || 'Manager') :
-  role==='associe'  ? (extra.nom || 'Associé') :
-  role==='staff'    ? (extra.nom || 'Staff') :
-  role==='caissier' ? (extra.nom || 'Caissier') : 'Staff';
-
-// Log connexion : stocke le NOM dans action (pas juste le rôle)
-async _logConnection(role, nom = null) {
-  await db.from('logs').insert({
-    role, action: nom || 'login', timestamp: new Date().toISOString()
-  });
-}
-
-// setSession transmet le nom au log
-setSession(role, hashes, extra = null) {
-  sessionStorage.setItem('ml_role', role);
-  sessionStorage.setItem('ml_hashes', JSON.stringify(hashes));
-  if (extra) sessionStorage.setItem('ml_extra', JSON.stringify(extra));
-  else sessionStorage.removeItem('ml_extra');
-  ML._logConnection(role, extra?.nom || null);
-}
-
-// Nav : historique accessible au staff
-{ href:'historique.html', label:'Historique', roles:['staff','manager','owner','associe'] }
-```
-
----
-
-## index.html — flux checkPin()
+## Authentification — index.html
 1. Hash SHA-256 du PIN saisi
-2. Compare avec `hOwner` → role `owner`
-3. Compare avec `hManager` → role `manager`
-4. Cherche dans `employesList` (employes avec pin_hash) → role = emp.role, extra = {nom, employe_id}
-5. Cherche dans `associesList` → role `associe`, extra = {nom, pourcentage, id}
-6. Aucun match → erreur "Code incorrect"
-7. **Pas de fallback PIN collectif staff** (supprimé pour sécurité)
+2. Compare `hOwner` (config) → `owner`
+3. Compare `hManager` (config) → `manager`
+4. Cherche dans `employes` par pin_hash
+   - `role='associe'` → extra = `{ nom, pourcentage, id }`
+   - Sinon → extra = `{ nom, employe_id }`
+
+**sessionStorage :** `ml_role`, `ml_hashes` `{hOwner,hStaff,hManager}`, `ml_extra`
+**Auto-lock :** 10 min d'inactivité → `ML.lock()`
 
 ---
 
-## parametres.html — sections
-- **PIN Gestionnaire** + **PIN Manager** (le PIN Staff a été supprimé)
-- **Note pour le Manager** : textarea → sauvegarde avec select+update/insert dans `config`
-  ```javascript
-  async function saveNoteManager() {
-    const { data: existing } = await db.from('config').select('key').eq('key','note_manager');
-    if (existing?.length) {
-      await db.from('config').update({value: val}).eq('key','note_manager');
-    } else {
-      await db.from('config').insert({key:'note_manager', value: val});
-    }
-  }
-  ```
-- **Comptes Employés** : CRUD complet — créer compte (PIN), donner/retirer accès, changer rôle (staff↔manager)
-- **Journal connexions** : affiche nom depuis `l.action` si différent de 'login'
+## Formules de calcul — INVARIANTES
+
+### Distribution
+```
+part_lounge_pct = config.part_lounge (défaut 10)
+distribPct      = MAX(0, 100 - part_lounge_pct) / 100
+
+owner_pct       = config.owner_pct si défini, sinon MAX(0, 100 - sum(assocs%))
+part_owner      = MAX(0, net_for_parts) × distribPct × owner_pct / 100
+part_assoc_X    = MAX(0, net_for_parts) × distribPct × assocX_pct / 100
+
+net_for_parts (finances/associes/bilan) = sum(rapports.net) - sum(charges_fixes)
+```
+
+### P&L
+```
+recettes    = sum(total_chicha + total_boissons)
+net_ventes  = recettes - sum(total_achats)          ← rapports.net
+net_final   = net_ventes - sum(charges_fixes)       ← finances.html / bilan.html
+tresorerie  = net_final - avances(statut IN [en_attente,approuvee] AND rembourse=false)
+```
+
+### Salaire (rh.html / fiche.html)
+```
+brut             = salaire_base
+absNJ            = absences - justifications_approuvees (ce mois)
+sanctions_abs    = brut × (0 si absNJ=0, 0.10 si absNJ=2, 0.15 si absNJ≥3)
+sanctions_ret    = brut × 0.10 si retards ≥ 5 ce mois
+avances_ded      = SUM(avances WHERE statut='approuvee' AND rembourse=false) — TOUTES dates
+ecarts_ded       = SUM(sessions_caisse.ecart > 0) - SUM(remboursements_valides) — ce mois
+surplus_bonus    = SUM(|sessions_caisse.ecart < 0|) — ce mois
+net_verse        = MAX(0, brut - sanctions_abs - sanctions_ret - avances_ded - ecarts_ded + surplus_bonus)
+
+PAYER  → INSERT salaires_verses + UPDATE avances SET rembourse=true
+ANNULER → DELETE salaires_verses (avances gardent rembourse=true)
+```
+
+### Écart caisse
+```
+ecart = theorique - reel    (+ = manque caissier, − = excédent/surplus)
+theorique = fond_caisse + totEspeces + entrees - sorties - achats
+                              ↑ OM EXCLUS (OM vérifié séparément)
+```
 
 ---
 
-## rapport.html — fonctionnalités
-- Pré-rempli avec nom de l'employé connecté (extra.nom)
-- Dépense exceptionnelle : checkbox → champs montant + note
-- Demande d'avance : bouton visible si `employe_id` — modal montant + motif → insert dans `avances` avec statut `en_attente`
-- Stocke `employe_id` dans le rapport pour lier à l'employé
+## Pages — descriptions
+
+| Page | Rôles | Description |
+|------|-------|-------------|
+| `index.html` | tous | Login PIN |
+| `dashboard.html` | manager/owner/associe | KPIs, graphiques, alertes sessions en attente |
+| `saisie.html` | staff | Formulaire de saisie ventes du jour |
+| `chicha.html` | chicha/manager/owner | Saisie chicha avec catalogue |
+| `achats.html` | achats/manager/owner | Saisie achats/dépenses |
+| `caisse.html` | caissier/manager/owner/associe | Session caisse, mouvements, clôture, remboursements écart |
+| `rapport.html` | manager/owner | Génère le rapport journalier depuis session caisse |
+| `pointage.html` | manager/owner | Présences/absences/retards/congés par date |
+| `historique.html` | tous | Liste rapports avec filtres |
+| `fiche.html` | staff/caissier/chicha/achats | Solde salaire estimé, avances, écarts caissier |
+| `avance.html` | staff/caissier/chicha/achats | Demande d'avance sur salaire |
+| `produits.html` | manager/owner | Catalogue produits + stock |
+| `rh.html` | manager/owner | 5 onglets : Équipe / Présences / Demandes / Avances / Paie |
+| `avances.html` | manager/owner | Vue globale avances en attente + approuvées |
+| `charges.html` | manager/owner | Charges fixes mensuelles (loyer, salaires fixes…) |
+| `finances.html` | owner/manager/associe | Bilan / Dividendes / Trésorerie / Charges / Évolution |
+| `bilan.html` | owner/manager/associe | Bilan mensuel complet + répartition des parts |
+| `associes.html` | owner/manager/associe | Parts par associé, historique 6 mois, votes |
+| `parametres.html` | owner | PINs, comptes, config, part lounge, part gestionnaire, danger zone |
 
 ---
 
-## historique.html
-- Accessible à tous les rôles (staff, manager, owner, associé)
-- Staff : voit uniquement ses propres rapports (filtre par `employe_id` ou fallback `manager` = nom)
-- Staff : pas de filtre dropdown ni filtre net minimum
-- Bannière pour staff : "📋 Vos rapports soumis — X au total"
+## rh.html — 5 onglets
+| Onglet | Fonctionnalité |
+|--------|---------------|
+| Équipe | Liste staff actif |
+| Présences | Sélecteur date, 4 statuts (présent/absent/retard/congé), "Tous présents" |
+| Demandes | Avances + justifications `en_attente`, Approuver/Rejeter |
+| Avances | Manager ajoute avance → `statut=approuvee` immédiatement |
+| Paie | Mois sélectionnable, VERSER par employé, toutes déductions calculées auto |
 
 ---
 
-## rh.html — onglets
-| Onglet | Accès |
-|--------|-------|
-| Équipe | owner |
-| Présences | owner + manager |
-| Demandes | owner + manager — avances `en_attente` avec boutons Approuver/Refuser |
-| Avances | owner |
-| Paie | owner |
+## finances.html — 6 onglets
+| Onglet | Accès | Base de calcul |
+|--------|-------|----------------|
+| Bilan | owner + manager | `net_final = rapports.net - charges` |
+| Dividendes | owner seulement | même base, répartition complète |
+| Trésorerie | owner + manager | `net_final - avances_non_remb` |
+| Charges | owner + manager | liste charges par mois |
+| + Charge | owner + manager | formulaire ajout charge |
+| Évolution | owner + manager | 6–18 mois, graphique |
 
-- Badge sur "Demandes" : compteur des requêtes en attente
-- `validerDemande()` → statut `approuvee`, rembourse false
-- `refuserDemande()` → statut `refusee`, rembourse true
-
----
-
-## finances.html — onglets (6)
-| Onglet | Contenu |
-|--------|---------|
-| Bilan | Résumé mensuel, recettes, charges, net |
-| Dividendes | Distribution : Gestionnaire (or) + chaque associé selon % |
-| Trésorerie | Net cumulé - avances non remboursées |
-| Charges | Liste charges fixes |
-| +Charge | Ajouter charge ponctuelle |
-| Évolution | Graphique 6 mois Chart.js |
-
-- Export : PDF (window.print) + CSV (Blob + BOM UTF-8) + Envoyer (navigator.share / WhatsApp)
-- **Pourcentage Gestionnaire = 100 - somme des % associés** (dynamique, pas hardcodé)
+Associé voit UNIQUEMENT un onglet "Mes Parts" (injected) — part perso 6 mois.
 
 ---
 
-## dashboard.html — blocs clés
-- Résumé hebdo : semaine en cours vs semaine précédente
-- Note du gestionnaire (pour manager) : lit `config.note_manager`
-- Notification navigateur si pas de rapport après 20h (une fois par jour)
-- % dividendes gestionnaire calculé dynamiquement depuis table `associes`
-- Bloc "Performance Managers" SUPPRIMÉ (un seul manager)
+## bilan.html
+- KPIs : Recettes / Achats / Marge brute / Charges fixes / Salaires (info) / Résultat net
+- `resultatNet` (KPI) = marge − charges − salaires  ← vue comptable
+- Parts calculées sur `marge − charges` uniquement (cohérent avec finances.html)
+- Répartition : 🏠 Lounge + Associés + Gestionnaire = 100% du distribuable
 
 ---
 
-## produits.html
-- Onglet **Commande** : liste tous les produits à/sous seuil_bas, groupés par type
-- Bouton Imprimer → `window.print()`, CSS masque les autres onglets
-
----
-
-## associes.html
-- Owner : "Gestionnaire (vous)" en premier (or) avec son % calculé + chaque associé
-- Associé : voit sa propre fiche + historique de sa part mensuelle
-- `buildCard()` helper pour affichage uniforme
+## parametres.html
+- **Part lounge** : % réservé au lounge avant distribution (config `part_lounge`, défaut 10)
+- **Part gestionnaire** : % fixe (config `owner_pct`) ou auto (100% − assocs%)
+  - Validation live : gestionnaire% + associés% = 100%
+  - Bouton "Remettre en auto" supprime la config
+- **Comptes** : tout dans `employes`, un seul "+ Nouveau", associés avec `pourcentage`
+- **Zone dangereuse** : reset data (protégé PIN owner)
+  - Efface : rapports, presences, avances, salaires_verses, sessions_caisse, logs
+  - Conserve : employes, produits, charges, config
 
 ---
 
 ## Design
-- Fond : `#0D0D0D` | Accent : `#C9A84C` (or)
+- Fond : `#0D0D0D` | Accent or : `#C9A84C`
 - Titres : **Bebas Neue** | Corps : **DM Sans**
 - Mobile-first (staff = téléphone)
+- `shared.css` + `shared.js` inclus dans chaque page
 
 ---
 
-## État actuel — ce qui est FAIT ✅
-- [x] 4 rôles : owner (Gestionnaire), manager, staff individuel, associé
-- [x] PIN collectif staff supprimé — sécurité
-- [x] Comptes employés individuels (CRUD dans Paramètres)
-- [x] Journal connexion affiche les noms
-- [x] Note gestionnaire → manager (bug corrigé : select + update/insert)
-- [x] Historique personnel pour staff (ses propres rapports)
-- [x] Demande d'avance depuis rapport.html
-- [x] Onglet Demandes dans RH (approbation/refus)
-- [x] Dépense exceptionnelle dans rapport
-- [x] Résumé hebdo dashboard
-- [x] Export CSV + envoi WhatsApp (finances)
-- [x] Trésorerie (Finances, onglet dédié)
-- [x] Dividendes dynamiques (% calculé)
-- [x] Onglet Commande (produits bas stock)
-- [x] Associés voient les finances (dividendes, trésorerie)
-- [x] sw.js version ml-v4
-- [x] **Fiche employé perso** : `fiche.html` — profil, présences (mois sélectionnable), avances, solde net estimé
-- [x] **Owner retiré du rapport** — nav rapport.html : `['staff','manager']` seulement
-- [x] **Journal d'activité détaillé** — 50 entrées, connexions 🔑 vs actions 📋✅❌ visuellement séparées
-- [x] **ML.logAction()** — helper global pour logguer actions depuis n'importe quelle page
-- [x] **Rapport loggué** — `📋 Rapport N°xxx soumis — Net xxx GNF` au submit
-- [x] **Avances logguées** — `✅ Approuvée` / `❌ Refusée` avec nom + montant dans rh.html
-- [x] **Dashboard refonte complète** — 6 KPI cards, 4 graphiques (area 30j, bar semaines, donut stylé, bar jour/semaine), associés ont leur propre graphique
+## SQL migrations — à exécuter si tables manquantes
 
-## Ce qui RESTE à faire 🔲
-- [ ] **Déploiement Netlify** : copier `Downloads\medellin\` et glisser
-- [ ] **Tester en local** (Python server : `python -m http.server 8080`)
-- [ ] **Confirmer SQL exécuté** dans Supabase (colonnes avances + rapports + employes)
-- [ ] Checklist ouverture/fermeture (configurable owner)
-- [ ] Alerte stock WhatsApp (lien auto quand produit sous seuil)
-- [ ] Mode hors-ligne rapport (sauvegarde locale + sync)
-- [ ] Vue finances complète pour associés (charges détaillées)
+Les pages affichent automatiquement le SQL si la table est absente. En cas de base vierge :
 
-- [ ] **Checklist ouverture/fermeture** : liste de tâches configurable par l'owner
-- [ ] **Alerte stock WhatsApp** : lien auto vers WhatsApp quand produit sous seuil
-- [ ] **Objectif mensuel** : target + barre de progression dans dashboard
-- [ ] **Mode hors-ligne rapport** : sauvegarde locale si pas de réseau, envoi à la reconnexion
-- [ ] **Vue finances complète pour associés** : voir charges détaillées, pas seulement dividendes
-- [ ] **Déploiement Netlify** : copier Downloads\medellin\ et glisser
+```sql
+-- Presences (pointage.html l'affiche si manquante)
+CREATE TABLE IF NOT EXISTS presences (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  employe_id UUID REFERENCES employes(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  statut TEXT NOT NULL DEFAULT 'present',
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(employe_id, date)
+);
+ALTER TABLE presences DISABLE ROW LEVEL SECURITY;
+
+-- Justifications
+CREATE TABLE IF NOT EXISTS justifications (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  employe_id UUID REFERENCES employes(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  type TEXT,
+  motif TEXT,
+  statut TEXT DEFAULT 'en_attente',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE justifications DISABLE ROW LEVEL SECURITY;
+
+-- Remboursements écart caisse
+CREATE TABLE IF NOT EXISTS remboursements_ecart (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  session_id UUID REFERENCES sessions_caisse(id) ON DELETE CASCADE,
+  employe_id UUID REFERENCES employes(id) ON DELETE CASCADE,
+  montant INTEGER NOT NULL,
+  note TEXT,
+  statut TEXT DEFAULT 'en_attente',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE remboursements_ecart DISABLE ROW LEVEL SECURITY;
+
+-- Salaires versés (colonnes récentes)
+ALTER TABLE salaires_verses
+  ADD COLUMN IF NOT EXISTS surplus_caisse          INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS nb_absences_nj          INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS sanction_type           TEXT    NOT NULL DEFAULT 'aucune',
+  ADD COLUMN IF NOT EXISTS sanction_montant        INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS nb_retards              INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS sanction_retard_montant INTEGER NOT NULL DEFAULT 0;
+
+-- Sessions caisse (colonnes récentes)
+ALTER TABLE sessions_caisse
+  ADD COLUMN IF NOT EXISTS ecart              INTEGER,
+  ADD COLUMN IF NOT EXISTS caissier_id        UUID REFERENCES employes(id),
+  ADD COLUMN IF NOT EXISTS surplus_caisse     INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS total_om_verifie   INTEGER;
+```
 
 ---
 
 ## Pour reprendre
 Dis : **"Lis le CLAUDE.md et continue"**
-
-Le worktree actif est : `C:\Users\jeune\Monprojet\.claude\worktrees\gracious-pare-d38438\`
