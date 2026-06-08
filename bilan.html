@@ -170,7 +170,7 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['owner','manager'])) return;
+  if (!initPage(['owner','manager','associe'])) return;
   $('sel-mois').value = todayISO().slice(0,7);
   loadBilan();
 });

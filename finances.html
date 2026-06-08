@@ -163,7 +163,30 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['owner'])) return;
+  if (!initPage(['owner','manager','associe'])) return;
+
+  const role    = ML.getRole();
+  const tabIds  = ['bilan','dividendes','tresorerie','charges','ajout','evolution'];
+  const tabBtns = document.querySelectorAll('.tab-btn');
+
+  /* ── ASSOCIÉ : voit uniquement son onglet "Mes Parts" ── */
+  if (role === 'associe') {
+    tabBtns.forEach((btn, i) => {
+      if (tabIds[i] !== 'dividendes') btn.style.display = 'none';
+      else btn.textContent = 'Mes Parts';
+    });
+    const moisA = new Date().toISOString().slice(0,7);
+    $('div-mois-sel').value = moisA;
+    switchTab('dividendes'); /* appelle loadDividendes() en interne */
+    return; /* pas de Bilan/Charges à charger */
+  }
+
+  /* ── MANAGER : tout sauf Dividendes (répartition interne) ── */
+  if (role === 'manager') {
+    tabBtns.forEach((btn, i) => {
+      if (tabIds[i] === 'dividendes') btn.style.display = 'none';
+    });
+  }
 
   const now = new Date();
   const moisDef = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
@@ -197,29 +220,39 @@ async function loadBilan() {
     const fin   = new Date(mois.split('-')[0], mois.split('-')[1], 0)
       .toISOString().slice(0,10);
 
-    const [rapRes, chargesRes, avRes, assocRes] = await Promise.all([
+    /* ── FORMULE BILAN ────────────────────────────────────────────
+       recettes   = sum(total_chicha + total_boissons)
+       achats     = sum(total_achats)
+       net_ventes = recettes − achats  ← équivaut à sum(rapports.net)
+       net_final  = net_ventes − charges_fixes
+       Les avances salariales ne sont PAS dans le Bilan P&L ;
+       elles appartiennent au module Paie (salaires_verses).
+    ─────────────────────────────────────────────────────────── */
+    const [rapRes, chargesRes, assocRes, cfgRes] = await Promise.all([
       db.from('rapports').select('net,total_chicha,total_boissons,total_achats')
         .gte('date',debut).lte('date',fin),
       db.from('charges').select('montant,libelle,paye').eq('mois',mois),
-      db.from('avances').select('montant').eq('rembourse',false)
-        .gte('date',debut).lte('date',fin),
-      db.from('associes').select('pourcentage').eq('actif',true)
+      db.from('employes').select('pourcentage').eq('role','associe').eq('actif',true),
+      db.from('config').select('key,value')
     ]);
 
-    const raps     = rapRes.data   || [];
+    const raps     = rapRes.data    || [];
     const charges  = chargesRes.data || [];
-    const avances  = avRes.data    || [];
-    const assocs   = assocRes.data || [];
+    const assocs   = assocRes.data  || [];
+    const roleBilan = ML.getRole();
+    const cfgF     = {};
+    (cfgRes.data||[]).forEach(r => cfgF[r.key] = r.value);
+    const partLoungeF = parseFloat(cfgF.part_lounge ?? 10) || 10;
+    const distribPctF = Math.max(0, 100 - partLoungeF) / 100;
 
     const recettes    = raps.reduce((s,r)=>s+(r.total_chicha||0)+(r.total_boissons||0),0);
     const achats      = raps.reduce((s,r)=>s+(r.total_achats||0),0);
     const netVentes   = recettes - achats;
     const totCharges  = charges.reduce((s,c)=>s+c.montant,0);
-    const totAvances  = avances.reduce((s,a)=>s+a.montant,0);
     const netFinal    = netVentes - totCharges;
     const assocPct    = assocs.reduce((s,a)=>s+(a.pourcentage||0),0);
     const ownerPct    = Math.max(0, 100 - assocPct);
-    const partOwner   = Math.max(0, netFinal * ownerPct / 100);
+    const partOwner   = Math.max(0, netFinal * distribPctF * ownerPct / 100);
 
     el.innerHTML = `
       <div class="card">
@@ -244,10 +277,6 @@ async function loadBilan() {
             <span>Charges fixes</span>
             <span style="color:var(--danger)">- ${gnf(totCharges)}</span>
           </div>
-          ${totAvances?`<div class="bilan-row">
-            <span>Avances non remboursées</span>
-            <span style="color:var(--danger)">- ${gnf(totAvances)}</span>
-          </div>`:''}
           <div class="bilan-row">
             <span>NET FINAL</span>
             <span style="color:${netFinal>=0?'var(--ok)':'var(--danger)'}">
@@ -255,10 +284,14 @@ async function loadBilan() {
           </div>
         </div>
       </div>
+      ${roleBilan === 'owner' ? `
       <div class="stat-card wide">
-        <div class="stat-label">Votre part — ${ownerPct.toFixed(1)}%</div>
+        <div class="stat-label">Votre part — ${(ownerPct*distribPctF).toFixed(1)}% du net</div>
         <div class="stat-val gold">${gnf(partOwner)}</div>
-      </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">
+          🏠 Réserve lounge (${partLoungeF}%) : ${gnf(Math.max(0,netFinal*partLoungeF/100))}
+        </div>
+      </div>` : ''}
       ${charges.length?`
       <div class="card">
         <div class="card-head">
@@ -402,27 +435,48 @@ async function partagerBilan() {
   } catch(e) { if (e.name!=='AbortError') toast('Erreur','ko'); }
 }
 
-/* ── CALCULATEUR DIVIDENDES ──────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════
+   DIVIDENDES / MES PARTS
+   Vue owner  : répartition complète + KPIs
+   Vue associé: dashboard personnel + évolution 6 mois (lecture seule)
+
+   FORMULE :
+     net_distribue = sum(recettes) − sum(achats) − sum(charges)
+     part_X        = MAX(0, net_distribue) × pourcentage_X / 100
+════════════════════════════════════════════════════════════════ */
 async function loadDividendes() {
   const mois = $('div-mois-sel').value;
   const el   = $('div-content');
   if (!mois) return;
   el.innerHTML = '<div class="state-msg">Chargement…</div>';
+
   try {
+    const roleD  = ML.getRole();
+    const extraD = ML.getExtra();
+    /* ⚠ index.html stocke { id: assoc.id } — PAS associe_id */
+    const monId  = extraD?.id;
+    const monNom = extraD?.nom || '';
+    const monPct = extraD?.pourcentage || 0;
+
     const debut = mois+'-01';
     const fin   = new Date(mois.split('-')[0], mois.split('-')[1], 0)
                     .toISOString().slice(0,10);
 
-    const [rapRes, chargesRes, assocRes] = await Promise.all([
+    const [rapRes, chargesRes, assocRes, cfgResD] = await Promise.all([
       db.from('rapports').select('total_chicha,total_boissons,total_achats')
         .gte('date',debut).lte('date',fin),
       db.from('charges').select('montant').eq('mois',mois),
-      db.from('associes').select('nom,pourcentage').eq('actif',true).order('nom')
+      db.from('employes').select('id,nom,prenom,pourcentage').eq('role','associe').eq('actif',true).order('nom'),
+      db.from('config').select('key,value')
     ]);
 
     const raps    = rapRes.data    || [];
     const charges = chargesRes.data || [];
     const assocs  = assocRes.data   || [];
+    const cfgD    = {};
+    (cfgResD.data||[]).forEach(r => cfgD[r.key] = r.value);
+    const partLoungeD = parseFloat(cfgD.part_lounge ?? 10) || 10;
+    const distribPctD = Math.max(0, 100 - partLoungeD) / 100;
 
     const recettes   = raps.reduce((s,r)=>s+(r.total_chicha||0)+(r.total_boissons||0),0);
     const achats     = raps.reduce((s,r)=>s+(r.total_achats||0),0);
@@ -432,15 +486,178 @@ async function loadDividendes() {
     const ownerPct   = Math.max(0, 100 - assocPct);
 
     const rows = [
-      { nom:'Gestionnaire (vous)', pct:ownerPct, montant:Math.max(0, netFinal * ownerPct / 100), isOwner:true },
-      ...assocs.map(a => ({
-        nom: a.nom,
-        pct: a.pourcentage||0,
-        montant: Math.max(0, netFinal * (a.pourcentage||0) / 100),
-        isOwner: false
-      }))
+      {
+        nom:     roleD==='owner' ? 'Gestionnaire (vous)' : 'Gestionnaire',
+        pct:     ownerPct,
+        montant: Math.max(0, netFinal * distribPctD * ownerPct / 100),
+        isOwner: true,
+        isMoi:   roleD==='owner'
+      },
+      ...assocs.map(a => {
+        const nomA = [a.prenom, a.nom].filter(Boolean).join(' ') || a.nom;
+        return {
+          nom:     nomA,
+          pct:     a.pourcentage||0,
+          montant: Math.max(0, netFinal * distribPctD * (a.pourcentage||0) / 100),
+          isOwner: false,
+          isMoi:   roleD==='associe' && (a.id===monId || nomA===monNom)
+        };
+      })
     ];
 
+    /* ════════════════════════════════════════════════════════════
+       VUE ASSOCIÉ — Dashboard personnel enrichi (lecture seule)
+    ════════════════════════════════════════════════════════════ */
+    if (roleD === 'associe') {
+      const maPct  = monPct || rows.find(r=>r.isMoi)?.pct || 0;
+      const maPart = Math.max(0, netFinal * distribPctD * maPct / 100);
+
+      /* Historique 6 mois */
+      const now    = new Date();
+      const months = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+        months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+      }
+      const earliest = months[0]+'-01';
+      const latest   = new Date(now.getFullYear(), now.getMonth()+1, 0)
+                         .toISOString().slice(0,10);
+
+      const [hRapRes, hChgRes] = await Promise.all([
+        db.from('rapports').select('date,total_chicha,total_boissons,total_achats')
+          .gte('date',earliest).lte('date',latest),
+        db.from('charges').select('mois,montant')
+          .gte('mois',months[0]).lte('mois',months[months.length-1])
+      ]);
+      const hRaps = hRapRes.data || [];
+      const hChgs = hChgRes.data || [];
+
+      const histData = months.map(m => {
+        const md = m+'-01';
+        const mf = new Date(m.split('-')[0], m.split('-')[1], 0).toISOString().slice(0,10);
+        const mR = hRaps.filter(r => r.date>=md && r.date<=mf);
+        const mC = hChgs.filter(c => c.mois===m);
+        const rec  = mR.reduce((s,r)=>s+(r.total_chicha||0)+(r.total_boissons||0),0);
+        const ach  = mR.reduce((s,r)=>s+(r.total_achats||0),0);
+        const chg  = mC.reduce((s,c)=>s+(c.montant||0),0);
+        const net  = rec - ach - chg;
+        const part = Math.max(0, net * distribPctD * maPct / 100);
+        return { mois:m, rec, ach, chg, net, part };
+      });
+
+      const total6m  = histData.reduce((s,d)=>s+d.part, 0);
+      const maxPart  = Math.max(...histData.map(d=>d.part), 1);
+      const isCurMth = mois===todayISO().slice(0,7);
+
+      el.innerHTML = `
+        <!-- ── Hero : ma part du mois ── -->
+        <div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.22);
+          border-radius:var(--r);padding:22px 18px;text-align:center">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:2.5px;
+            color:var(--muted);margin-bottom:10px">
+            Votre part · ${frMonth(debut)}</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:56px;
+            color:var(--gold);line-height:.95;letter-spacing:1px">${gnf(maPart)}</div>
+          <div style="font-size:13px;color:var(--muted);margin-top:10px">
+            ${monNom} &nbsp;·&nbsp; <b style="color:var(--gold)">${maPct}%</b> des bénéfices</div>
+          ${netFinal<0 ? `<div style="font-size:12px;color:var(--danger);
+            margin-top:8px;padding:6px 12px;background:rgba(255,80,80,.08);
+            border-radius:var(--rs)">
+            ⚠ Résultat négatif — aucune part distribuée ce mois</div>` : ''}
+          ${isCurMth ? `<div style="font-size:11px;color:var(--muted);margin-top:8px">
+            Estimation en temps réel · peut évoluer</div>` : ''}
+        </div>
+
+        <!-- ── Base de calcul ── -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">Base de calcul</div>
+            <div class="card-sub">${frMonth(debut)}</div>
+          </div>
+          <div class="card-body" style="gap:4px">
+            <div class="bilan-row">
+              <span>Recettes (chicha + boissons)</span>
+              <span style="color:var(--gold)">${gnf(recettes)}</span>
+            </div>
+            <div class="bilan-row">
+              <span>Achats &amp; dépenses</span>
+              <span style="color:var(--danger)">− ${gnf(achats)}</span>
+            </div>
+            <div class="bilan-row">
+              <span>Charges fixes</span>
+              <span style="color:var(--danger)">− ${gnf(totCharges)}</span>
+            </div>
+            <div class="bilan-row" style="font-weight:700;font-size:15px;
+              padding-top:8px;border-top:1px solid var(--bg3);margin-top:4px">
+              <span>Net distribué</span>
+              <span style="color:${netFinal>=0?'var(--ok)':'var(--danger)'}">
+                ${gnf(netFinal)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Répartition complète (lecture seule) ── -->
+        <div class="sec-header"><div class="sec-title">Répartition entre associés</div></div>
+        ${rows.map(r=>`
+          <div class="charge-item" style="padding:14px 16px;${r.isMoi
+            ?'background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:var(--rs)'
+            :''}">
+            <div class="charge-info">
+              <div class="charge-libelle"
+                style="${r.isOwner||r.isMoi?'color:var(--gold)':''}">
+                ${r.nom}${r.isMoi?' ← vous':''}
+              </div>
+              <div class="charge-meta">${r.pct.toFixed(1)}% du net</div>
+            </div>
+            <div class="charge-montant"
+              style="color:${r.isOwner||r.isMoi?'var(--gold)':'var(--ok)'}">
+              ${gnf(r.montant)}
+            </div>
+          </div>`).join('')}
+
+        <!-- ── Évolution 6 mois ── -->
+        <div class="card" style="margin-top:4px">
+          <div class="card-head">
+            <div class="card-title">Vos 6 derniers mois</div>
+            <div class="card-sub" style="color:var(--gold)">
+              Total : ${gnf(total6m)}</div>
+          </div>
+          <div class="card-body" style="gap:10px">
+            ${histData.map(d => {
+              const barPct = maxPart>0 ? Math.round(d.part/maxPart*100) : 0;
+              const isCur  = d.mois===mois;
+              return `
+                <div style="${isCur?'opacity:1':'opacity:.75'}">
+                  <div style="display:flex;justify-content:space-between;
+                    align-items:center;margin-bottom:5px">
+                    <span style="font-size:12px;color:var(--muted)">
+                      ${frMonth(d.mois+'-01')}</span>
+                    <span style="font-size:13px;font-weight:600;
+                      color:${d.part>0?'var(--gold)':'var(--muted)'}">
+                      ${gnf(d.part)}</span>
+                  </div>
+                  <div style="height:5px;background:var(--bg3);
+                    border-radius:3px;overflow:hidden">
+                    <div style="width:${barPct}%;height:100%;
+                      background:${isCur?'var(--gold)':'rgba(201,168,76,.45)'};
+                      border-radius:3px;transition:width .4s"></div>
+                  </div>
+                </div>`;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- ── Note lecture seule ── -->
+        <div style="font-size:11px;color:var(--muted);text-align:center;
+          padding:6px 0;opacity:.6">
+          Données en lecture seule · actualisées en temps réel
+        </div>`;
+      return;
+    }
+
+    /* ════════════════════════════════════════════════════════════
+       VUE OWNER — répartition complète
+    ════════════════════════════════════════════════════════════ */
     el.innerHTML = `
       <div class="card">
         <div class="card-head">
@@ -451,11 +668,11 @@ async function loadDividendes() {
           <div class="bilan-row"><span>Recettes</span>
             <span style="color:var(--gold)">${gnf(recettes)}</span></div>
           <div class="bilan-row"><span>Dépenses + Charges</span>
-            <span style="color:var(--danger)">- ${gnf(achats+totCharges)}</span></div>
+            <span style="color:var(--danger)">− ${gnf(achats+totCharges)}</span></div>
           <div class="bilan-row">
-            <span style="font-weight:600">Net final</span>
+            <span style="font-weight:700">Net final</span>
             <span style="color:${netFinal>=0?'var(--ok)':'var(--danger)'};
-              font-family:Bebas Neue,sans-serif;font-size:18px">
+              font-family:Bebas Neue,sans-serif;font-size:20px">
               ${gnf(netFinal)}
             </span>
           </div>
@@ -463,18 +680,24 @@ async function loadDividendes() {
       </div>
       <div class="sec-header"><div class="sec-title">Répartition</div></div>
       ${rows.map(r=>`
-        <div class="charge-item" style="padding:14px 16px">
+        <div class="charge-item" style="padding:14px 16px${r.isMoi
+          ?';background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.25);border-radius:var(--rs)'
+          :''}">
           <div class="charge-info">
-            <div class="charge-libelle" style="${r.isOwner?'color:var(--gold)':''}">${r.nom}</div>
+            <div class="charge-libelle"
+              style="${r.isOwner||r.isMoi?'color:var(--gold)':''}">
+              ${r.nom}${r.isMoi?' 👈':''}
+            </div>
             <div class="charge-meta">${r.pct.toFixed(1)}% du net</div>
           </div>
-          <div class="charge-montant" style="color:${r.isOwner?'var(--gold)':'var(--ok)'}">
+          <div class="charge-montant"
+            style="color:${r.isOwner||r.isMoi?'var(--gold)':'var(--ok)'}">
             ${gnf(r.montant)}
           </div>
         </div>`).join('')}
       <div style="font-size:11px;color:var(--muted);text-align:center;padding:8px 0">
-        Total parts : ${(ownerPct + assocPct).toFixed(1)}%
-        · Net distribué : ${gnf(rows.reduce((s,r)=>s+r.montant,0))}
+        Total parts : ${(ownerPct+assocPct).toFixed(1)}%
+        &nbsp;·&nbsp; Net distribué : ${gnf(rows.reduce((s,r)=>s+r.montant,0))}
       </div>`;
   } catch(e) {
     $('div-content').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
