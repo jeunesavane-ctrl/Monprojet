@@ -2,9 +2,6 @@
   publish = "."
   ignore = "echo 'no build'"
 
-# Exclure les fichiers de dev du déploiement
-[[plugins]]
-
 [[headers]]
   for = "/*.html"
   [headers.values]
