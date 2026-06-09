@@ -346,14 +346,15 @@ function renderPage() {
 
   const gridHTML = `
     <div class="prod-grid" id="prod-grid">
-      ${filtered.length ? filtered.map(p => `
+      ${filtered.length ? filtered.map(p => {
+        const idx = produits.indexOf(p);
+        return `
         <button type="button" class="prod-card ${p.type||'autre'}${selectedProd?.nom===p.nom?' selected':''}"
-          data-nom="${p.nom.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}"
-          data-prix="${p.prix||0}"
-          data-type="${p.type||'autre'}">
+          onclick="selectProdByIndex(${idx})">
           <div class="prod-card-nom">${p.nom}</div>
           <div class="prod-card-prix${!p.prix?' no-prix':''}">${p.prix ? gnf(p.prix) : '— GNF'}</div>
-        </button>`).join('') : `<div class="grid-empty">Aucun produit dans cette catégorie</div>`}
+        </button>`;
+      }).join('') : `<div class="grid-empty">Aucun produit dans cette catégorie</div>`}
     </div>`;
 
   $('main-body').innerHTML = banner + tabsHTML + gridHTML
@@ -435,6 +436,12 @@ function setType(t) {
 }
 
 /* ── Sélection produit → bottom sheet ── */
+function selectProdByIndex(idx) {
+  const p = produits[idx];
+  if (!p) return;
+  selectProd(p.nom, p.prix || 0, p.type || 'autre');
+}
+
 function selectProdEl(el) {
   selectProd(el.dataset.nom, parseInt(el.dataset.prix)||0, el.dataset.type||'autre');
 }
@@ -445,6 +452,7 @@ function selectProd(nom, prix, type) {
 }
 
 function openConfirmSheet() {
+  try {
   if (!selectedProd) return;
   const { nom, prix, type } = selectedProd;
   const hasPrix = prix > 0;
@@ -486,9 +494,14 @@ function openConfirmSheet() {
         Annuler
       </button>`;
 
-  $('overlay').classList.add('on');
+  const ov = document.getElementById('overlay');
+  if (ov) ov.classList.add('on');
   /* Focus prix si absent */
-  if (!hasPrix) setTimeout(() => $('cs-prix')?.focus(), 100);
+  if (!hasPrix) setTimeout(() => document.getElementById('cs-prix')?.focus(), 100);
+  } catch(err) {
+    toast('Erreur : ' + err.message, 'ko');
+    console.error('openConfirmSheet:', err);
+  }
 }
 
 function stepQty(delta) {
