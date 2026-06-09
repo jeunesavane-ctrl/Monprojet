@@ -251,6 +251,7 @@
 let rowCt = { chicha:0, boissons:0, achats:0 };
 let nextNum = 1;
 let prodCache = { chicha:[], boisson:[] };
+let sessCache = null; /* session caisse du jour — id, ecart, caissier_id */
 
 /* Afficher le bouton demande d'avance si compte individuel */
 document.addEventListener('DOMContentLoaded', () => {
@@ -392,8 +393,9 @@ async function prefillAchatsFromSession() {
   try {
     /* cherche la session caisse du jour */
     const { data: sess } = await db.from('sessions_caisse')
-      .select('id').eq('date', todayISO()).maybeSingle();
+      .select('id,ecart,caissier_id').eq('date', todayISO()).maybeSingle();
     if (!sess) { addRow('achats'); return; }
+    sessCache = sess; /* sauvegarde pour doSubmit */
 
     /* charge les achats enregistrés dans cette session */
     const { data: ach } = await db.from('achats_session')
@@ -628,10 +630,26 @@ async function doSubmit() {
       reap:$('f-reap').value.trim(), hash,
       role:ML.getRole(),
       employe_id: extra?.employe_id || null,
+      session_id: sessCache?.id || null,
       montant_exceptionnel: excActif ? (parseFloat($('exc-montant').value)||0) : 0,
       note_exception: excActif ? ($('exc-note').value.trim()||null) : null
     });
     if (error) throw error;
+
+    /* ── Créer remboursements_ecart si manquant caisse ── */
+    if (sessCache?.id && sessCache?.ecart > 0 && sessCache?.caissier_id) {
+      const { data: existing } = await db.from('remboursements_ecart')
+        .select('id').eq('session_id', sessCache.id).maybeSingle();
+      if (!existing) {
+        await db.from('remboursements_ecart').insert({
+          session_id:  sessCache.id,
+          employe_id:  sessCache.caissier_id,
+          montant:     sessCache.ecart,
+          note:        `Manquant détecté automatiquement — Rapport N°${pad3(nextNum)}`,
+          statut:      'en_attente'
+        });
+      }
+    }
 
     /* Mise à jour stock */
     const stockUpdates = getStockUpdates();
