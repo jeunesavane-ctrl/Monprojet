@@ -359,16 +359,6 @@ function renderPage() {
     + (ventes.length ? totalBarHTML(total, totOM, totEsp) : '<div class="state-msg" style="padding:20px">Aucune vente — tapez un produit ci-dessus.</div>')
     + renderNotes();
 
-  /* Bind clics sur les cards après injection HTML */
-  document.querySelectorAll('.prod-card').forEach(card => {
-    card.addEventListener('click', () => {
-      selectProd(card.dataset.nom, parseInt(card.dataset.prix)||0, card.dataset.type||'autre');
-    });
-    card.addEventListener('touchend', e => {
-      e.preventDefault();
-      selectProd(card.dataset.nom, parseInt(card.dataset.prix)||0, card.dataset.type||'autre');
-    }, { passive: false });
-  });
 
   initNotes();
 }
@@ -609,7 +599,14 @@ async function closeSession() {
 }
 
 document.addEventListener('click', e => {
-  if (e.target === $('overlay')) closeSheet();
+  /* Clic sur une card produit */
+  const card = e.target.closest('.prod-card');
+  if (card) {
+    selectProd(card.dataset.nom, parseInt(card.dataset.prix)||0, card.dataset.type||'autre');
+    return;
+  }
+  /* Clic sur le fond de l'overlay pour fermer */
+  if (e.target.id === 'overlay') closeSheet();
 });
 </script>
 </body>
