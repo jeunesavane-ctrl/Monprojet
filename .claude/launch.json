@@ -4,7 +4,7 @@
     {
       "name": "medellin-lounge",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-l", "3737", "."],
+      "runtimeArgs": ["serve", "-l", "3737", "C:/Users/jeune/Monprojet"],
       "port": 3737
     }
   ]

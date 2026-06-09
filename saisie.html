@@ -11,72 +11,130 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
   <script src="shared.js" defer></script>
   <style>
+
 /* ── Type tabs ── */
-.type-tabs{display:flex;gap:6px;margin-bottom:10px}
+.type-tabs{display:flex;gap:6px;margin-bottom:12px}
 .type-btn{
-  flex:1;padding:10px 4px;border-radius:var(--rs);border:1px solid var(--b1);
-  background:transparent;color:var(--muted);font-size:11px;font-weight:600;
-  letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all var(--t);
+  flex:1;padding:11px 4px;border-radius:var(--rs);border:1px solid var(--b1);
+  background:transparent;color:var(--muted);font-size:12px;font-weight:600;
+  letter-spacing:.8px;text-transform:uppercase;cursor:pointer;transition:all var(--t);
   -webkit-tap-highlight-color:transparent}
 .type-btn.active{color:#060606;border-color:transparent}
 .type-btn[data-t="chicha"].active{background:var(--gold)}
-.type-btn[data-t="boisson"].active{background:#3A7BA8}
-.type-btn[data-t="autre"].active{background:var(--ok)}
+.type-btn[data-t="boisson"].active{background:#3A7BA8;color:#fff}
+.type-btn[data-t="autre"].active{background:var(--ok);color:#060606}
 
-/* ── Paiement toggle ── */
-.pay-tabs{display:flex;gap:6px;margin-bottom:10px}
+/* ── Product grid ── */
+.prod-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;
+  margin-bottom:4px}
+@media(min-width:480px){.prod-grid{grid-template-columns:1fr 1fr 1fr}}
+.prod-card{
+  background:var(--bg2);border:1.5px solid var(--b1);border-radius:var(--r);
+  padding:14px 12px;cursor:pointer;transition:all var(--t);
+  -webkit-tap-highlight-color:transparent;
+  display:flex;flex-direction:column;gap:4px;
+  min-height:72px;justify-content:center;
+  position:relative;overflow:hidden}
+.prod-card:active{transform:scale(.97);opacity:.85}
+.prod-card.selected{border-color:var(--gold);background:rgba(201,168,76,.10)}
+.prod-card-nom{font-size:14px;font-weight:600;line-height:1.3;color:var(--text)}
+.prod-card-prix{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--gold)}
+.prod-card.chicha .prod-card-prix{color:var(--gold)}
+.prod-card.boisson .prod-card-prix{color:#3A7BA8}
+.prod-card.autre   .prod-card-prix{color:var(--ok)}
+.prod-card.no-prix .prod-card-prix{color:var(--muted);font-size:13px}
+.prod-card-badge{
+  position:absolute;top:6px;right:6px;
+  font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;letter-spacing:.3px}
+.prod-card-badge.chicha{background:rgba(201,168,76,.15);color:var(--gold)}
+.prod-card-badge.boisson{background:rgba(58,123,168,.15);color:#3A7BA8}
+.prod-card-badge.autre{background:rgba(61,184,115,.15);color:var(--ok)}
+
+/* ── Bottom sheet confirm ── */
+.confirm-sheet{
+  background:var(--bg2);border-radius:20px 20px 0 0;
+  padding:20px 16px 32px;border-top:1px solid var(--b1)}
+.confirm-title{font-family:'Bebas Neue',sans-serif;font-size:22px;
+  letter-spacing:2px;color:var(--text);margin-bottom:2px}
+.confirm-prix-unit{font-size:12px;color:var(--muted);margin-bottom:20px}
+
+/* Stepper quantité */
+.qty-stepper{
+  display:flex;align-items:center;justify-content:center;
+  gap:0;background:var(--bg3);border-radius:var(--r);
+  border:1px solid var(--b1);overflow:hidden;margin-bottom:16px}
+.qty-btn{
+  width:56px;height:56px;background:transparent;border:none;
+  font-size:26px;color:var(--text);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;transition:background var(--t)}
+.qty-btn:active{background:var(--b1)}
+.qty-val{
+  flex:1;text-align:center;font-family:'Bebas Neue',sans-serif;
+  font-size:36px;color:var(--gold);
+  background:transparent;border:none;border-left:1px solid var(--b1);
+  border-right:1px solid var(--b1);outline:none;
+  min-width:0;height:56px;line-height:56px;padding:0}
+.qty-val::-webkit-inner-spin-button,
+.qty-val::-webkit-outer-spin-button{-webkit-appearance:none}
+
+/* Total preview */
+.confirm-total{
+  display:flex;justify-content:space-between;align-items:center;
+  background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);
+  border-radius:var(--rs);padding:12px 14px;margin-bottom:14px}
+.confirm-total-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
+.confirm-total-val{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--gold)}
+
+/* Paiement toggle */
+.pay-tabs{display:flex;gap:8px;margin-bottom:16px}
 .pay-btn{
-  flex:1;padding:9px 6px;border-radius:var(--rs);border:1px solid var(--b1);
-  background:transparent;color:var(--muted);font-size:12px;font-weight:600;
+  flex:1;padding:12px 6px;border-radius:var(--rs);border:1px solid var(--b1);
+  background:transparent;color:var(--muted);font-size:13px;font-weight:600;
   cursor:pointer;transition:all var(--t);-webkit-tap-highlight-color:transparent;
   display:flex;align-items:center;justify-content:center;gap:5px}
 .pay-btn.active.especes{background:rgba(61,184,115,.15);border-color:rgba(61,184,115,.4);color:var(--ok)}
 .pay-btn.active.om{background:rgba(255,120,0,.15);border-color:rgba(255,120,0,.4);color:#FF7800}
 
-/* ── Add form ── */
-.add-form{
-  background:var(--bg2);border-radius:var(--r);padding:16px;
-  border:1px solid var(--b1);
-  box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 2px 10px rgba(0,0,0,.4)}
-.add-row{display:grid;grid-template-columns:1fr 64px;gap:8px;align-items:end}
-/* Prix auto affiché */
-.prix-auto-row{display:flex;justify-content:space-between;align-items:center;
-  background:var(--bg3);border-radius:var(--rs);padding:9px 12px;margin-top:8px}
-.prix-auto-label{font-size:12px;color:var(--muted)}
-.prix-auto-val{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--gold)}
-.total-preview{
-  display:flex;justify-content:space-between;align-items:center;
-  background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);
-  border-radius:var(--rs);padding:10px 12px;margin-top:6px}
-.total-preview-label{font-size:12px;color:var(--muted)}
-.total-preview-val{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold)}
+/* Prix custom */
+.prix-custom-wrap{margin-bottom:16px}
+.prix-custom-label{font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.7px}
+.prix-custom-input{
+  width:100%;background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rs);
+  padding:12px 14px;font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold);
+  text-align:right;outline:none;box-sizing:border-box}
+.prix-custom-input:focus{border-color:var(--gold)}
 
 /* ── Ventes list ── */
 .vente-item{
   display:flex;align-items:center;gap:10px;
-  padding:11px 14px;
+  padding:12px 14px;
   background:var(--bg2);border-radius:var(--r);
-  border:1px solid var(--b1);
-  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 1px 5px rgba(0,0,0,.28)}
-.vente-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  border:1px solid var(--b1)}
+.vente-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 .vente-dot.chicha{background:var(--gold)}
 .vente-dot.boisson{background:#3A7BA8}
 .vente-dot.autre{background:var(--ok)}
 .vente-info{flex:1;min-width:0}
 .vente-label{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vente-meta{font-size:11px;color:var(--muted);margin-top:1px}
-.pay-badge{
-  font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;
-  flex-shrink:0;letter-spacing:.5px}
+.pay-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;flex-shrink:0;letter-spacing:.5px}
 .pay-badge.especes{background:rgba(61,184,115,.12);color:var(--ok);border:1px solid rgba(61,184,115,.2)}
 .pay-badge.om{background:rgba(255,120,0,.12);color:#FF7800;border:1px solid rgba(255,120,0,.2)}
 .vente-total{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--gold);white-space:nowrap;flex-shrink:0}
+.vente-del{
+  width:36px;height:36px;flex-shrink:0;border-radius:8px;
+  background:var(--bg3);border:1px solid var(--b1);
+  color:var(--muted);font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;transition:all var(--t)}
+.vente-del:active{background:rgba(217,84,84,.2);color:var(--danger);border-color:var(--danger)}
 
 /* ── Total bar ── */
 .total-bar{
   background:var(--glow);border:1px solid var(--gring);border-radius:var(--r);
-  padding:14px 16px;
-  box-shadow:0 0 0 1px var(--gring) inset}
+  padding:14px 16px}
 .total-bar-row{display:flex;justify-content:space-between;align-items:center;
   font-size:12px;color:var(--muted);margin-bottom:6px}
 .total-bar-row:last-child{margin-bottom:0}
@@ -110,24 +168,24 @@
 .sess-banner{
   display:flex;align-items:center;gap:10px;
   background:var(--bg2);border:1px solid var(--b1);
-  border-radius:var(--r);padding:12px 16px;
-  box-shadow:0 1px 0 rgba(255,255,255,.04) inset}
+  border-radius:var(--r);padding:12px 16px}
 .sess-date{font-size:15px;font-weight:600}
 .sess-meta{font-size:12px;color:var(--muted);margin-top:1px}
 
+/* ── Empty hint ── */
+.grid-empty{
+  grid-column:1/-1;text-align:center;
+  padding:28px 16px;color:var(--muted);font-size:13px}
+
 /* ── Notes ── */
-.notes-card{
-  background:var(--bg2);border:1px solid var(--b1);border-radius:var(--r);
-  padding:14px;
-  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 8px rgba(0,0,0,.3)}
+.notes-card{background:var(--bg2);border:1px solid var(--b1);border-radius:var(--r);padding:14px}
 .notes-area{
   width:100%;background:transparent;border:none;resize:none;
   color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;
-  line-height:1.6;outline:none;min-height:100px}
+  line-height:1.6;outline:none;min-height:80px}
 .notes-area::placeholder{color:var(--muted)}
 .notes-status{font-size:11px;color:var(--muted);margin-top:6px;text-align:right;min-height:14px}
 
-select option{background:var(--bg2);color:var(--text)}
   </style>
 </head>
 <body>
@@ -139,14 +197,16 @@ select option{background:var(--bg2);color:var(--text)}
   <div id="toast"></div>
 
 <script>
-let sessionId  = null;
-let empId      = null;
-let empNom     = '';
-let produits   = [];
-let ventes     = [];
-let closed     = false;
-let activeType = 'chicha';
-let paiement   = 'especes';
+let sessionId   = null;
+let empId       = null;
+let empNom      = '';
+let produits    = [];
+let ventes      = [];
+let closed      = false;
+let activeType  = 'chicha';
+let paiement    = 'especes';
+let selectedProd = null; /* { nom, prix, type } */
+let _savingVente = false;
 let _noteSave;
 
 const noteKey = () => `ml_note_${empId}_${todayISO()}`;
@@ -171,12 +231,16 @@ async function loadProduits() {
   try {
     const { data } = await db.from('produits')
       .select('nom,type,prix_defaut,prix')
-      .eq('actif',true).order('nom');
-    /* Normalise : la colonne peut s'appeler prix_defaut ou prix selon la création */
+      .eq('actif', true).order('nom');
     produits = (data || []).map(p => ({
       ...p,
       prix: p.prix_defaut ?? p.prix ?? 0
     }));
+    /* Par défaut on s'aligne sur le premier type disponible */
+    const types = [...new Set(produits.map(p => p.type||'autre'))];
+    if (types.includes('chicha'))       activeType = 'chicha';
+    else if (types.includes('boisson')) activeType = 'boisson';
+    else if (types.length)              activeType = types[0];
   } catch {}
 }
 
@@ -228,10 +292,10 @@ function subscribeRealtime() {
    RENDER
 ════════════════════════════════════════════ */
 function renderPage() {
-  const today     = todayISO();
-  const total     = ventes.reduce((s, v) => s + (v.total || 0), 0);
-  const totOM     = ventes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
-  const totEsp    = ventes.filter(v => v.paiement !== 'om').reduce((s,v) => s+v.total, 0);
+  const today  = todayISO();
+  const total  = ventes.reduce((s, v) => s + (v.total || 0), 0);
+  const totOM  = ventes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
+  const totEsp = total - totOM;
 
   const banner = `
     <div class="sess-banner">
@@ -259,236 +323,229 @@ function renderPage() {
     return;
   }
 
-  /* Grouper produits par type pour le select */
-  const prodByType = { chicha: [], boisson: [], autre: [] };
-  produits.forEach(p => {
-    const t = p.type || 'autre';
-    if (!prodByType[t]) prodByType[t] = [];
-    prodByType[t].push(p);
-  });
+  /* Types disponibles */
+  const allTypes  = [...new Set(produits.map(p => p.type||'autre').filter(Boolean))];
+  const typeOrder = ['chicha','boisson','autre'];
+  const types     = typeOrder.filter(t => allTypes.includes(t)).concat(
+    allTypes.filter(t => !typeOrder.includes(t))
+  );
+  const typeLabels = { chicha:'🔥 Chicha', boisson:'🥤 Boissons', autre:'📦 Autre' };
 
-  const buildOptGroups = () => {
-    const labels = { chicha:'🔥 Chicha', boisson:'🥤 Boissons', autre:'📦 Autre' };
-    return Object.entries(prodByType).map(([t, list]) => {
-      if (!list.length) return '';
-      return `<optgroup label="${labels[t]||t}">
-        ${list.map(p =>
-          `<option value="${p.nom}" data-prix="${p.prix||0}" data-type="${t}">${p.nom}</option>`
-        ).join('')}
-      </optgroup>`;
-    }).join('');
-  };
+  const tabsHTML = types.length > 1 ? `
+    <div class="type-tabs">
+      ${types.map(t => `
+        <button class="type-btn${t===activeType?' active':''}" data-t="${t}"
+          onclick="setType('${t}')">${typeLabels[t]||t}</button>
+      `).join('')}
+    </div>` : '';
 
-  $('main-body').innerHTML = banner + `
+  const filtered = produits.filter(p => (p.type||'autre') === activeType);
 
-    <!-- Formulaire ajout -->
-    <div class="add-form">
-      <div class="pay-tabs">
-        <button class="pay-btn${paiement==='especes'?' active especes':''}" onclick="setPaiement('especes')">
-          💵 Espèces
-        </button>
-        <button class="pay-btn${paiement==='om'?' active om':''}" onclick="setPaiement('om')">
-          📱 Orange Money
-        </button>
-      </div>
-      <div class="add-row">
-        <div class="field">
-          <label>Produit</label>
-          <select id="f-label" onchange="onProdSelect(this)">
-            <option value="">— Choisir un produit —</option>
-            ${buildOptGroups()}
-          </select>
-        </div>
-        <div class="field">
-          <label>Quantité</label>
-          <input type="number" id="f-qty" min="1" value="1"
-            inputmode="numeric" oninput="updatePreview()">
-        </div>
-      </div>
+  const gridHTML = `
+    <div class="prod-grid" id="prod-grid">
+      ${filtered.length ? filtered.map(p => `
+        <div class="prod-card ${p.type||'autre'}${selectedProd?.nom===p.nom?' selected':''}"
+          onclick="selectProd(${JSON.stringify(p.nom)},${p.prix||0},${JSON.stringify(p.type||'autre')})">
+          <div class="prod-card-nom">${p.nom}</div>
+          <div class="prod-card-prix${!p.prix?' no-prix':''}">${p.prix ? gnf(p.prix) : '— GNF'}</div>
+        </div>`).join('') : `<div class="grid-empty">Aucun produit dans cette catégorie</div>`}
+    </div>`;
 
-      <!-- Prix unitaire auto + override -->
-      <div class="prix-auto-row" id="prix-row" style="display:none">
-        <div>
-          <div class="prix-auto-label">Prix unitaire</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:1px">Appuyer pour modifier</div>
-        </div>
-        <input type="number" id="f-prix" min="0" inputmode="numeric"
-          style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold);
-            background:transparent;border:none;border-bottom:1px solid var(--gring);
-            outline:none;width:140px;text-align:right;padding:0 0 2px"
-          oninput="updatePreview()">
-      </div>
+  $('main-body').innerHTML = banner + tabsHTML + gridHTML
+    + renderVentesList(true)
+    + (ventes.length ? totalBarHTML(total, totOM, totEsp) : '<div class="state-msg" style="padding:20px">Aucune vente — tapez un produit ci-dessus.</div>')
+    + renderNotes();
 
-      <!-- Total preview -->
-      <div class="total-preview" id="total-preview" style="display:none">
-        <span class="total-preview-label">Total à enregistrer</span>
-        <span class="total-preview-val" id="total-preview-val">0 GNF</span>
-      </div>
+  initNotes();
+}
 
-      <div style="margin-top:10px">
-        <button class="btn-primary" id="btn-add" onclick="addVente()" disabled>+ AJOUTER</button>
+function totalBarHTML(total, totOM, totEsp) {
+  return `
+    <div class="total-bar">
+      ${totOM > 0 ? `
+        <div class="total-bar-row"><span>💵 Espèces</span><span>${gnf(totEsp)}</span></div>
+        <div class="total-bar-row"><span style="color:#FF7800">📱 Orange Money</span>
+          <span style="color:#FF7800">${gnf(totOM)}</span></div>` : ''}
+      <div class="total-bar-main">
+        <div><div class="total-bar-label">Total du soir</div></div>
+        <div class="total-bar-val">${gnf(total)}</div>
       </div>
     </div>
-
-    <div class="s-head">Mes ventes</div>
-    ${renderVentesList(true)}
-
-    ${ventes.length > 0 ? `
-      <div class="total-bar">
-        ${totOM > 0 ? `
-          <div class="total-bar-row">
-            <span>💵 Espèces</span><span>${gnf(totEsp)}</span>
-          </div>
-          <div class="total-bar-row">
-            <span style="color:#FF7800">📱 Orange Money</span>
-            <span style="color:#FF7800">${gnf(totOM)}</span>
-          </div>` : ''}
-        <div class="total-bar-main">
-          <div>
-            <div class="total-bar-label">Total du soir</div>
-          </div>
-          <div class="total-bar-val">${gnf(total)}</div>
-        </div>
-      </div>
-      <button class="close-cta" onclick="confirmClose()">
-        CLÔTURER MA SESSION →
-      </button>` : `
-      <div class="state-msg" style="padding:24px">
-        Aucune vente — ajoutez ci-dessus.
-      </div>`}
-
-    ${renderNotes()}
-  `;
-  initNotes();
+    <button class="close-cta" onclick="confirmClose()">CLÔTURER MA SESSION →</button>`;
 }
 
 function renderVentesList(canDelete) {
   if (!ventes.length) return '';
-  return ventes.map(v => {
-    const pm = v.paiement || 'especes';
-    return `
-      <div class="vente-item">
-        <div class="vente-dot ${v.type}"></div>
-        <div class="vente-info">
-          <div class="vente-label">${v.label}</div>
-          <div class="vente-meta">${v.type} · ×${v.qty} · ${gnf(v.prix_unit)}</div>
-        </div>
-        <span class="pay-badge ${pm}">${pm==='om'?'OM':'💵'}</span>
-        <div class="vente-total">${gnf(v.total)}</div>
-        ${canDelete ? `<button class="btn-icon" onclick="deleteVente('${v.id}')" style="flex-shrink:0">×</button>` : ''}
-      </div>`;
-  }).join('');
+  return `
+    <div class="s-head">${ventes.length} vente${ventes.length>1?'s':''}</div>
+    ${[...ventes].reverse().map(v => {
+      const pm = v.paiement || 'especes';
+      return `
+        <div class="vente-item">
+          <div class="vente-dot ${v.type||'autre'}"></div>
+          <div class="vente-info">
+            <div class="vente-label">${v.label}</div>
+            <div class="vente-meta">×${v.qty} · ${gnf(v.prix_unit)}</div>
+          </div>
+          <span class="pay-badge ${pm}">${pm==='om'?'OM':'💵'}</span>
+          <div class="vente-total">${gnf(v.total)}</div>
+          ${canDelete ? `<button class="vente-del" onclick="deleteVente('${v.id}')">×</button>` : ''}
+        </div>`;
+    }).join('')}`;
 }
 
 function renderNotes() {
   return `
-    <div class="s-head">Notes de service</div>
+    <div class="s-head">Notes</div>
     <div class="notes-card">
       <textarea class="notes-area" id="note-area"
-        placeholder="Notez ici : commandes spéciales, clients, rappels, observations…"
-        rows="5" oninput="onNoteInput()"></textarea>
+        placeholder="Commandes spéciales, observations…"
+        rows="4" oninput="onNoteInput()"></textarea>
       <div class="notes-status" id="note-status"></div>
     </div>`;
 }
 
 function initNotes() {
   const area = document.getElementById('note-area');
-  if (area) {
-    area.value = localStorage.getItem(noteKey()) || '';
-  }
+  if (area) area.value = localStorage.getItem(noteKey()) || '';
 }
 
 function onNoteInput() {
   clearTimeout(_noteSave);
-  const status = document.getElementById('note-status');
-  if (status) status.textContent = '…';
+  const st = document.getElementById('note-status');
+  if (st) st.textContent = '…';
   _noteSave = setTimeout(() => {
     const val = document.getElementById('note-area')?.value || '';
     localStorage.setItem(noteKey(), val);
-    if (status) { status.textContent = 'Sauvegardé ✓'; setTimeout(() => { status.textContent = ''; }, 1500); }
+    if (st) { st.textContent = 'Sauvegardé ✓'; setTimeout(() => { st.textContent = ''; }, 1500); }
   }, 600);
 }
 
-/* ── Paiement ── */
-function setPaiement(p) {
+/* ── Filtre type ── */
+function setType(t) {
+  activeType = t;
+  selectedProd = null;
+  renderPage();
+}
+
+/* ── Sélection produit → bottom sheet ── */
+function selectProd(nom, prix, type) {
+  selectedProd = { nom, prix, type };
+  openConfirmSheet();
+}
+
+function openConfirmSheet() {
+  if (!selectedProd) return;
+  const { nom, prix, type } = selectedProd;
+  const hasPrix = prix > 0;
+
+  $('overlay-sheet').innerHTML = `
+      <div class="confirm-title">${nom}</div>
+      <div class="confirm-prix-unit">${hasPrix ? gnf(prix)+' / unité' : 'Prix à saisir'}</div>
+
+      ${!hasPrix ? `
+        <div class="prix-custom-wrap">
+          <div class="prix-custom-label">Prix unitaire (GNF)</div>
+          <input type="number" class="prix-custom-input" id="cs-prix"
+            inputmode="numeric" placeholder="0" oninput="updateConfirmTotal()">
+        </div>` : ''}
+
+      <div class="qty-stepper">
+        <button class="qty-btn" onclick="stepQty(-1)">−</button>
+        <input type="number" class="qty-val" id="cs-qty" value="1" min="1"
+          inputmode="numeric" oninput="updateConfirmTotal()">
+        <button class="qty-btn" onclick="stepQty(1)">+</button>
+      </div>
+
+      <div class="confirm-total">
+        <span class="confirm-total-label">Total</span>
+        <span class="confirm-total-val" id="cs-total">${hasPrix ? gnf(prix) : '0 GNF'}</span>
+      </div>
+
+      <div class="pay-tabs" id="cs-pay-tabs">
+        <button class="pay-btn${paiement==='especes'?' active especes':''}"
+          onclick="setSheetPay('especes')">💵 Espèces</button>
+        <button class="pay-btn${paiement==='om'?' active om':''}"
+          onclick="setSheetPay('om')">📱 Orange Money</button>
+      </div>
+
+      <button class="btn-ok" id="cs-btn" onclick="confirmAdd()" style="width:100%;font-size:20px;padding:16px;letter-spacing:2px">
+        ✓ AJOUTER
+      </button>
+      <button class="btn-cancel" onclick="closeSheet()" style="margin-top:8px;width:100%">
+        Annuler
+      </button>`;
+
+  $('overlay').classList.add('on');
+  /* Focus prix si absent */
+  if (!hasPrix) setTimeout(() => $('cs-prix')?.focus(), 100);
+}
+
+function stepQty(delta) {
+  const el = $('cs-qty');
+  if (!el) return;
+  const v = parseInt(el.value)||1;
+  el.value = Math.max(1, v + delta);
+  updateConfirmTotal();
+}
+
+function updateConfirmTotal() {
+  const qty  = parseInt($('cs-qty')?.value)  || 1;
+  const prix = selectedProd?.prix > 0
+    ? selectedProd.prix
+    : (parseFloat($('cs-prix')?.value) || 0);
+  const tot  = $('cs-total');
+  if (tot) tot.textContent = gnf(qty * prix);
+}
+
+function setSheetPay(p) {
   paiement = p;
-  document.querySelectorAll('.pay-btn').forEach(b => {
-    const isActive = (p === 'especes' && b.textContent.includes('Espèces'))
-                  || (p === 'om'      && b.textContent.includes('Orange'));
-    b.className = `pay-btn${isActive ? ` active ${p}` : ''}`;
+  $('cs-pay-tabs')?.querySelectorAll('.pay-btn').forEach(b => {
+    const isEsp = b.textContent.includes('Esp');
+    const mine  = (p==='especes' && isEsp) || (p==='om' && !isEsp);
+    b.className = `pay-btn${mine ? ` active ${p}` : ''}`;
   });
 }
 
-/* ── Sélection produit ── */
-function onProdSelect(sel) {
-  const opt = sel.options[sel.selectedIndex];
-  const val = sel.value;
-
-  if (!val) {
-    $('prix-row').style.display    = 'none';
-    $('total-preview').style.display = 'none';
-    $('btn-add').disabled          = true;
-    activeType = 'chicha';
-    return;
-  }
-
-  const prix = parseFloat(opt.dataset.prix) || 0;
-  activeType  = opt.dataset.type || 'chicha';
-
-  $('f-prix').value              = prix;
-  $('prix-row').style.display    = '';
-  $('total-preview').style.display = '';
-  $('btn-add').disabled          = false;
-  updatePreview();
-}
-
-function updatePreview() {
-  const qty   = parseInt($('f-qty')?.value)  || 1;
-  const prix  = parseFloat($('f-prix')?.value) || 0;
-  const total = qty * prix;
-  const prev  = $('total-preview-val');
-  if (prev) prev.textContent = gnf(total);
+function closeSheet() {
+  $('overlay').classList.remove('on');
+  selectedProd = null;
 }
 
 /* ── Ajouter vente ── */
-async function addVente() {
-  const sel   = $('f-label');
-  const label = sel.value.trim();
-  const qty   = parseInt($('f-qty').value) || 1;
-  const prix  = parseFloat($('f-prix').value) || 0;
+async function confirmAdd() {
+  if (_savingVente || !selectedProd) return;
+
+  const qty   = Math.max(1, parseInt($('cs-qty')?.value) || 1);
+  const prix  = selectedProd.prix > 0
+    ? selectedProd.prix
+    : (parseFloat($('cs-prix')?.value) || 0);
   const total = qty * prix;
 
-  if (!label) { toast('Choisissez un produit', 'ko'); return; }
-  if (qty < 1) { toast('Quantité invalide', 'ko'); return; }
-  if (prix <= 0) { toast('Prix invalide', 'ko'); return; }
+  if (prix <= 0) { toast('Entrez un prix', 'ko'); $('cs-prix')?.focus(); return; }
 
-  const btn = $('btn-add');
-  btn.disabled = true;
-  btn.textContent = '…';
+  _savingVente = true;
+  const btn = $('cs-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
 
   try {
     const { error } = await db.from('ventes_session').insert({
-      session_id: sessionId, employe_id: empId,
-      label, type: activeType, qty, prix_unit: prix, total,
+      session_id:   sessionId,
+      employe_id:   empId,
+      label:        selectedProd.nom,
+      type:         selectedProd.type,
+      qty, prix_unit: prix, total,
       paiement, valide_staff: false
     });
     if (error) throw error;
 
-    /* Reset formulaire */
-    sel.value = '';
-    $('f-qty').value = '1';
-    $('f-prix').value = '';
-    $('prix-row').style.display     = 'none';
-    $('total-preview').style.display = 'none';
-    btn.disabled = true;
-
-    ML.logAction(`🛒 Vente — ${label} ×${qty} ${paiement==='om'?'📱OM':'💵'} · ${gnf(total)}`);
-    toast(`${label} ×${qty} ajouté ✓`, 'ok');
+    ML.logAction(`🛒 ${selectedProd.nom} ×${qty} ${paiement==='om'?'📱OM':'💵'} · ${gnf(total)}`);
+    toast(`${selectedProd.nom} ×${qty} ✓`, 'ok');
+    closeSheet();
   } catch(e) {
     toast('Erreur : ' + e.message, 'ko');
-    btn.disabled = false;
-  }
-  btn.textContent = '+ AJOUTER';
+    if (btn) { btn.disabled = false; btn.textContent = '✓ AJOUTER'; }
+  } finally { _savingVente = false; }
 }
 
 async function deleteVente(id) {
@@ -527,7 +584,6 @@ async function closeSession() {
     const total = ventes.reduce((s, v) => s + (v.total || 0), 0);
     ML.logAction(`✅ Session clôturée — ${empNom} · ${gnf(total)} · ${ventes.length} ventes`);
     toast('Session clôturée — envoyé à la caisse ✓', 'ok');
-
     closed = true;
     ventes = ventes.map(v => ({...v, valide_staff: true}));
     renderPage();
@@ -535,7 +591,7 @@ async function closeSession() {
 }
 
 document.addEventListener('click', e => {
-  if (e.target === $('overlay')) $('overlay').classList.remove('on');
+  if (e.target === $('overlay')) closeSheet();
 });
 </script>
 </body>
