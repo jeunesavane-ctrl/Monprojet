@@ -346,7 +346,10 @@ function renderPage() {
     <div class="prod-grid" id="prod-grid">
       ${filtered.length ? filtered.map(p => `
         <div class="prod-card ${p.type||'autre'}${selectedProd?.nom===p.nom?' selected':''}"
-          onclick="selectProd(${JSON.stringify(p.nom)},${p.prix||0},${JSON.stringify(p.type||'autre')})">
+          data-nom="${p.nom.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}"
+          data-prix="${p.prix||0}"
+          data-type="${p.type||'autre'}"
+          onclick="selectProdEl(this)">
           <div class="prod-card-nom">${p.nom}</div>
           <div class="prod-card-prix${!p.prix?' no-prix':''}">${p.prix ? gnf(p.prix) : '— GNF'}</div>
         </div>`).join('') : `<div class="grid-empty">Aucun produit dans cette catégorie</div>`}
@@ -430,6 +433,10 @@ function setType(t) {
 }
 
 /* ── Sélection produit → bottom sheet ── */
+function selectProdEl(el) {
+  selectProd(el.dataset.nom, parseInt(el.dataset.prix)||0, el.dataset.type||'autre');
+}
+
 function selectProd(nom, prix, type) {
   selectedProd = { nom, prix, type };
   openConfirmSheet();
