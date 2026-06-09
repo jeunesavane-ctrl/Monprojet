@@ -678,37 +678,46 @@ function renderCaisse() {
       </div>
       ${reelSection}
 
-      ${/* ── OM intégré ── */'' }
-      ${totOM > 0 ? `
-        <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,120,0,.2)">
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;
-            color:rgba(255,120,0,.7);margin-bottom:8px">Orange Money</div>
-          <div class="recap-row" style="color:#FF7800">
-            <span>OM attendu</span><span>${gnf(totOM)}</span>
-          </div>
-          ${!isVal && !ro ? `
-            <div class="field" style="margin:8px 0 0">
-              <label style="font-size:11px;color:rgba(255,120,0,.7)">
-                Montant visible sur le téléphone OM
-              </label>
-              <input type="number" id="om-verifie" inputmode="numeric"
-                value="${sessionData.total_om_verifie||''}" placeholder="${totOM}"
-                style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#FF7800;
-                  background:rgba(255,120,0,.07);border-color:rgba(255,120,0,.3)"
-                oninput="checkOmEcart(${totOM})">
-              <div id="om-ecart" style="font-size:12px;margin-top:4px;text-align:right;min-height:16px"></div>
-              <div style="font-size:11px;color:var(--muted);margin-top:4px">
-                ℹ️ L'argent OM est sur le compte mobile — cette vérification est informative.
-              </div>
-            </div>` : (sessionData.total_om_verifie != null
-              ? `<div class="recap-row" style="color:#FF7800">
-                   <span>OM vérifié</span>
-                   <span>${gnf(sessionData.total_om_verifie)}
-                     ${sessionData.total_om_verifie===totOM
-                       ? '<span style="color:var(--ok)"> ✓</span>'
-                       : '<span style="color:var(--muted)"> à vérifier</span>'}</span>
-                 </div>` : '')}
-        </div>` : ''}
+      ${/* ── Section OM — même structure visuelle que espèces ── */'' }
+      ${totOM > 0 ? (() => {
+        /* Section "réel" OM : miroir de reelSection pour espèces */
+        const omVerif = sessionData.total_om_verifie;
+        const omVerifSection = !isVal && !ro
+          ? `<div class="recap-sep"></div>
+             <div style="margin-bottom:6px">
+               <div class="kpi-label" style="margin-bottom:8px;color:rgba(255,120,0,.7)">
+                 Montant visible sur le téléphone OM</div>
+               <input class="reel-input" id="om-verifie" type="number" inputmode="numeric"
+                 placeholder="${totOM}" value="${omVerif ?? ''}"
+                 style="color:#FF7800;border-color:rgba(255,120,0,.3);
+                        background:rgba(255,120,0,.05)"
+                 oninput="checkOmEcart(${totOM})">
+               <div class="ecart-display" id="om-ecart"></div>
+             </div>`
+          : `<div class="recap-sep"></div>
+             <div class="recap-row">
+               <span>OM vérifié</span>
+               ${omVerif != null
+                 ? `<span style="color:#FF7800;font-weight:600">${gnf(omVerif)}
+                      ${omVerif===totOM
+                        ? '<span style="color:var(--ok)"> ✓</span>'
+                        : ' <span style="color:var(--muted)">(différence)</span>'}</span>`
+                 : '<span style="color:var(--muted)">—</span>'}
+             </div>`;
+
+        return `
+          <div style="margin-top:20px;padding-top:16px;
+            border-top:1.5px solid rgba(255,120,0,.2)">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;
+              color:rgba(255,120,0,.6);margin-bottom:8px">📱 Orange Money</div>
+            <div class="recap-total" style="background:rgba(255,120,0,.04);
+              border-color:rgba(255,120,0,.2)">
+              <span class="recap-total-lbl">OM enregistré</span>
+              <span class="recap-total-val" style="color:#FF7800">${gnf(totOM)}</span>
+            </div>
+            ${omVerifSection}
+          </div>`;
+      })() : ''}
     </div>`;
 
   /* ── 7. Clôture ── */
@@ -749,24 +758,24 @@ function renderCaisse() {
             <span style="color:${ecartColor}">${ecartTxt}</span>
           </div>` : ''}
 
-          <!-- OM -->
+          <!-- OM (même poids visuel que espèces) -->
           ${totOM > 0 ? `
-          <div style="border-top:1px solid rgba(255,120,0,.15);padding-top:8px;margin-top:4px">
-            <div style="font-size:11px;color:rgba(255,120,0,.7);display:flex;
-              justify-content:space-between;margin-bottom:4px">
-              <span>📱 Orange Money attendu</span><span>${gnf(totOM)}</span>
+          <div style="border-top:1.5px solid rgba(255,120,0,.2);padding-top:10px;margin-top:8px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
+              color:rgba(255,120,0,.6);margin-bottom:6px">📱 Orange Money</div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+              <span style="color:var(--muted)">OM enregistré</span>
+              <strong style="color:#FF7800">${gnf(totOM)}</strong>
             </div>
-            ${sessionData.total_om_verifie != null ? `
-            <div style="font-size:11px;color:rgba(255,120,0,.7);display:flex;
-              justify-content:space-between">
-              <span>OM vérifié</span>
-              <span style="color:#FF7800;font-weight:600">
-                ${gnf(sessionData.total_om_verifie)}
-                ${sessionData.total_om_verifie===totOM
-                  ? '<span style="color:var(--ok)"> ✓</span>'
-                  : '<span style="color:var(--danger)"> ≠</span>'}
-              </span>
-            </div>` : ''}
+            <div style="display:flex;justify-content:space-between;font-size:12px">
+              <span style="color:var(--muted)">OM vérifié</span>
+              ${sessionData.total_om_verifie != null
+                ? `<strong style="color:#FF7800">${gnf(sessionData.total_om_verifie)}
+                     ${sessionData.total_om_verifie===totOM
+                       ? '<span style="color:var(--ok)"> ✓</span>'
+                       : ' <span style="color:var(--muted)">(différence)</span>'}</strong>`
+                : '<span style="color:var(--muted)">Non vérifié</span>'}
+            </div>
           </div>` : ''}
 
         </div>
@@ -1128,13 +1137,54 @@ function confirmValidate(theorique) {
         : `<br><small style="color:var(--muted)">📱 OM ${gnf(totOM)} — non vérifié sur le téléphone</small>`)
     : '';
 
+  /* Bloc OM dans la popup */
+  const omConfirmBlock = totOM > 0 ? `
+    <div style="margin-top:12px;padding:10px 12px;border-radius:8px;
+      background:rgba(255,120,0,.06);border:1px solid rgba(255,120,0,.2)">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
+        color:rgba(255,120,0,.7);margin-bottom:6px">📱 Orange Money</div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
+        <span style="color:var(--muted)">Enregistré</span>
+        <strong style="color:#FF7800">${gnf(totOM)}</strong>
+      </div>
+      ${omVal !== null ? `
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <span style="color:var(--muted)">Vérifié</span>
+        <strong style="color:#FF7800">${gnf(omVal)}
+          ${diffOM===0 ? '<span style="color:var(--ok)"> ✓</span>'
+                       : diffOM!==0 ? ' <span style="color:var(--muted)">(différence)</span>' : ''}
+        </strong>
+      </div>` : `
+      <div style="font-size:11px;color:var(--muted)">Non vérifié — à contrôler sur le téléphone</div>`}
+    </div>` : '';
+
   $('overlay-sheet').innerHTML = `
     <div class="sheet-title">Clôturer la caisse ?</div>
-    <div class="sheet-text">
-      Théorique espèces : <strong style="color:var(--gold)">${gnf(theorique)}</strong>
-      ${reel != null ? `<br>Réel compté : <strong>${gnf(reel)}</strong>` : ''}
-      ${ecartLine}${omLine}
-      <br><br>Cette action envoie les données au gestionnaire. Vous ne pourrez plus modifier.
+    <div style="padding:0 4px">
+      <div style="padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.04);
+        border:1px solid var(--b1);margin-bottom:8px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
+          color:var(--muted);margin-bottom:6px">💵 Espèces</div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
+          <span style="color:var(--muted)">Théorique</span>
+          <strong style="color:var(--gold)">${gnf(theorique)}</strong>
+        </div>
+        ${reel != null ? `
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
+          <span style="color:var(--muted)">Réel compté</span>
+          <strong>${gnf(reel)}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px">
+          <span style="color:${ecart===0?'var(--ok)':ecart>0?'var(--danger)':'#5BA3CC'}">Écart</span>
+          <strong style="color:${ecart===0?'var(--ok)':ecart>0?'var(--danger)':'#5BA3CC'}">
+            ${ecart===0 ? '±0 ✓' : ecart>0 ? `Manque ${gnf(ecart)}` : `Excédent ${gnf(Math.abs(ecart))}`}
+          </strong>
+        </div>` : `<div style="font-size:12px;color:var(--muted)">Réel non renseigné</div>`}
+      </div>
+      ${omConfirmBlock}
+      <div style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5">
+        Cette action envoie les données au gestionnaire. Vous ne pourrez plus modifier.
+      </div>
     </div>
     <div class="sheet-btns">
       <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
