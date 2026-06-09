@@ -617,12 +617,6 @@ async function closeSession() {
 }
 
 document.addEventListener('click', e => {
-  /* Clic sur une card produit */
-  const card = e.target.closest('.prod-card');
-  if (card) {
-    selectProd(card.dataset.nom, parseInt(card.dataset.prix)||0, card.dataset.type||'autre');
-    return;
-  }
   /* Clic sur le fond de l'overlay pour fermer */
   if (e.target.id === 'overlay') closeSheet();
 });
