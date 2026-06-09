@@ -570,7 +570,7 @@ async function openValidation(sessId, sessDate) {
       db.from('ventes_session').select('*,employes(nom,prenom)')
         .eq('session_id', sessId).order('employe_id,created_at'),
       db.from('mouvements_caisse').select('*').eq('session_id', sessId).order('created_at'),
-      db.from('sessions_caisse').select('fond_caisse,total_reel,note_caissier').eq('id', sessId).single(),
+      db.from('sessions_caisse').select('fond_caisse,total_reel,total_om_verifie,note_caissier').eq('id', sessId).single(),
       db.from('rapports').select('num').order('num',{ascending:false}).limit(1),
       db.from('achats_session').select('montant,produit_nom').eq('session_id', sessId)
     ]);
@@ -588,13 +588,26 @@ async function openValidation(sessId, sessDate) {
     const totB       = ventes.filter(v=>v.type==='boisson').reduce((s,v)=>s+v.total,0);
     const totA       = ventes.filter(v=>v.type==='autre'  ).reduce((s,v)=>s+v.total,0);
     const totVentes  = totC + totB + totA;
+    const totOM      = ventes.filter(v=>v.paiement==='om').reduce((s,v)=>s+v.total,0);
+    const totEsp     = totVentes - totOM;
     const totEntrees = mouvs.filter(m=>m.type==='entree').reduce((s,m)=>s+m.montant,0);
     const totSorties = mouvs.filter(m=>m.type==='sortie').reduce((s,m)=>s+m.montant,0);
-    const theorique  = fond + totVentes + totEntrees - totSorties;
-    const reel       = sessInfo.total_reel;
+    const theoriqueEsp = fond + totEsp + totEntrees - totSorties;
+    const theorique  = theoriqueEsp + totOM;
+    const reelEsp    = sessInfo.total_reel         ?? null;
+    const reelOM     = sessInfo.total_om_verifie   ?? null;
+    const reel       = (reelEsp != null && (totOM === 0 || reelOM != null))
+      ? reelEsp + (reelOM ?? 0) : null;
     const ecart      = reel != null ? theorique - reel : null;
     const ecartColor = ecart===null?'var(--muted)':ecart===0?'var(--ok)':ecart>0?'var(--danger)':'#5BA3CC';
     const ecartTxt   = ecart===null?'—':ecart===0?'✓ Exacte':ecart>0?`− ${gnf(ecart)}`:`+ ${gnf(Math.abs(ecart))}`;
+    /* Écarts individuels */
+    const ecartEspVal = reelEsp != null ? theoriqueEsp - reelEsp : null;
+    const ecartOMVal  = (reelOM != null && totOM > 0) ? totOM - reelOM : null;
+    const ecartEspCol = ecartEspVal===null?'var(--muted)':ecartEspVal===0?'var(--ok)':ecartEspVal>0?'var(--danger)':'#5BA3CC';
+    const ecartEspTxt = ecartEspVal===null?'—':ecartEspVal===0?'✓ Exacte':ecartEspVal>0?`Manque ${gnf(ecartEspVal)}`:`Excédent ${gnf(Math.abs(ecartEspVal))}`;
+    const ecartOMCol  = ecartOMVal===null?'var(--muted)':ecartOMVal===0?'var(--ok)':ecartOMVal>0?'#FF7800':'#5BA3CC';
+    const ecartOMTxt  = ecartOMVal===null?'—':ecartOMVal===0?'✓ Conforme':ecartOMVal>0?`Différence ${gnf(ecartOMVal)}`:`Surplus ${gnf(Math.abs(ecartOMVal))}`;
 
     /* Par staff */
     const byEmp = {};
@@ -657,9 +670,14 @@ async function openValidation(sessId, sessDate) {
           <span>Fond de caisse</span><span>${gnf(fond)}</span>
         </div>
         <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0">
-          <span>Ventes</span>
-          <span style="color:var(--gold)">${gnf(totVentes)}</span>
+          <span>Ventes espèces</span>
+          <span style="color:var(--gold)">${gnf(totEsp)}</span>
         </div>
+        ${totOM > 0 ? `
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0">
+          <span style="color:#FF7800">+ Ventes OM</span>
+          <span style="color:#FF7800">${gnf(totOM)}</span>
+        </div>` : ''}
         ${totEntrees>0?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0">
           <span style="color:var(--ok)">+ Entrées</span>
           <span style="color:var(--ok)">${gnf(totEntrees)}</span>
@@ -673,12 +691,46 @@ async function openValidation(sessId, sessDate) {
           <span style="font-size:12px;font-weight:600">Total théorique</span>
           <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--gold)">${gnf(theorique)}</span>
         </div>
+        <!-- 💵 Espèces -->
+        ${reelEsp != null ? `
+        <div style="border-top:1px solid var(--gring);margin-top:6px;padding-top:6px">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.2px;
+            color:var(--muted);margin-bottom:4px">💵 Espèces</div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
+            <span style="color:var(--muted)">Théorique</span><span>${gnf(theoriqueEsp)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
+            <span style="color:var(--muted)">Compté</span><span>${gnf(reelEsp)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600">
+            <span style="color:${ecartEspCol}">Écart espèces</span>
+            <span style="color:${ecartEspCol}">${ecartEspTxt}</span>
+          </div>
+        </div>` : ''}
+        <!-- 📱 OM -->
+        ${totOM > 0 ? `
+        <div style="border-top:1px solid rgba(255,120,0,.2);margin-top:6px;padding-top:6px">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.2px;
+            color:rgba(255,120,0,.6);margin-bottom:4px">📱 Orange Money</div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
+            <span style="color:var(--muted)">Attendu</span>
+            <span style="color:#FF7800">${gnf(totOM)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
+            <span style="color:var(--muted)">Vérifié</span>
+            <span style="color:#FF7800">${reelOM != null ? gnf(reelOM) : '—'}</span>
+          </div>
+          ${ecartOMVal !== null ? `
+          <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600">
+            <span style="color:${ecartOMCol}">Écart OM</span>
+            <span style="color:${ecartOMCol}">${ecartOMTxt}</span>
+          </div>` : ''}
+        </div>` : ''}
+        <!-- Écart total -->
         ${reel != null ? `
-        <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;margin-top:4px">
-          <span>Réel compté</span><span>${gnf(reel)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600">
-          <span>Écart</span>
+        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;
+          border-top:1px solid var(--gring);margin-top:6px;padding-top:6px">
+          <span style="color:${ecartColor}">Écart total</span>
           <span style="color:${ecartColor}">${ecartTxt}</span>
         </div>` : ''}
       </div>
