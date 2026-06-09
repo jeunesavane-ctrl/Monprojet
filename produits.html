@@ -80,7 +80,7 @@
         <div class="card-head"><div class="card-title">Nouveau produit</div></div>
         <div class="card-body">
           <div class="field"><label>Nom du produit</label>
-            <input id="np-nom" type="text" placeholder="Ex: Tabac fraise, Sprite…"></div>
+            <input id="np-nom" type="text" placeholder="Ex: Tabac fraise, Sprite 33cl…"></div>
           <div class="row2">
             <div class="field"><label>Type</label>
               <select id="np-type">
@@ -88,15 +88,41 @@
                 <option value="boisson">Boisson</option>
               </select>
             </div>
-            <div class="field"><label>Prix défaut (GNF)</label>
+            <div class="field"><label>Prix vente (GNF)</label>
               <input id="np-prix" type="number" inputmode="numeric" placeholder="0"></div>
           </div>
           <div class="row2">
-            <div class="field"><label>Stock actuel</label>
+            <div class="field"><label>Stock actuel (unités)</label>
               <input id="np-stock" type="number" inputmode="numeric" placeholder="0"></div>
-            <div class="field"><label>Seuil alerte</label>
+            <div class="field"><label>Seuil alerte (unités)</label>
               <input id="np-min" type="number" inputmode="numeric" placeholder="0"></div>
           </div>
+
+          <!-- Emballage (optionnel, pour boissons achetées en gros) -->
+          <div style="margin:10px 0 6px;font-size:11px;text-transform:uppercase;
+            letter-spacing:1px;color:var(--muted)">📦 Emballage (gros) — optionnel</div>
+          <div class="row2">
+            <div class="field">
+              <label>Unité de vente</label>
+              <input id="np-unite" type="text" placeholder="bouteille, canette…">
+            </div>
+            <div class="field">
+              <label>Type emballage</label>
+              <input id="np-pack-label" type="text" placeholder="casier, carton…">
+            </div>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label>Unités / emballage</label>
+              <input id="np-pack-qty" type="number" inputmode="numeric"
+                placeholder="24" min="1" value="1">
+            </div>
+            <div class="field">
+              <label>Prix achat / unité (GNF)</label>
+              <input id="np-prix-achat" type="number" inputmode="numeric" placeholder="0">
+            </div>
+          </div>
+
           <button class="btn-primary" onclick="saveProd()">ENREGISTRER</button>
         </div>
       </div>
@@ -110,13 +136,27 @@
         <div class="field"><label>Nom</label>
           <input id="ep-nom" type="text"></div>
         <div class="row2">
-          <div class="field"><label>Prix défaut</label>
+          <div class="field"><label>Prix vente (GNF)</label>
             <input id="ep-prix" type="number" inputmode="numeric"></div>
-          <div class="field"><label>Stock actuel</label>
+          <div class="field"><label>Stock actuel (unités)</label>
             <input id="ep-stock" type="number" inputmode="numeric"></div>
         </div>
-        <div class="field"><label>Seuil alerte stock</label>
-          <input id="ep-min" type="number" inputmode="numeric"></div>
+        <div class="row2">
+          <div class="field"><label>Seuil alerte</label>
+            <input id="ep-min" type="number" inputmode="numeric"></div>
+          <div class="field"><label>Prix achat/unité</label>
+            <input id="ep-prix-achat" type="number" inputmode="numeric"></div>
+        </div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">
+          📦 Emballage</div>
+        <div class="row2">
+          <div class="field"><label>Unité vente</label>
+            <input id="ep-unite" type="text" placeholder="bouteille…"></div>
+          <div class="field"><label>Type emballage</label>
+            <input id="ep-pack-label" type="text" placeholder="casier…"></div>
+        </div>
+        <div class="field"><label>Unités / emballage</label>
+          <input id="ep-pack-qty" type="number" inputmode="numeric" min="1" value="1"></div>
       </div>
       <div class="sheet-btns">
         <button class="btn-cancel" onclick="closeOverlay()">Annuler</button>
@@ -129,9 +169,25 @@
 <script>
 let editId = null;
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
   if (!initPage(['manager','owner'])) return;
+
+  /* Vérification colonnes packaging */
+  const { data: tst } = await db.from('produits').select('unite_vente').limit(1);
+  if (tst === null || (Array.isArray(tst) && tst.length > 0 && !('unite_vente' in tst[0]))) {
+    const sqlHint = document.createElement('div');
+    sqlHint.style.cssText = 'background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.25);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:12px';
+    sqlHint.innerHTML = `<strong style="color:var(--gold)">⚙ Migration stock (une seule fois)</strong><br>
+      Exécutez dans Supabase SQL Editor pour activer la gestion par casier/carton :<br>
+      <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:11px;display:block;margin-top:6px;white-space:pre;overflow-x:auto">ALTER TABLE produits
+  ADD COLUMN IF NOT EXISTS unite_vente TEXT DEFAULT 'unité',
+  ADD COLUMN IF NOT EXISTS packaging_label TEXT,
+  ADD COLUMN IF NOT EXISTS unite_par_packaging INTEGER DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS prix_achat INTEGER DEFAULT 0;</code>`;
+    document.querySelector('.body-wrap')?.prepend(sqlHint);
+  }
+
   loadProds();
 });
 
@@ -192,16 +248,31 @@ async function loadProds() {
         el.innerHTML = `<div class="state-msg">Aucun produit de type ${type}.</div>`; return;
       }
       el.innerHTML = list.map(p => {
-        const isLow = p.stock_min > 0 && (p.stock_actuel??0) <= p.stock_min;
+        const stock  = p.stock_actuel ?? 0;
+        const isLow  = p.stock_min > 0 && stock <= p.stock_min;
+        const isZero = stock <= 0;
+        const packQty = p.unite_par_packaging || 1;
+        const packLbl = p.packaging_label || '';
+        const uniteLbl = p.unite_vente || 'unités';
+        /* Affiche aussi l'équivalent en emballage si défini */
+        const packEquiv = (packQty > 1 && packLbl)
+          ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">
+              ≈ ${(stock/packQty).toFixed(1)} ${packLbl}</div>` : '';
         return `
           <div class="prod-item">
             <div class="prod-info">
               <div class="prod-nom">${p.nom}</div>
-              <div class="prod-meta">${gnf(p.prix_defaut||0)} · seuil : ${p.stock_min??0}</div>
+              <div class="prod-meta">
+                Vente : ${gnf(p.prix_defaut||0)}
+                ${p.prix_achat ? ` · Achat : ${gnf(p.prix_achat)}` : ''}
+                ${packQty > 1 ? ` · ${packQty} ${uniteLbl}/${packLbl}` : ''}
+              </div>
             </div>
             <div class="prod-stock">
-              <div class="prod-stock-val ${isLow?'low':''}">${p.stock_actuel??0}</div>
-              <div class="prod-stock-lbl">${isLow?'⚠ Stock bas':'unités'}</div>
+              <div class="prod-stock-val ${isZero?'low':(isLow?'low':'')}">
+                ${stock}</div>
+              <div class="prod-stock-lbl">${isZero?'⚠ Rupture':isLow?'⚠ Stock bas':uniteLbl}</div>
+              ${packEquiv}
             </div>
             <div class="list-actions">
               <button class="btn-icon" onclick='openEdit(${JSON.stringify(p)})'>✎</button>
@@ -216,16 +287,24 @@ async function loadProds() {
 async function saveProd() {
   const nom = $('np-nom').value.trim();
   if (!nom) { toast('Le nom est requis','ko'); return; }
+  const packQty = parseInt($('np-pack-qty').value)||1;
   try {
     await db.from('produits').insert({
-      nom, type:$('np-type').value,
-      prix_defaut:parseFloat($('np-prix').value)||0,
-      stock_actuel:parseFloat($('np-stock').value)||0,
-      stock_min:parseFloat($('np-min').value)||0
+      nom,
+      type:         $('np-type').value,
+      prix_defaut:  parseFloat($('np-prix').value)||0,
+      stock_actuel: parseFloat($('np-stock').value)||0,
+      stock_min:    parseFloat($('np-min').value)||0,
+      unite_vente:      ($('np-unite').value.trim()||'unité'),
+      packaging_label:  ($('np-pack-label').value.trim()||null),
+      unite_par_packaging: packQty > 1 ? packQty : 1,
+      prix_achat:   parseFloat($('np-prix-achat').value)||0
     });
     toast('Produit ajouté ✓','ok');
-    $('np-nom').value=''; $('np-prix').value='';
-    $('np-stock').value=''; $('np-min').value='';
+    ['np-nom','np-prix','np-stock','np-min','np-unite','np-pack-label',
+     'np-pack-qty','np-prix-achat'].forEach(id => {
+      const el = $(id); if(el) el.value = id==='np-pack-qty'?'1':'';
+    });
     loadProds();
     switchProdTab('chicha');
   } catch(e) { toast('Erreur : '+e.message,'ko'); }
@@ -233,10 +312,14 @@ async function saveProd() {
 
 function openEdit(p) {
   editId = p.id;
-  $('ep-nom').value   = p.nom;
-  $('ep-prix').value  = p.prix_defaut||0;
-  $('ep-stock').value = p.stock_actuel??0;
-  $('ep-min').value   = p.stock_min??0;
+  $('ep-nom').value       = p.nom;
+  $('ep-prix').value      = p.prix_defaut||0;
+  $('ep-stock').value     = p.stock_actuel??0;
+  $('ep-min').value       = p.stock_min??0;
+  $('ep-prix-achat').value = p.prix_achat||0;
+  $('ep-unite').value     = p.unite_vente||'';
+  $('ep-pack-label').value = p.packaging_label||'';
+  $('ep-pack-qty').value  = p.unite_par_packaging||1;
   $('overlay').classList.add('on');
 }
 function closeOverlay() { $('overlay').classList.remove('on'); editId=null; }
@@ -245,10 +328,14 @@ async function saveEdit() {
   if (!editId) return;
   try {
     await db.from('produits').update({
-      nom:$('ep-nom').value.trim(),
-      prix_defaut:parseFloat($('ep-prix').value)||0,
-      stock_actuel:parseFloat($('ep-stock').value)||0,
-      stock_min:parseFloat($('ep-min').value)||0
+      nom:          $('ep-nom').value.trim(),
+      prix_defaut:  parseFloat($('ep-prix').value)||0,
+      stock_actuel: parseFloat($('ep-stock').value)||0,
+      stock_min:    parseFloat($('ep-min').value)||0,
+      prix_achat:   parseFloat($('ep-prix-achat').value)||0,
+      unite_vente:        ($('ep-unite').value.trim()||'unité'),
+      packaging_label:    ($('ep-pack-label').value.trim()||null),
+      unite_par_packaging: parseInt($('ep-pack-qty').value)||1
     }).eq('id',editId);
     toast('Produit mis à jour ✓','ok');
     closeOverlay(); loadProds();

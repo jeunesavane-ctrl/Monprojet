@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Charges — Medellin Lounge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="shared.js" defer></script>
+  <style>
+.charge-item{
+  background:var(--bg2);border-radius:var(--rs);padding:12px 14px;
+  display:flex;align-items:center;gap:12px;
+  border:1px solid var(--b1);
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 1px 6px rgba(0,0,0,.28)}
+.charge-item.paye{opacity:.55}
+.charge-ico{
+  width:38px;height:38px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+  background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.15)}
+.charge-info{flex:1;min-width:0}
+.charge-lbl{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.charge-cat{font-size:11px;color:var(--muted);margin-top:1px}
+.charge-amt{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--gold);flex-shrink:0}
+.charge-amt.paye{color:var(--ok)}
+
+/* totaux */
+.total-card{
+  background:var(--glow);border:1px solid var(--gring);border-radius:var(--r);
+  padding:14px 16px;
+  box-shadow:0 0 0 1px var(--gring) inset,0 4px 20px rgba(201,168,76,.07)}
+.total-row{display:flex;justify-content:space-between;align-items:center;
+  font-size:13px;color:var(--muted);padding:3px 0}
+.total-main{display:flex;justify-content:space-between;align-items:baseline;
+  padding-top:10px;margin-top:6px;border-top:1px solid var(--gring)}
+.total-val{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--gold);line-height:1}
+.total-val.danger{color:var(--danger)}
+
+/* catégories */
+.cat-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.cat-tab{
+  padding:6px 11px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;
+  border:1px solid var(--b1);background:var(--bg3);color:var(--muted);
+  transition:all var(--t);-webkit-tap-highlight-color:transparent}
+.cat-tab.active{
+  background:rgba(201,168,76,.12);border-color:rgba(201,168,76,.35);color:var(--gold)}
+
+/* bilan par catégorie */
+.bilan-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.bilan-card{background:var(--bg2);border:1px solid var(--b1);border-radius:var(--rs);
+  padding:10px 12px;text-align:center}
+.bilan-val{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--muted)}
+.bilan-lbl{font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.8px}
+
+/* badge paiement */
+.pay-badge{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600;
+  display:inline-block;margin-top:3px}
+.pay-badge.ok{background:rgba(61,184,115,.12);color:var(--ok);border:1px solid rgba(61,184,115,.2)}
+.pay-badge.ko{background:rgba(255,80,80,.10);color:var(--danger);border:1px solid rgba(255,80,80,.2)}
+
+/* info bimestriel */
+.info-box{
+  background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.2);
+  border-radius:var(--rs);padding:12px 14px;font-size:12px;color:var(--muted);line-height:1.6}
+.info-box strong{color:var(--gold)}
+
+/* modal payer */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;
+  display:flex;align-items:flex-end;justify-content:center}
+.modal-sheet{
+  background:var(--bg2);border-radius:var(--r) var(--r) 0 0;
+  padding:20px;width:100%;max-width:480px;
+  border:1px solid var(--b1);border-bottom:none;
+  box-shadow:0 -8px 32px rgba(0,0,0,.5)}
+.mois-check-row{display:flex;align-items:center;gap:10px;padding:8px 0;
+  border-bottom:1px solid var(--bg3);cursor:pointer}
+.mois-check-row:last-child{border:none}
+.mois-check-row label{flex:1;font-size:13px;cursor:pointer}
+.mois-check-row .amt{font-family:'Bebas Neue',sans-serif;color:var(--gold);font-size:15px}
+  </style>
+</head>
+<body>
+  <div id="__header__"></div>
+  <div class="body-wrap" style="display:flex;flex-direction:column;gap:14px">
+
+    <!-- Sélecteur mois -->
+    <div class="field">
+      <label>Mois</label>
+      <input type="month" id="sel-mois" onchange="loadCharges()">
+    </div>
+
+    <!-- Info bimestriel (visible si loyer présent non-payé) -->
+    <div class="info-box" id="info-bimestriel" style="display:none">
+      💡 <strong>Conseil loyer bimestriel :</strong> Enregistrez <strong>16 000 000 GNF</strong> chaque mois
+      (le bilan P&L est correct). Lorsque vous payez 2 mois d'un coup, cliquez
+      <strong>💸 Marquer payé</strong> sur chaque mois concerné — ou utilisez le bouton
+      <strong>Payer N mois</strong> sur une charge récurrente.
+    </div>
+
+    <!-- Totaux du mois -->
+    <div class="total-card" id="totaux-card" style="display:none">
+      <div class="total-row">
+        <span>✅ Charges payées</span>
+        <span id="tot-paye" style="color:var(--ok)">—</span>
+      </div>
+      <div class="total-row">
+        <span style="color:var(--danger)">⏳ Charges à payer</span>
+        <span id="tot-impaye" style="color:var(--danger)">—</span>
+      </div>
+      <div class="total-main">
+        <span class="kpi-label">Total engagé ce mois</span>
+        <span class="total-val" id="total-val">—</span>
+      </div>
+    </div>
+    <!-- fallback simple avant chargement -->
+    <div class="total-card" id="totaux-simple">
+      <div>
+        <div class="kpi-label">Charges fixes du mois</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Déduites du bénéfice net</div>
+      </div>
+      <div class="total-val" id="total-val-simple">—</div>
+    </div>
+
+    <!-- Bilan par catégorie -->
+    <div id="bilan-cats" style="display:none">
+      <div class="sec-header"><div class="sec-title">Par catégorie</div></div>
+      <div class="bilan-grid" id="bilan-grid"></div>
+    </div>
+
+    <!-- Liste des charges -->
+    <div id="charges-list"><div class="state-msg">Chargement…</div></div>
+
+    <!-- Formulaire ajout -->
+    <div class="card">
+      <div class="card-head"><div class="card-title">Ajouter une charge</div></div>
+      <div class="card-body">
+        <div class="field">
+          <label>Libellé</label>
+          <input id="f-label" type="text" placeholder="Ex: Loyer local, Electricité…">
+        </div>
+        <div class="cat-tabs" id="cat-tabs">
+          <div class="cat-tab active" data-cat="loyer"       onclick="selectCat(this)">🏠 Loyer</div>
+          <div class="cat-tab"        data-cat="electricite" onclick="selectCat(this)">⚡ Électricité</div>
+          <div class="cat-tab"        data-cat="eau"         onclick="selectCat(this)">💧 Eau</div>
+          <div class="cat-tab"        data-cat="internet"    onclick="selectCat(this)">📶 Internet</div>
+          <div class="cat-tab"        data-cat="salaires"    onclick="selectCat(this)">👥 Salaires</div>
+          <div class="cat-tab"        data-cat="impots"      onclick="selectCat(this)">💼 Impôts</div>
+          <div class="cat-tab"        data-cat="maintenance" onclick="selectCat(this)">🔧 Maintenance</div>
+          <div class="cat-tab"        data-cat="autre"       onclick="selectCat(this)">📦 Autre</div>
+        </div>
+        <!-- Récurrence -->
+        <div class="field" style="margin-bottom:10px">
+          <label>Récurrence</label>
+          <select id="f-recur">
+            <option value="ponctuelle">Ponctuelle (ce mois uniquement)</option>
+            <option value="mensuelle">Mensuelle (récurrente)</option>
+            <option value="bimestrielle">Bimestrielle (tous les 2 mois)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Montant (GNF)</label>
+          <input id="f-montant" type="number" inputmode="numeric" placeholder="0"
+            style="font-size:20px;font-family:'Bebas Neue',sans-serif;letter-spacing:1px;text-align:right">
+        </div>
+        <button class="btn-primary" onclick="addCharge()">ENREGISTRER</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal Marquer payé -->
+  <div class="modal-overlay" id="pay-modal" style="display:none" onclick="closePayModal(event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;
+        margin-bottom:4px" id="pay-modal-title">Marquer comme payé</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px" id="pay-modal-sub"></div>
+      <div id="pay-modal-list"></div>
+      <div class="field" style="margin:14px 0 10px">
+        <label>Date de paiement</label>
+        <input type="date" id="pay-modal-date">
+      </div>
+      <div id="pay-modal-total" style="font-size:13px;color:var(--muted);
+        text-align:right;margin-bottom:12px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="btn-secondary" onclick="$('pay-modal').style.display='none'">Annuler</button>
+        <button class="btn-ok" onclick="confirmerPaiement()">💸 CONFIRMER</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+const CAT_ICO = {
+  loyer:'🏠', electricite:'⚡', eau:'💧', internet:'📶',
+  salaires:'👥', impots:'💼', maintenance:'🔧', autre:'📦'
+};
+const CAT_NOM = {
+  loyer:'Loyer', electricite:'Électricité', eau:'Eau', internet:'Internet',
+  salaires:'Salaires fixes', impots:'Impôts / Taxes', maintenance:'Maintenance', autre:'Autre'
+};
+let _catSel  = 'loyer';
+let _tableOk = false;
+let _payIds  = [];   /* IDs sélectionnés pour paiement groupé */
+
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('__header__').outerHTML = HEADER_HTML;
+  if (!initPage(['owner','manager'])) return;
+  $('sel-mois').value    = todayISO().slice(0,7);
+  $('pay-modal-date').value = todayISO();
+
+  /* Vérification existence table + colonnes paye */
+  const { error } = await db.from('charges').select('id').limit(0);
+  if (error) {
+    $('charges-list').innerHTML = `
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title" style="color:var(--gold)">⚙ Table à créer d'abord</div>
+        </div>
+        <div class="card-body">
+          <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:12px">
+            La table <code>charges</code> n'existe pas encore. Exécutez ce SQL dans Supabase :
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rs);
+            padding:12px;font-size:11px;font-family:monospace;color:rgba(255,255,255,.65);
+            white-space:pre-wrap;overflow-x:auto;line-height:1.8;user-select:all">CREATE TABLE IF NOT EXISTS charges (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  mois TEXT NOT NULL,
+  label TEXT NOT NULL,
+  montant INTEGER NOT NULL DEFAULT 0,
+  categorie TEXT DEFAULT 'autre',
+  recurrence TEXT DEFAULT 'ponctuelle',
+  paye BOOLEAN DEFAULT false,
+  date_paiement DATE DEFAULT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE charges DISABLE ROW LEVEL SECURITY;</div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  /* Vérifier si colonne paye existe */
+  const { data: testRow } = await db.from('charges').select('paye').limit(1);
+  const needsMigration = testRow === null ||
+    (Array.isArray(testRow) && testRow.length > 0 && !('paye' in testRow[0]));
+
+  if (needsMigration) {
+    const banner = document.createElement('div');
+    banner.className = 'card';
+    banner.style.cssText = 'border:1px solid rgba(201,168,76,.3)';
+    banner.innerHTML = `
+      <div class="card-head">
+        <div class="card-title" style="color:var(--gold)">⚙ Migration requise (une seule fois)</div>
+      </div>
+      <div class="card-body">
+        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:10px">
+          Exécutez ce SQL dans <strong>Supabase → SQL Editor</strong> pour activer
+          le suivi des paiements et la récurrence :
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rs);
+          padding:12px;font-size:11px;font-family:monospace;color:rgba(255,255,255,.7);
+          white-space:pre-wrap;overflow-x:auto;line-height:1.8;user-select:all">ALTER TABLE charges
+  ADD COLUMN IF NOT EXISTS paye BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS date_paiement DATE DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS recurrence TEXT DEFAULT 'ponctuelle';</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">
+          Après exécution, rechargez cette page — la bannière disparaîtra.
+        </div>
+      </div>`;
+    document.querySelector('.body-wrap').prepend(banner);
+  }
+
+  _tableOk = true;
+  loadCharges();
+});
+
+function selectCat(el) {
+  document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  _catSel = el.dataset.cat;
+}
+
+async function loadCharges() {
+  if (!_tableOk) return;
+  const mois = $('sel-mois').value;
+  if (!mois) return;
+  const el = $('charges-list');
+  el.innerHTML = '<div class="state-msg">Chargement…</div>';
+
+  try {
+    const { data, error } = await db.from('charges').select('*')
+      .eq('mois', mois).order('created_at', { ascending: true });
+    if (error) throw error;
+    const list  = data || [];
+    const total = list.reduce((s,c) => s+(c.montant||0), 0);
+
+    /* Totaux payé / impayé */
+    const totPaye   = list.filter(c=>c.paye).reduce((s,c)=>s+(c.montant||0),0);
+    const totImpaye = total - totPaye;
+
+    $('total-val-simple').textContent = gnf(total);
+    $('total-val').textContent        = gnf(total);
+    $('tot-paye').textContent         = gnf(totPaye);
+    $('tot-impaye').textContent       = gnf(totImpaye);
+
+    if (list.length > 0) {
+      $('totaux-card').style.display   = '';
+      $('totaux-simple').style.display = 'none';
+    } else {
+      $('totaux-card').style.display   = 'none';
+      $('totaux-simple').style.display = '';
+    }
+
+    /* Info bimestriel si loyer non payé */
+    const loyers = list.filter(c => c.categorie==='loyer' && !c.paye);
+    $('info-bimestriel').style.display = loyers.length ? '' : 'none';
+
+    /* Bilan par catégorie */
+    if (list.length) {
+      const bycat = {};
+      list.forEach(c => {
+        bycat[c.categorie] = (bycat[c.categorie]||0) + (c.montant||0);
+      });
+      const sorted = Object.entries(bycat).sort((a,b)=>b[1]-a[1]);
+      $('bilan-grid').innerHTML = sorted.map(([cat,amt])=>`
+        <div class="bilan-card">
+          <div style="font-size:20px;margin-bottom:4px">${CAT_ICO[cat]||'📦'}</div>
+          <div class="bilan-val">${gnf(amt)}</div>
+          <div class="bilan-lbl">${CAT_NOM[cat]||cat}</div>
+        </div>`).join('');
+      $('bilan-cats').style.display = '';
+    } else {
+      $('bilan-cats').style.display = 'none';
+    }
+
+    if (!list.length) {
+      el.innerHTML = `<div class="state-msg">Aucune charge pour ${frMonth(mois+'-01')}.</div>`;
+      return;
+    }
+
+    el.innerHTML = `
+      <div class="sec-header">
+        <div class="sec-title">Détail · ${list.length} charge${list.length>1?'s':''}</div>
+        ${totImpaye > 0 ? `<button class="btn-secondary" style="font-size:11px;padding:4px 10px"
+          onclick="openPayGroupModal()">💸 Payer plusieurs</button>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${list.map(c => {
+          const paid     = !!c.paye;
+          const recurLbl = c.recurrence && c.recurrence !== 'ponctuelle'
+            ? `<span style="font-size:10px;color:var(--muted);margin-left:4px">
+                (${c.recurrence})</span>` : '';
+          return `
+          <div class="charge-item ${paid?'paye':''}">
+            <div class="charge-ico">${CAT_ICO[c.categorie]||'📦'}</div>
+            <div class="charge-info">
+              <div class="charge-lbl">${c.label}${recurLbl}</div>
+              <div class="charge-cat">${CAT_NOM[c.categorie]||c.categorie}</div>
+              ${paid
+                ? `<span class="pay-badge ok">✅ Payé le ${c.date_paiement ? frDateShort(c.date_paiement) : '—'}</span>`
+                : `<span class="pay-badge ko">⏳ À payer</span>`}
+            </div>
+            <div class="charge-amt ${paid?'paye':''}">${gnf(c.montant)}</div>
+            <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+              ${!paid
+                ? `<button class="btn-secondary" style="font-size:11px;padding:3px 8px"
+                    onclick="openPayOne('${c.id}','${c.label}',${c.montant})">💸</button>` : ''}
+              <button class="btn-icon" title="Supprimer"
+                onclick="deleteCharge('${c.id}')">✕</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+
+  } catch(e) {
+    el.innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+
+/* ══════════════════════════════════
+   MODAL PAIEMENT SIMPLE
+══════════════════════════════════ */
+function openPayOne(id, label, montant) {
+  _payIds = [id];
+  $('pay-modal-title').textContent = 'Marquer comme payé';
+  $('pay-modal-sub').textContent   = label;
+  $('pay-modal-list').innerHTML    = '';
+  $('pay-modal-total').textContent = `Total : ${gnf(montant)}`;
+  $('pay-modal').style.display     = 'flex';
+}
+
+/* ══════════════════════════════════
+   MODAL PAIEMENT GROUPÉ (multi-mois)
+══════════════════════════════════ */
+async function openPayGroupModal() {
+  /* Récupère toutes les charges non-payées pour les 3 derniers mois */
+  const moisActuel = $('sel-mois').value;
+  const [y, m] = moisActuel.split('-').map(Number);
+
+  /* 3 mois : m-2, m-1, m */
+  const moisListe = [-2,-1,0].map(delta => {
+    const d = new Date(y, m-1+delta, 1);
+    return d.toISOString().slice(0,7);
+  });
+
+  const { data } = await db.from('charges').select('*')
+    .in('mois', moisListe)
+    .eq('paye', false)
+    .order('mois').order('label');
+
+  const charges = data || [];
+  if (!charges.length) {
+    toast('Aucune charge impayée sur les 3 derniers mois', 'ko');
+    return;
+  }
+
+  _payIds = [];
+
+  $('pay-modal-title').textContent = 'Payer plusieurs charges';
+  $('pay-modal-sub').textContent   = 'Cochez les charges à marquer comme payées en même temps';
+
+  $('pay-modal-list').innerHTML = charges.map(c => `
+    <label class="mois-check-row">
+      <input type="checkbox" name="pay-chk" value="${c.id}"
+        data-montant="${c.montant}" onchange="updatePayTotal()">
+      <div style="flex:1">
+        <div style="font-weight:500;font-size:13px">${c.label}</div>
+        <div style="font-size:11px;color:var(--muted)">${frMonth(c.mois+'-01')} · ${CAT_NOM[c.categorie]||c.categorie}</div>
+      </div>
+      <span class="amt">${gnf(c.montant)}</span>
+    </label>`).join('');
+
+  $('pay-modal-total').textContent = 'Total sélectionné : 0 GNF';
+  $('pay-modal').style.display     = 'flex';
+}
+
+function updatePayTotal() {
+  const checked = [...document.querySelectorAll('input[name="pay-chk"]:checked')];
+  const total   = checked.reduce((s,el)=>s+parseInt(el.dataset.montant||0),0);
+  _payIds       = checked.map(el=>el.value);
+  $('pay-modal-total').textContent = `Total sélectionné : ${gnf(total)}`;
+}
+
+function closePayModal(e) {
+  if (e.target === $('pay-modal')) $('pay-modal').style.display = 'none';
+}
+
+async function confirmerPaiement() {
+  /* Récupère IDs depuis checkboxes si multi, ou _payIds si single */
+  if (!_payIds.length) {
+    const checked = [...document.querySelectorAll('input[name="pay-chk"]:checked')];
+    _payIds = checked.map(el=>el.value);
+  }
+  if (!_payIds.length) { toast('Sélectionnez au moins une charge','ko'); return; }
+
+  const datePay = $('pay-modal-date').value || todayISO();
+  try {
+    const { error } = await db.from('charges')
+      .update({ paye: true, date_paiement: datePay })
+      .in('id', _payIds);
+    if (error) throw error;
+
+    $('pay-modal').style.display = 'none';
+    toast(`${_payIds.length} charge${_payIds.length>1?'s':''} marquée${_payIds.length>1?'s':''} payée${_payIds.length>1?'s':''} ✓`, 'ok');
+    ML.logAction(`💸 Paiement charges · ${_payIds.length} item(s) · ${datePay}`);
+    _payIds = [];
+    loadCharges();
+  } catch(e) { toast('Erreur : '+e.message, 'ko'); }
+}
+
+/* ══════════════════════════════════
+   AJOUT CHARGE
+══════════════════════════════════ */
+async function addCharge() {
+  const label     = ($('f-label')?.value||'').trim();
+  const montant   = parseInt($('f-montant')?.value)||0;
+  const mois      = $('sel-mois').value;
+  const recurrence = $('f-recur')?.value || 'ponctuelle';
+  if (!label)   { toast('Libellé requis','ko'); return; }
+  if (!montant) { toast('Montant requis','ko'); return; }
+
+  try {
+    const { error } = await db.from('charges').insert({
+      mois, label, montant,
+      categorie: _catSel,
+      recurrence,
+      paye: false
+    });
+    if (error) throw error;
+    $('f-label').value   = '';
+    $('f-montant').value = '';
+    ML.logAction(`💸 Charge · ${label} · ${gnf(montant)}`);
+    toast(`${label} enregistré ✓`, 'ok');
+    loadCharges();
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+async function deleteCharge(id) {
+  if (!confirm('Supprimer cette charge ?')) return;
+  try {
+    const { error } = await db.from('charges').delete().eq('id', id);
+    if (error) throw error;
+    toast('Charge supprimée ✓','ok');
+    loadCharges();
+  } catch(e) { toast('Erreur','ko'); }
+}
+</script>
+</body>
+</html>

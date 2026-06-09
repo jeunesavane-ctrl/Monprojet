@@ -38,7 +38,18 @@
   background:var(--bg2);border-radius:var(--r);padding:16px;
   border:1px solid var(--b1);
   box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 2px 10px rgba(0,0,0,.4)}
-.add-row{display:grid;grid-template-columns:1fr 64px 88px;gap:8px;align-items:end}
+.add-row{display:grid;grid-template-columns:1fr 64px;gap:8px;align-items:end}
+/* Prix auto affiché */
+.prix-auto-row{display:flex;justify-content:space-between;align-items:center;
+  background:var(--bg3);border-radius:var(--rs);padding:9px 12px;margin-top:8px}
+.prix-auto-label{font-size:12px;color:var(--muted)}
+.prix-auto-val{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--gold)}
+.total-preview{
+  display:flex;justify-content:space-between;align-items:center;
+  background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);
+  border-radius:var(--rs);padding:10px 12px;margin-top:6px}
+.total-preview-label{font-size:12px;color:var(--muted)}
+.total-preview-val{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold)}
 
 /* ── Ventes list ── */
 .vente-item{
@@ -116,7 +127,7 @@
 .notes-area::placeholder{color:var(--muted)}
 .notes-status{font-size:11px;color:var(--muted);margin-top:6px;text-align:right;min-height:14px}
 
-input[list]::-webkit-calendar-picker-indicator{opacity:.4}
+select option{background:var(--bg2);color:var(--text)}
   </style>
 </head>
 <body>
@@ -158,8 +169,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadProduits() {
   try {
-    const { data } = await db.from('produits').select('nom,type,prix').eq('actif',true).order('nom');
-    produits = data || [];
+    const { data } = await db.from('produits')
+      .select('nom,type,prix_defaut,prix')
+      .eq('actif',true).order('nom');
+    /* Normalise : la colonne peut s'appeler prix_defaut ou prix selon la création */
+    produits = (data || []).map(p => ({
+      ...p,
+      prix: p.prix_defaut ?? p.prix ?? 0
+    }));
   } catch {}
 }
 
@@ -242,19 +259,30 @@ function renderPage() {
     return;
   }
 
-  const dlOpts = produits.map(p =>
-    `<option value="${p.nom}" data-prix="${p.prix||0}" data-type="${p.type||'chicha'}">`
-  ).join('');
+  /* Grouper produits par type pour le select */
+  const prodByType = { chicha: [], boisson: [], autre: [] };
+  produits.forEach(p => {
+    const t = p.type || 'autre';
+    if (!prodByType[t]) prodByType[t] = [];
+    prodByType[t].push(p);
+  });
+
+  const buildOptGroups = () => {
+    const labels = { chicha:'🔥 Chicha', boisson:'🥤 Boissons', autre:'📦 Autre' };
+    return Object.entries(prodByType).map(([t, list]) => {
+      if (!list.length) return '';
+      return `<optgroup label="${labels[t]||t}">
+        ${list.map(p =>
+          `<option value="${p.nom}" data-prix="${p.prix||0}" data-type="${t}">${p.nom}</option>`
+        ).join('')}
+      </optgroup>`;
+    }).join('');
+  };
 
   $('main-body').innerHTML = banner + `
 
     <!-- Formulaire ajout -->
     <div class="add-form">
-      <div class="type-tabs">
-        <button class="type-btn${activeType==='chicha'?' active':''}" data-t="chicha" onclick="setType('chicha')">CHICHA</button>
-        <button class="type-btn${activeType==='boisson'?' active':''}" data-t="boisson" onclick="setType('boisson')">BOISSON</button>
-        <button class="type-btn${activeType==='autre'?' active':''}" data-t="autre" onclick="setType('autre')">AUTRE</button>
-      </div>
       <div class="pay-tabs">
         <button class="pay-btn${paiement==='especes'?' active especes':''}" onclick="setPaiement('especes')">
           💵 Espèces
@@ -263,24 +291,42 @@ function renderPage() {
           📱 Orange Money
         </button>
       </div>
-      <datalist id="dl-prod">${dlOpts}</datalist>
       <div class="add-row">
         <div class="field">
           <label>Produit</label>
-          <input type="text" id="f-label" list="dl-prod" placeholder="Nom du produit"
-            oninput="onProdInput(this)" autocomplete="off">
+          <select id="f-label" onchange="onProdSelect(this)">
+            <option value="">— Choisir un produit —</option>
+            ${buildOptGroups()}
+          </select>
         </div>
         <div class="field">
-          <label>Qté</label>
-          <input type="number" id="f-qty" min="1" value="1" inputmode="numeric">
-        </div>
-        <div class="field">
-          <label>Prix</label>
-          <input type="number" id="f-prix" min="0" placeholder="0" inputmode="numeric">
+          <label>Quantité</label>
+          <input type="number" id="f-qty" min="1" value="1"
+            inputmode="numeric" oninput="updatePreview()">
         </div>
       </div>
+
+      <!-- Prix unitaire auto + override -->
+      <div class="prix-auto-row" id="prix-row" style="display:none">
+        <div>
+          <div class="prix-auto-label">Prix unitaire</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:1px">Appuyer pour modifier</div>
+        </div>
+        <input type="number" id="f-prix" min="0" inputmode="numeric"
+          style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold);
+            background:transparent;border:none;border-bottom:1px solid var(--gring);
+            outline:none;width:140px;text-align:right;padding:0 0 2px"
+          oninput="updatePreview()">
+      </div>
+
+      <!-- Total preview -->
+      <div class="total-preview" id="total-preview" style="display:none">
+        <span class="total-preview-label">Total à enregistrer</span>
+        <span class="total-preview-val" id="total-preview-val">0 GNF</span>
+      </div>
+
       <div style="margin-top:10px">
-        <button class="btn-primary" onclick="addVente()">+ AJOUTER</button>
+        <button class="btn-primary" id="btn-add" onclick="addVente()" disabled>+ AJOUTER</button>
       </div>
     </div>
 
@@ -363,14 +409,7 @@ function onNoteInput() {
   }, 600);
 }
 
-/* ── Type + Paiement ── */
-function setType(t) {
-  activeType = t;
-  document.querySelectorAll('.type-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.t === t);
-  });
-}
-
+/* ── Paiement ── */
 function setPaiement(p) {
   paiement = p;
   document.querySelectorAll('.pay-btn').forEach(b => {
@@ -380,24 +419,52 @@ function setPaiement(p) {
   });
 }
 
-function onProdInput(el) {
-  const val  = el.value.toLowerCase().trim();
-  const prod = produits.find(p => p.nom.toLowerCase() === val);
-  if (prod) {
-    $('f-prix').value = prod.prix || '';
-    setType(prod.type || 'chicha');
+/* ── Sélection produit ── */
+function onProdSelect(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  const val = sel.value;
+
+  if (!val) {
+    $('prix-row').style.display    = 'none';
+    $('total-preview').style.display = 'none';
+    $('btn-add').disabled          = true;
+    activeType = 'chicha';
+    return;
   }
+
+  const prix = parseFloat(opt.dataset.prix) || 0;
+  activeType  = opt.dataset.type || 'chicha';
+
+  $('f-prix').value              = prix;
+  $('prix-row').style.display    = '';
+  $('total-preview').style.display = '';
+  $('btn-add').disabled          = false;
+  updatePreview();
+}
+
+function updatePreview() {
+  const qty   = parseInt($('f-qty')?.value)  || 1;
+  const prix  = parseFloat($('f-prix')?.value) || 0;
+  const total = qty * prix;
+  const prev  = $('total-preview-val');
+  if (prev) prev.textContent = gnf(total);
 }
 
 /* ── Ajouter vente ── */
 async function addVente() {
-  const label = ($('f-label').value || '').trim();
+  const sel   = $('f-label');
+  const label = sel.value.trim();
   const qty   = parseInt($('f-qty').value) || 1;
-  const prix  = parseInt($('f-prix').value) || 0;
+  const prix  = parseFloat($('f-prix').value) || 0;
   const total = qty * prix;
 
-  if (!label) { toast('Entrez le nom du produit', 'ko'); return; }
+  if (!label) { toast('Choisissez un produit', 'ko'); return; }
   if (qty < 1) { toast('Quantité invalide', 'ko'); return; }
+  if (prix <= 0) { toast('Prix invalide', 'ko'); return; }
+
+  const btn = $('btn-add');
+  btn.disabled = true;
+  btn.textContent = '…';
 
   try {
     const { error } = await db.from('ventes_session').insert({
@@ -407,13 +474,21 @@ async function addVente() {
     });
     if (error) throw error;
 
-    $('f-label').value = '';
-    $('f-qty').value   = '1';
-    $('f-prix').value  = '';
-    $('f-label').focus();
+    /* Reset formulaire */
+    sel.value = '';
+    $('f-qty').value = '1';
+    $('f-prix').value = '';
+    $('prix-row').style.display     = 'none';
+    $('total-preview').style.display = 'none';
+    btn.disabled = true;
 
     ML.logAction(`🛒 Vente — ${label} ×${qty} ${paiement==='om'?'📱OM':'💵'} · ${gnf(total)}`);
-  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+    toast(`${label} ×${qty} ajouté ✓`, 'ok');
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'ko');
+    btn.disabled = false;
+  }
+  btn.textContent = '+ AJOUTER';
 }
 
 async function deleteVente(id) {

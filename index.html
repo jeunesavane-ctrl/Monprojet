@@ -192,7 +192,6 @@ let hStaff     = H_STAFF_DEF;
 let hManager   = H_MANAGER_DEF;
 let setupBuf   = '';
 let setupFirst = null;
-let associesList  = [];
 let employesList  = [];
 let ownerNomCfg   = null;
 
@@ -221,15 +220,13 @@ async function checkPin() {
     const emp = employesList.find(e => e.pin_hash === h && e.actif !== false);
     if (emp) {
       matched = emp.role || 'staff';
-      extra   = { nom: [emp.prenom, emp.nom].filter(Boolean).join(' '), employe_id: emp.id };
-    }
-  }
-
-  if (!matched) {
-    const assoc = associesList.find(a => a.pin_hash === h && a.actif !== false);
-    if (assoc) {
-      matched = 'associe';
-      extra   = { nom: assoc.nom, pourcentage: assoc.pourcentage, id: assoc.id };
+      const nomComplet = [emp.prenom, emp.nom].filter(Boolean).join(' ') || emp.nom;
+      if (emp.role === 'associe') {
+        /* Associé : session compatible avec finances.html (extra.id + extra.pourcentage) */
+        extra = { nom: nomComplet, pourcentage: emp.pourcentage || 0, id: emp.id };
+      } else {
+        extra = { nom: nomComplet, employe_id: emp.id };
+      }
     }
   }
 
@@ -308,13 +305,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     ownerNomCfg  = cfg.owner_nom   || null;
 
     try {
-      const [assocRes, empRes] = await Promise.all([
-        db.from('associes').select('id,nom,pin_hash,pourcentage,actif').eq('actif',true),
-        db.from('employes').select('id,nom,prenom,pin_hash,role,actif').not('pin_hash','is',null)
-      ]);
-      associesList = assocRes.data || [];
-      employesList  = empRes.data   || [];
-    } catch { associesList = []; employesList = []; }
+      const { data: empData } = await db.from('employes')
+        .select('id,nom,prenom,pin_hash,role,actif,pourcentage')
+        .not('pin_hash','is',null);
+      employesList = empData || [];
+    } catch { employesList = []; }
 
   } catch(e) { console.warn('Config:', e.message); }
 });

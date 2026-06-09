@@ -135,7 +135,9 @@ async function loadData() {
   try {
     let [sessRes, prodRes] = await Promise.all([
       db.from('sessions_caisse').select('id,statut').eq('date', today).maybeSingle(),
-      db.from('produits').select('id,nom,categorie,quantite,prix_vente').eq('actif', true).order('nom')
+      db.from('produits')
+        .select('id,nom,type,stock_actuel,stock_min,prix_defaut,prix_achat,unite_vente,packaging_label,unite_par_packaging')
+        .eq('actif', true).order('nom')
     ]);
 
     produits = prodRes.data || [];
@@ -282,14 +284,28 @@ async function renderPage() {
             oninput="if(this.value){produitSelId=null;$('f-produit-txt').value='';updateMontant()}">
         </div>
 
+        <!-- Ligne packaging (masquée par défaut) -->
+        <div id="f-pack-row" style="display:none">
+          <div style="background:rgba(140,80,220,.07);border:1px solid rgba(140,80,220,.2);
+            border-radius:var(--rs);padding:10px 12px;margin-bottom:8px">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:6px" id="f-pack-info"></div>
+            <div class="field" style="margin:0">
+              <label id="f-pack-label-lbl">Nombre d'emballages achetés</label>
+              <input type="number" id="f-pack-nb" min="1" value="1" inputmode="numeric"
+                oninput="updateMontantPack()">
+            </div>
+            <div style="font-size:12px;color:var(--ok);margin-top:6px" id="f-pack-calc"></div>
+          </div>
+        </div>
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div class="field">
-            <label>Quantité</label>
+            <label id="f-qty-label">Quantité (unités)</label>
             <input type="number" id="f-qty" min="1" value="1" inputmode="numeric"
               oninput="updateMontant()">
           </div>
           <div class="field">
-            <label>Prix unitaire (GNF)</label>
+            <label>Prix / unité (GNF)</label>
             <input type="number" id="f-prix" min="0" value="" inputmode="numeric"
               placeholder="0" oninput="updateMontant()">
           </div>
@@ -383,26 +399,48 @@ function onProduitInput() {
   $('custom-prod-hint') && ($('custom-prod-hint').style.display = 'none');
 
   sugg.innerHTML = matches.map(p => {
-    const stockClass = p.quantite > 10 ? 'stock-ok' : p.quantite > 0 ? 'stock-low' : 'stock-zero';
+    const stock      = p.stock_actuel ?? 0;
+    const stockClass = stock > 10 ? 'stock-ok' : stock > 0 ? 'stock-low' : 'stock-zero';
+    const packInfo   = (p.unite_par_packaging||1) > 1 && p.packaging_label
+      ? ` · ${(stock/(p.unite_par_packaging||1)).toFixed(1)} ${p.packaging_label}`
+      : '';
     return `
-      <div class="produit-sugg-item" onclick="selectProduit('${p.id}','${escHtml(p.nom)}',${p.prix_vente||0})">
+      <div class="produit-sugg-item" onclick="selectProduit('${p.id}','${escHtml(p.nom)}',${p.prix_achat||p.prix_defaut||0})">
         <div>${escHtml(p.nom)}</div>
         <div class="produit-sugg-meta">
-          ${p.categorie ? p.categorie + ' · ' : ''}
-          Stock : <span class="${stockClass}">${p.quantite}</span>
+          ${p.type ? p.type + ' · ' : ''}
+          Stock : <span class="${stockClass}">${stock} ${p.unite_vente||'unités'}</span>${packInfo}
         </div>
       </div>`;
   }).join('');
   sugg.classList.add('open');
 }
 
-function selectProduit(id, nom, prix) {
+function selectProduit(id, nom, prixAchat) {
   produitSelId = id;
-  $('f-produit-txt').value = nom;
+  $('f-produit-txt').value    = nom;
   $('f-produit-custom').value = '';
-  if (prix > 0 && !$('f-prix').value) $('f-prix').value = prix;
   $('f-produit-sugg')?.classList.remove('open');
   $('custom-prod-hint') && ($('custom-prod-hint').style.display = 'none');
+
+  /* Affiche le mode packaging si le produit a un emballage défini */
+  const prod = produits.find(p => p.id === id);
+  const packQty = prod?.unite_par_packaging || 1;
+  const packLbl = prod?.packaging_label || '';
+  const uniteLbl = prod?.unite_vente || 'unités';
+
+  const packRow = $('f-pack-row');
+  const packInfo = $('f-pack-info');
+  if (packRow && packQty > 1 && packLbl) {
+    packRow.style.display = '';
+    if (packInfo) packInfo.textContent =
+      `1 ${packLbl} = ${packQty} ${uniteLbl}`;
+    $('f-qty').value = '1'; // default 1 packaging unit
+  } else if (packRow) {
+    packRow.style.display = 'none';
+  }
+
+  if (prixAchat > 0 && !$('f-prix').value) $('f-prix').value = prixAchat;
   updateMontant();
 }
 
@@ -412,6 +450,28 @@ function updateMontant() {
   const tot  = qty * prix;
   const prev = $('montant-preview');
   if (prev) prev.textContent = tot > 0 ? fmtGnf(tot) : '—';
+}
+
+/* Quand on entre le nb de casiers/cartons */
+function updateMontantPack() {
+  if (!produitSelId) return;
+  const prod    = produits.find(p => p.id === produitSelId);
+  if (!prod) return;
+  const packNb  = parseInt($('f-pack-nb')?.value) || 1;
+  const packQty = prod.unite_par_packaging || 1;
+  const unites  = packNb * packQty;
+  const uniteLbl = prod.unite_vente || 'unités';
+  const packLbl  = prod.packaging_label || 'emballage';
+
+  /* Met à jour le champ quantité avec le total en unités */
+  if ($('f-qty')) $('f-qty').value = unites;
+
+  /* Affiche la conversion */
+  const calc = $('f-pack-calc');
+  if (calc) calc.textContent =
+    `${packNb} ${packLbl} × ${packQty} = +${unites} ${uniteLbl} en stock`;
+
+  updateMontant();
 }
 
 /* ────────────────────────────────────────────
@@ -442,13 +502,14 @@ async function addAchat() {
     const { error } = await db.from('achats_session').insert(row);
     if (error) throw error;
 
-    /* Mise à jour stock si produit catalogue */
+    /* Mise à jour stock si produit catalogue
+       ACHAT = réception marchandise → stock AUGMENTE */
     if (produitSelId) {
       const prod = produits.find(p => p.id === produitSelId);
       if (prod) {
-        const newQty = Math.max(0, (prod.quantite || 0) - qty);
-        await db.from('produits').update({ quantite: newQty }).eq('id', produitSelId);
-        prod.quantite = newQty;
+        const newStock = (prod.stock_actuel || 0) + qty;
+        await db.from('produits').update({ stock_actuel: newStock }).eq('id', produitSelId);
+        prod.stock_actuel = newStock;
       }
     }
 
@@ -469,13 +530,13 @@ async function addAchat() {
 async function deleteAchat(id, produitId, qty) {
   try {
     await db.from('achats_session').delete().eq('id', id);
-    /* Remettre le stock */
+    /* Annulation achat → stock diminue (on enlève ce qui n'a pas vraiment été reçu) */
     if (produitId) {
       const prod = produits.find(p => p.id === produitId);
       if (prod) {
-        const newQty = (prod.quantite || 0) + qty;
-        await db.from('produits').update({ quantite: newQty }).eq('id', produitId);
-        prod.quantite = newQty;
+        const newStock = Math.max(0, (prod.stock_actuel || 0) - qty);
+        await db.from('produits').update({ stock_actuel: newStock }).eq('id', produitId);
+        prod.stock_actuel = newStock;
       }
     }
   } catch(e) { toast('Erreur : ' + e.message, 'ko'); }

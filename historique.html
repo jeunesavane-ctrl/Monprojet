@@ -34,6 +34,19 @@
 .hist-detail{display:none;padding:12px 16px 14px;border-top:1px solid var(--b1)}
 .hist-item.open .hist-detail{display:block}
 
+/* ── Print ── */
+@media print{
+  #__header__,.app-nav,.hist-filters,.view-switch,.export-bar,
+  #toast,.hist-arrow,.filter-chips,.filter-inp,.view-btn,
+  .hist-count{display:none!important}
+  .hist-item{page-break-inside:avoid;border:1px solid #ccc!important;
+    background:#fff!important;color:#000!important;box-shadow:none!important}
+  .hist-detail{display:block!important}
+  .hist-val,.charge-amt,.total-val,.detail-kpi-val{color:#333!important}
+  body{background:#fff!important;color:#000!important}
+  @page{margin:12mm}
+}
+
 /* ── Détail ventes staff ── */
 .vente-row{
   display:flex;align-items:center;gap:8px;padding:7px 0;
@@ -72,6 +85,15 @@
 .filter-inp{
   background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rs);
   padding:8px 10px;font-size:13px;color:var(--text);width:100%;outline:none}
+
+/* ── Export toolbar ── */
+.export-bar{display:flex;gap:8px;margin-bottom:2px}
+.export-btn{
+  flex:1;padding:8px;border-radius:var(--rs);border:1px solid var(--b1);
+  background:var(--bg2);color:var(--muted);font-size:12px;font-weight:600;
+  cursor:pointer;letter-spacing:.5px;transition:all var(--t);
+  -webkit-tap-highlight-color:transparent}
+.export-btn:hover{border-color:var(--b2);color:var(--text)}
 
 /* ── Vue switch ── */
 .view-switch{display:flex;gap:6px;margin-bottom:4px}
@@ -616,6 +638,10 @@ function renderManagerPanel() {
   const periods = [{v:'7j',l:'7 jours'},{v:'30j',l:'30 jours'},{v:'90j',l:'3 mois'},{v:'all',l:'Tout'}];
 
   $('main-body').innerHTML = `
+    <div class="export-bar">
+      <button class="export-btn" onclick="exportCSV()">⬇ CSV</button>
+      <button class="export-btn" onclick="window.print()">🖨 Imprimer</button>
+    </div>
     <div class="view-switch">
       <button class="view-btn ${histView==='list'?'on':''}" onclick="setHistView('list')">Liste</button>
       <button class="view-btn ${histView==='mensuel'?'on':''}" onclick="setHistView('mensuel')">Mensuel</button>
@@ -762,11 +788,150 @@ function rapportItem(r) {
             <div style="font-size:13px;color:var(--muted)">${r.obs||r.note_exception}</div>
           </div>` : ''}
         ${r.hash ? `<div class="hash-block"><strong>SHA-256</strong>${r.hash}</div>` : ''}
+        <div style="margin-top:10px;text-align:right">
+          <button onclick="event.stopPropagation();printRapport('${r.id}')"
+            style="padding:6px 14px;font-size:11px;font-weight:600;letter-spacing:.8px;
+              border-radius:var(--rs);border:1px solid var(--b1);background:var(--bg3);
+              color:var(--muted);cursor:pointer">
+            🖨 Imprimer ce rapport
+          </button>
+        </div>
       </div>
     </div>`;
 }
 
+function printRapport(id) {
+  const el = document.getElementById('hi-'+id);
+  if (!el) return;
+  const detail = el.querySelector('.hist-detail');
+  if (!detail) return;
+  const r = histData.find(x => x.id === id);
+  if (!r) return;
+
+  const recettes = r.recettes || ((r.total_chicha||0)+(r.total_boissons||0));
+  const gnfP = n => new Intl.NumberFormat('fr-FR').format(Math.round(n||0)) + ' GNF';
+
+  const win = window.open('','_blank','width=620,height=840');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8"><title>Rapport Medellin Lounge</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Arial,sans-serif;padding:24px;color:#111;max-width:540px;margin:0 auto}
+      .logo{font-size:26px;font-weight:900;letter-spacing:4px;color:#8B6914}
+      .sub{font-size:11px;color:#aaa;margin-bottom:18px;margin-top:2px}
+      h1{font-size:20px;margin-bottom:2px}
+      h2{font-size:13px;color:#666;margin-bottom:16px;font-weight:normal}
+      .sect{margin:14px 0;padding:12px 14px;background:#f7f7f7;border-radius:6px}
+      .sect-t{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#aaa;margin-bottom:8px}
+      .row{display:flex;justify-content:space-between;padding:5px 0;
+        border-bottom:1px solid #ebebeb;font-size:13px}
+      .row:last-child{border-bottom:none}
+      .row .v{font-weight:700}
+      .gold{color:#8B6914}.ok{color:#2a7a4a}.danger{color:#b53c3c}
+      .foot{margin-top:20px;font-size:10px;color:#bbb;text-align:center;border-top:1px solid #eee;padding-top:12px}
+      @media print{@page{margin:10mm}}
+    </style>
+  </head><body>
+    <div class="logo">MEDELLIN</div>
+    <div class="sub">Lounge · Conakry</div>
+    <h1>Rapport N°${String(r.num||'?').padStart(3,'0')}</h1>
+    <h2>${r.date_display||r.date||''} — ${r.manager||'—'}</h2>
+
+    <div class="sect">
+      <div class="sect-t">Bilan financier</div>
+      <div class="row"><span>Recettes</span><span class="v gold">${gnfP(recettes)}</span></div>
+      <div class="row"><span>↳ Chicha</span><span class="v">${gnfP(r.total_chicha)}</span></div>
+      <div class="row"><span>↳ Boissons</span><span class="v">${gnfP(r.total_boissons)}</span></div>
+      <div class="row"><span>Achats</span><span class="v danger">− ${gnfP(r.total_achats)}</span></div>
+      ${r.sorties_caisse?`<div class="row"><span>Sorties caisse</span><span class="v danger">− ${gnfP(r.sorties_caisse)}</span></div>`:''}
+      <div class="row" style="font-size:15px;padding-top:8px">
+        <span><strong>Net</strong></span>
+        <span class="v ${(r.net||0)>=0?'ok':'danger'}">${gnfP(r.net)}</span>
+      </div>
+    </div>
+
+    ${(r.fond_caisse||r.total_reel!=null)?`
+    <div class="sect">
+      <div class="sect-t">Caisse</div>
+      ${r.fond_caisse?`<div class="row"><span>Fond ouverture</span><span class="v">${gnfP(r.fond_caisse)}</span></div>`:''}
+      ${r.entrees_caisse?`<div class="row"><span>Entrées</span><span class="v ok">+ ${gnfP(r.entrees_caisse)}</span></div>`:''}
+      ${r.sorties_caisse?`<div class="row"><span>Sorties</span><span class="v danger">− ${gnfP(r.sorties_caisse)}</span></div>`:''}
+      ${r.total_reel!=null?`<div class="row"><span>Réel compté</span><span class="v">${gnfP(r.total_reel)}</span></div>`:''}
+      ${r.ecart!=null?`<div class="row"><span>Écart</span>
+        <span class="v ${r.ecart===0?'ok':r.ecart>0?'danger':''}">
+          ${r.ecart===0?'Caisse exacte':r.ecart>0?'− '+gnfP(r.ecart):'+ '+gnfP(Math.abs(r.ecart))}
+        </span></div>`:''}
+    </div>`:''}
+
+    ${r.obs?`<div class="sect"><div class="sect-t">Observations</div>
+      <div style="font-size:13px;color:#555;line-height:1.5">${r.obs}</div></div>`:''}
+
+    <div class="foot">Imprimé le ${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} · Medellin Lounge · Conakry</div>
+  </body></html>`);
+  win.document.close();
+  setTimeout(() => { win.focus(); win.print(); }, 350);
+}
+
 function toggleHist(id) { $('hi-'+id)?.classList.toggle('open'); }
+
+/* ════════════════════════════════════════════
+   EXPORT CSV
+════════════════════════════════════════════ */
+function exportCSV() {
+  if (!histData || !histData.length) { toast('Aucune donnée à exporter','ko'); return; }
+
+  /* Données filtrées actuellement affichées */
+  const now = new Date();
+  let filtered = histData;
+  if (histFilter.period !== 'all') {
+    const days = histFilter.period==='7j'?7:histFilter.period==='30j'?30:90;
+    const cutoff = new Date(now - days*864e5);
+    filtered = filtered.filter(r => {
+      const d = r.date ? new Date(r.date+'T12:00:00') : null;
+      return d && d >= cutoff;
+    });
+  }
+  if (histFilter.manager) filtered = filtered.filter(r => r.manager===histFilter.manager);
+  const minN = parseFloat(histFilter.minNet);
+  if (!isNaN(minN) && minN > 0) filtered = filtered.filter(r => (r.net||0) >= minN);
+
+  const header = ['Date','N°','Manager','Chicha GNF','Boissons GNF','Recettes GNF',
+    'Achats GNF','Dépenses GNF','Net GNF','Fond GNF','Entrées GNF','Sorties GNF',
+    'Réel GNF','Écart GNF','Note'];
+
+  const rows = filtered.map(r => [
+    r.date || '',
+    r.num  || '',
+    r.manager || '',
+    r.total_chicha   || 0,
+    r.total_boissons || 0,
+    r.recettes || ((r.total_chicha||0)+(r.total_boissons||0)),
+    r.total_achats   || 0,
+    r.depenses       || 0,
+    r.net            || 0,
+    r.fond_caisse    || 0,
+    r.entrees_caisse || 0,
+    r.sorties_caisse || 0,
+    r.total_reel != null ? r.total_reel : '',
+    r.ecart     != null ? r.ecart      : '',
+    (r.obs || '').replace(/"/g,"'")
+  ]);
+
+  const csv = [header, ...rows]
+    .map(row => row.map(v => `"${v}"`).join(';'))
+    .join('\n');
+
+  const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `medellin_rapports_${todayISO()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast(`${filtered.length} rapport${filtered.length>1?'s':''} exporté${filtered.length>1?'s':''} ✓`, 'ok');
+}
 </script>
 </body>
 </html>
