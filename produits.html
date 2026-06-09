@@ -173,6 +173,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
   if (!initPage(['manager','owner'])) return;
 
+  /* Vérification actif NULL → afficher migration si nécessaire */
+  const { data: chkActif } = await db.from('produits').select('actif').is('actif', null).limit(1);
+  if (chkActif?.length > 0) {
+    const migrHint = document.createElement('div');
+    migrHint.style.cssText = 'background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.4);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:12px';
+    migrHint.innerHTML = `<strong style="color:var(--gold)">⚠ Migration requise — produits invisibles</strong><br>
+      Des produits ont <code>actif = NULL</code> et n'apparaissent pas dans les ventes.<br>
+      Exécutez <strong>une seule fois</strong> dans Supabase SQL Editor :<br>
+      <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:11px;display:block;margin-top:6px;white-space:pre;overflow-x:auto">UPDATE produits SET actif = true WHERE actif IS NULL;
+ALTER TABLE produits ALTER COLUMN actif SET DEFAULT true;</code>`;
+    document.querySelector('.body-wrap')?.prepend(migrHint);
+  }
+
   /* Vérification colonnes packaging */
   const { data: tst } = await db.from('produits').select('unite_vente').limit(1);
   if (tst === null || (Array.isArray(tst) && tst.length > 0 && !('unite_vente' in tst[0]))) {
@@ -202,7 +215,7 @@ function switchProdTab(tab) {
 async function loadCommande() {
   const el = $('cmd-content');
   try {
-    const { data } = await db.from('produits').select('*').eq('actif',true).order('nom');
+    const { data } = await db.from('produits').select('*').neq('actif',false).order('nom');
     const prods = data || [];
     const low = prods.filter(p => p.stock_min > 0 && (p.stock_actuel??0) <= p.stock_min);
 
@@ -239,7 +252,7 @@ async function loadCommande() {
 
 async function loadProds() {
   try {
-    const { data } = await db.from('produits').select('*').eq('actif',true).order('nom');
+    const { data } = await db.from('produits').select('*').neq('actif',false).order('nom');
     const prods = data || [];
     ['chicha','boisson'].forEach(type => {
       const list = prods.filter(p=>p.type===type);
@@ -298,7 +311,8 @@ async function saveProd() {
       unite_vente:      ($('np-unite').value.trim()||'unité'),
       packaging_label:  ($('np-pack-label').value.trim()||null),
       unite_par_packaging: packQty > 1 ? packQty : 1,
-      prix_achat:   parseFloat($('np-prix-achat').value)||0
+      prix_achat:   parseFloat($('np-prix-achat').value)||0,
+      actif: true
     });
     toast('Produit ajouté ✓','ok');
     ['np-nom','np-prix','np-stock','np-min','np-unite','np-pack-label',

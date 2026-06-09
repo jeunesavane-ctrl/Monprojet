@@ -380,7 +380,7 @@ async function fetchNextNum() {
 async function loadProducts() {
   if (!db) return;
   try {
-    const { data } = await db.from('produits').select('*').eq('actif',true).order('nom');
+    const { data } = await db.from('produits').select('*').neq('actif',false).order('nom');
     if (!data) return;
     prodCache.chicha  = data.filter(p=>p.type==='chicha');
     prodCache.boisson = data.filter(p=>p.type==='boisson');
@@ -521,7 +521,7 @@ function getRows(type) {
 async function loadStockForm() {
   if (!db) return;
   try {
-    const { data } = await db.from('produits').select('*').eq('actif',true).order('type').order('nom');
+    const { data } = await db.from('produits').select('*').neq('actif',false).order('type').order('nom');
     if (!data?.length) return;
     $('stock-section').style.display = 'block';
     $('stock-rows').innerHTML = data.map(p=>`
@@ -602,7 +602,7 @@ async function doSubmit() {
     const cfgMap = {};
     (cfgR||[]).forEach(r => cfgMap[r.key] = r.value);
     const { data: assocR } = await db.from('employes')
-      .select('pourcentage').eq('role','associe').eq('actif',true);
+      .select('pourcentage').eq('role','associe').neq('actif',false);
     const partLoungeR  = parseFloat(cfgMap.part_lounge ?? 10) || 10;
     const distribPctR  = Math.max(0, 100 - partLoungeR) / 100;
     const assocPctR     = (assocR||[]).reduce((s,a)=>s+(a.pourcentage||0),0);

@@ -237,7 +237,7 @@ async function loadProduits() {
   try {
     const { data, error } = await db.from('produits')
       .select('nom,type,prix_defaut')
-      .eq('actif', true).order('nom');
+      .neq('actif', false).order('nom');
     if (error) console.error('produits:', error.message);
     produits = (data || []).map(p => ({
       ...p,
