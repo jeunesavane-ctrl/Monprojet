@@ -1100,19 +1100,36 @@ function confirmValidate(theorique) {
   const note  = ($('f-note')?.value || '').trim();
   const ecart = reel != null ? theorique - reel : null;
 
+  /* ── Écart espèces ── */
   const ecartLine = ecart !== null
-    ? `<br>Écart : <strong style="color:${ecart===0?'var(--ok)':ecart>0?'var(--danger)':'#5BA3CC'}">
-         ${ecart===0 ? '±0 (caisse exacte)' : ecart>0 ? `− ${gnf(ecart)}` : `+ ${gnf(Math.abs(ecart))}`}
+    ? `<br>Écart espèces : <strong style="color:${ecart===0?'var(--ok)':ecart>0?'var(--danger)':'#5BA3CC'}">
+         ${ecart===0 ? '±0 (caisse exacte)' : ecart>0 ? `Manque ${gnf(ecart)}` : `Excédent ${gnf(Math.abs(ecart))}`}
        </strong>` : '';
+
+  /* ── Écart OM ── */
+  const totOM   = allVentes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
+  const omInput = document.getElementById('om-verifie');
+  const omVal   = omInput?.value ? parseInt(omInput.value)
+                  : (sessionData.total_om_verifie ?? null);
+  const ecartOM = (totOM > 0 && omVal !== null) ? totOM - omVal : 0;
+  const omLine  = totOM > 0
+    ? (ecartOM > 0
+        ? `<br>⚠ Écart OM : <strong style="color:var(--danger)">Manque ${gnf(ecartOM)}</strong>
+           <br><small style="color:var(--muted)">Un remboursement sera créé automatiquement.</small>`
+        : ecartOM < 0
+        ? `<br>📱 OM : <strong style="color:#5BA3CC">Surplus ${gnf(Math.abs(ecartOM))}</strong>`
+        : omVal !== null
+        ? `<br>📱 OM : <strong style="color:var(--ok)">✓ exact (${gnf(totOM)})</strong>`
+        : `<br><small style="color:var(--muted)">OM non vérifié (${gnf(totOM)} attendu)</small>`)
+    : '';
 
   $('overlay-sheet').innerHTML = `
     <div class="sheet-title">Clôturer la caisse ?</div>
     <div class="sheet-text">
-      Total théorique : <strong style="color:var(--gold)">${gnf(theorique)}</strong>
-      ${reel != null ? `<br>Total réel compté : <strong>${gnf(reel)}</strong>` : ''}
-      ${ecartLine}
-      <br><br>Cette action envoie les données au gestionnaire pour la validation finale.
-      Vous ne pourrez plus modifier après confirmation.
+      Théorique espèces : <strong style="color:var(--gold)">${gnf(theorique)}</strong>
+      ${reel != null ? `<br>Réel compté : <strong>${gnf(reel)}</strong>` : ''}
+      ${ecartLine}${omLine}
+      <br><br>Cette action envoie les données au gestionnaire. Vous ne pourrez plus modifier.
     </div>
     <div class="sheet-btns">
       <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
@@ -1129,12 +1146,17 @@ async function validateSession(theorique, reel, note) {
     const empId    = ML.getExtra()?.employe_id || null;
     const ecartVal = (reel != null) ? (theorique - reel) : null;
 
+    /* ── Calcul écart OM ── */
+    const totOM   = allVentes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
+    const omVerif = sessionData.total_om_verifie ?? null;
+    const ecartOM = (totOM > 0 && omVerif !== null) ? totOM - omVerif : 0;
+
     const { error } = await db.from('sessions_caisse').update({
       statut:        'valide_caissier',
       note_caissier: note || null,
       total_reel:    reel ?? null,
       caissier_id:   empId,
-      ecart:         ecartVal   /* + = manque, − = excédent */
+      ecart:         ecartVal   /* + = manque espèces, − = excédent espèces */
     }).eq('id', sessionData.id);
     if (error) throw error;
 
@@ -1143,7 +1165,18 @@ async function validateSession(theorique, reel, note) {
     sessionData.total_reel    = reel;
     sessionData.ecart         = ecartVal;
 
-    ML.logAction(`💰 Caisse clôturée · Ventes ${gnf(allVentes.reduce((s,v)=>s+v.total,0))} · Théorique ${gnf(theorique)}`);
+    /* ── Créer remboursement OM si manque ── */
+    if (ecartOM > 0 && empId && sessionData.id) {
+      await db.from('remboursements_ecart').insert({
+        session_id: sessionData.id,
+        employe_id: empId,
+        montant:    ecartOM,
+        note:       `Manquant OM — attendu ${gnf(totOM)}, vérifié ${gnf(omVerif)}`,
+        statut:     'en_attente'
+      }).catch(() => {});  /* silencieux si échec */
+    }
+
+    ML.logAction(`💰 Caisse clôturée · Ventes ${gnf(allVentes.reduce((s,v)=>s+v.total,0))} · Théorique ${gnf(theorique)}${ecartOM>0?` · Écart OM ${gnf(ecartOM)}`:''}`);
     toast('Caisse clôturée — gestionnaire notifié ✓', 'ok');
     renderCaisse();
   } catch(e) { toast('Erreur : '+e.message, 'ko'); }
