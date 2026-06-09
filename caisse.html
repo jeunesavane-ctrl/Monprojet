@@ -627,66 +627,49 @@ function renderCaisse() {
          </div>
        </div>`;
 
-  /* Bloc OM séparé si transactions OM */
-  const omBlock = totOM > 0 ? `
-    <div class="s-head">Orange Money</div>
-    <div style="background:rgba(255,120,0,.06);border:1px solid rgba(255,120,0,.25);
-      border-radius:var(--r);padding:14px 16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;
-        margin-bottom:8px">
-        <div>
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;
-            color:rgba(255,120,0,.6);margin-bottom:2px">Total OM à virer</div>
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#FF7800;line-height:1">
-            ${gnf(totOM)}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px">
-            Ces fonds sont sur le compte OM — non inclus dans le comptage espèces
-          </div>
-        </div>
-      </div>
-      ${!isVal && !ro ? `
-        <div class="field" style="margin:0">
-          <label style="font-size:11px;color:rgba(255,120,0,.7)">OM vérifié (montant sur téléphone)</label>
-          <input type="number" id="om-verifie" inputmode="numeric"
-            value="${sessionData.total_om_verifie||''}"
-            placeholder="${totOM}"
-            style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#FF7800;
-              background:rgba(255,120,0,.07);border-color:rgba(255,120,0,.3)"
-            oninput="checkOmEcart(${totOM})">
-          <div id="om-ecart" style="font-size:12px;margin-top:4px;text-align:right;min-height:16px"></div>
-        </div>` : (sessionData.total_om_verifie != null
-          ? `<div style="font-size:13px;color:var(--muted)">OM vérifié : <strong style="color:#FF7800">${gnf(sessionData.total_om_verifie)}</strong>
-             ${sessionData.total_om_verifie===totOM?'<span style="color:var(--ok)"> ✓</span>':'<span style="color:var(--danger)"> ≠ attendu</span>'}</div>`
-          : '')}
-    </div>` : '';
+  /* omBlock supprimé — OM maintenant intégré dans le bloc recap ci-dessous */
 
   const recap = `
-    <div class="s-head">Récapitulatif espèces</div>
+    <div class="s-head">Récapitulatif</div>
     <div class="recap-card">
+
+      ${/* ── Total ventes global ── */'' }
+      <div style="display:flex;justify-content:space-between;align-items:center;
+        padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--b1)">
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;
+            color:var(--muted);margin-bottom:3px">Total ventes du soir</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;
+            color:var(--gold);line-height:1">${gnf(totVentes)}</div>
+        </div>
+        <div style="text-align:right;font-size:12px;line-height:1.8">
+          <div>💵 Espèces&nbsp;&nbsp;<strong>${gnf(totEsp)}</strong></div>
+          ${totOM > 0 ? `<div style="color:#FF7800">📱 OM&nbsp;&nbsp;<strong>${gnf(totOM)}</strong></div>` : ''}
+        </div>
+      </div>
+
+      ${/* ── Détail espèces ── */'' }
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;
+        color:var(--muted);margin-bottom:8px">Comptage espèces</div>
       <div class="recap-row">
         <span>Fond de caisse</span><span>${gnf(fond)}</span>
       </div>
       <div class="recap-row">
-        <span>💵 Ventes espèces</span><span>${gnf(totEsp)}</span>
+        <span>+ Ventes espèces</span><span>${gnf(totEsp)}</span>
       </div>
-      ${totOM > 0
-        ? `<div class="recap-row" style="opacity:.5">
-             <span>📱 Ventes OM <em style="font-size:10px">(compte séparé)</em></span>
-             <span style="color:#FF7800 !important">${gnf(totOM)}</span>
-           </div>` : ''}
       ${totEntrees > 0
         ? `<div class="recap-row">
-             <span style="color:var(--ok)">+ Entrées de caisse</span>
+             <span style="color:var(--ok)">+ Entrées</span>
              <span style="color:var(--ok) !important">${gnf(totEntrees)}</span>
            </div>` : ''}
       ${totSorties > 0
         ? `<div class="recap-row">
-             <span style="color:var(--danger)">− Sorties de caisse</span>
+             <span style="color:var(--danger)">− Sorties</span>
              <span style="color:var(--danger) !important">${gnf(totSorties)}</span>
            </div>` : ''}
       ${totAchats > 0
         ? `<div class="recap-row">
-             <span style="color:var(--danger)">− Achats (${allAchats.length} art.)</span>
+             <span style="color:var(--danger)">− Achats</span>
              <span style="color:var(--danger) !important">${gnf(totAchats)}</span>
            </div>` : ''}
       <div class="recap-total">
@@ -694,8 +677,34 @@ function renderCaisse() {
         <span class="recap-total-val">${gnf(theorique)}</span>
       </div>
       ${reelSection}
-    </div>
-    ${omBlock}`;
+
+      ${/* ── OM intégré ── */'' }
+      ${totOM > 0 ? `
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,120,0,.2)">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;
+            color:rgba(255,120,0,.7);margin-bottom:8px">Orange Money</div>
+          <div class="recap-row" style="color:#FF7800">
+            <span>OM attendu</span><span>${gnf(totOM)}</span>
+          </div>
+          ${!isVal && !ro ? `
+            <div class="field" style="margin:8px 0 0">
+              <label style="font-size:11px;color:rgba(255,120,0,.7)">OM vérifié sur téléphone</label>
+              <input type="number" id="om-verifie" inputmode="numeric"
+                value="${sessionData.total_om_verifie||''}" placeholder="${totOM}"
+                style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#FF7800;
+                  background:rgba(255,120,0,.07);border-color:rgba(255,120,0,.3)"
+                oninput="checkOmEcart(${totOM})">
+              <div id="om-ecart" style="font-size:12px;margin-top:4px;text-align:right;min-height:16px"></div>
+            </div>` : (sessionData.total_om_verifie != null
+              ? `<div class="recap-row" style="color:#FF7800">
+                   <span>OM vérifié</span>
+                   <span>${gnf(sessionData.total_om_verifie)}
+                     ${sessionData.total_om_verifie===totOM
+                       ? '<span style="color:var(--ok)"> ✓</span>'
+                       : '<span style="color:var(--danger)"> ≠</span>'}</span>
+                 </div>` : '')}
+        </div>` : ''}
+    </div>`;
 
   /* ── 7. Clôture ── */
   let clotureBlock;
@@ -706,15 +715,61 @@ function renderCaisse() {
         <div class="validated-title">
           ${sessionData.statut==='valide_manager' ? 'Rapport créé' : 'Clôturée — en attente gestionnaire'}
         </div>
-        <div class="validated-sub">
-          ${ro ? 'Caissier a clôturé la session.' : 'Votre clôture a été envoyée au gestionnaire.'}<br>
-          Théorique : <strong style="color:var(--gold)">${gnf(theorique)}</strong>
-          ${reel != null ? ` · Réel : <strong>${gnf(reel)}</strong>` : ''}
-          ${ecart !== null
-            ? `<br>Écart : <strong style="color:${ecartColor}">${ecartTxt}</strong>` : ''}
-          ${sessionData.note_caissier
-            ? `<br><em style="opacity:.55;font-style:italic">"${sessionData.note_caissier}"</em>` : ''}
+
+        <div style="width:100%;margin:12px 0 0;border-top:1px solid rgba(255,255,255,.07);
+          padding-top:12px;text-align:left">
+
+          <!-- Total global -->
+          <div style="display:flex;justify-content:space-between;align-items:center;
+            margin-bottom:10px">
+            <span style="font-size:12px;color:var(--muted)">Total ventes</span>
+            <span style="font-family:'Bebas Neue',sans-serif;font-size:22px;
+              color:var(--gold)">${gnf(totVentes)}</span>
+          </div>
+
+          <!-- Détail espèces -->
+          <div style="font-size:11px;color:var(--muted);display:flex;
+            justify-content:space-between;margin-bottom:4px">
+            <span>💵 Espèces théorique</span><span>${gnf(theorique)}</span>
+          </div>
+          ${reel != null ? `
+          <div style="font-size:11px;color:var(--muted);display:flex;
+            justify-content:space-between;margin-bottom:4px">
+            <span>Réel compté</span>
+            <span style="color:var(--text)">${gnf(reel)}</span>
+          </div>
+          <div style="font-size:12px;font-weight:600;display:flex;
+            justify-content:space-between;margin-bottom:8px">
+            <span style="color:${ecartColor}">Écart espèces</span>
+            <span style="color:${ecartColor}">${ecartTxt}</span>
+          </div>` : ''}
+
+          <!-- OM -->
+          ${totOM > 0 ? `
+          <div style="border-top:1px solid rgba(255,120,0,.15);padding-top:8px;margin-top:4px">
+            <div style="font-size:11px;color:rgba(255,120,0,.7);display:flex;
+              justify-content:space-between;margin-bottom:4px">
+              <span>📱 Orange Money attendu</span><span>${gnf(totOM)}</span>
+            </div>
+            ${sessionData.total_om_verifie != null ? `
+            <div style="font-size:11px;color:rgba(255,120,0,.7);display:flex;
+              justify-content:space-between">
+              <span>OM vérifié</span>
+              <span style="color:#FF7800;font-weight:600">
+                ${gnf(sessionData.total_om_verifie)}
+                ${sessionData.total_om_verifie===totOM
+                  ? '<span style="color:var(--ok)"> ✓</span>'
+                  : '<span style="color:var(--danger)"> ≠</span>'}
+              </span>
+            </div>` : ''}
+          </div>` : ''}
+
         </div>
+
+        ${sessionData.note_caissier
+          ? `<div style="margin-top:10px;font-size:12px;color:var(--muted);
+               font-style:italic;text-align:center;opacity:.7">
+               "${sessionData.note_caissier}"</div>` : ''}
       </div>`;
   } else if (ro) {
     clotureBlock = `
