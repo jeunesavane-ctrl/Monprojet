@@ -30,6 +30,8 @@
   margin-bottom:4px}
 @media(min-width:480px){.prod-grid{grid-template-columns:1fr 1fr 1fr}}
 .prod-card{
+  appearance:none;-webkit-appearance:none;
+  font-family:inherit;font-size:inherit;text-align:left;width:100%;
   background:var(--bg2);border:1.5px solid var(--b1);border-radius:var(--r);
   padding:14px 12px;cursor:pointer;transition:all var(--t);
   -webkit-tap-highlight-color:transparent;
@@ -345,13 +347,13 @@ function renderPage() {
   const gridHTML = `
     <div class="prod-grid" id="prod-grid">
       ${filtered.length ? filtered.map(p => `
-        <div class="prod-card ${p.type||'autre'}${selectedProd?.nom===p.nom?' selected':''}"
+        <button type="button" class="prod-card ${p.type||'autre'}${selectedProd?.nom===p.nom?' selected':''}"
           data-nom="${p.nom.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}"
           data-prix="${p.prix||0}"
           data-type="${p.type||'autre'}">
           <div class="prod-card-nom">${p.nom}</div>
           <div class="prod-card-prix${!p.prix?' no-prix':''}">${p.prix ? gnf(p.prix) : '— GNF'}</div>
-        </div>`).join('') : `<div class="grid-empty">Aucun produit dans cette catégorie</div>`}
+        </button>`).join('') : `<div class="grid-empty">Aucun produit dans cette catégorie</div>`}
     </div>`;
 
   $('main-body').innerHTML = banner + tabsHTML + gridHTML
