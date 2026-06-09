@@ -236,12 +236,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadProduits() {
   try {
     const { data, error } = await db.from('produits')
-      .select('*')
+      .select('nom,type,prix_defaut')
       .eq('actif', true).order('nom');
     if (error) console.error('produits:', error.message);
     produits = (data || []).map(p => ({
       ...p,
-      prix: p.prix || p.prix_defaut || 0
+      prix: p.prix_defaut || 0
     }));
     /* Par défaut on s'aligne sur le premier type disponible */
     const types = [...new Set(produits.map(p => p.type||'autre'))];
