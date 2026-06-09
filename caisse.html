@@ -688,20 +688,25 @@ function renderCaisse() {
           </div>
           ${!isVal && !ro ? `
             <div class="field" style="margin:8px 0 0">
-              <label style="font-size:11px;color:rgba(255,120,0,.7)">OM vérifié sur téléphone</label>
+              <label style="font-size:11px;color:rgba(255,120,0,.7)">
+                Montant visible sur le téléphone OM
+              </label>
               <input type="number" id="om-verifie" inputmode="numeric"
                 value="${sessionData.total_om_verifie||''}" placeholder="${totOM}"
                 style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#FF7800;
                   background:rgba(255,120,0,.07);border-color:rgba(255,120,0,.3)"
                 oninput="checkOmEcart(${totOM})">
               <div id="om-ecart" style="font-size:12px;margin-top:4px;text-align:right;min-height:16px"></div>
+              <div style="font-size:11px;color:var(--muted);margin-top:4px">
+                ℹ️ L'argent OM est sur le compte mobile — cette vérification est informative.
+              </div>
             </div>` : (sessionData.total_om_verifie != null
               ? `<div class="recap-row" style="color:#FF7800">
                    <span>OM vérifié</span>
                    <span>${gnf(sessionData.total_om_verifie)}
                      ${sessionData.total_om_verifie===totOM
                        ? '<span style="color:var(--ok)"> ✓</span>'
-                       : '<span style="color:var(--danger)"> ≠</span>'}</span>
+                       : '<span style="color:var(--muted)"> à vérifier</span>'}</span>
                  </div>` : '')}
         </div>` : ''}
     </div>`;
@@ -1055,9 +1060,11 @@ function checkOmEcart(attendu) {
   if (diff === 0) {
     disp.style.color = 'var(--ok)'; disp.textContent = '✓ OM conforme';
   } else if (diff < 0) {
-    disp.style.color = 'var(--danger)'; disp.textContent = `Manque ${gnf(Math.abs(diff))} sur OM`;
+    /* Différence OM : informatif, pas un manquant caissier */
+    disp.style.color = '#FF7800';
+    disp.textContent = `Différence : ${gnf(Math.abs(diff))} — à signaler au gestionnaire`;
   } else {
-    disp.style.color = '#5BA3CC'; disp.textContent = `Excédent OM : ${gnf(diff)}`;
+    disp.style.color = '#5BA3CC'; disp.textContent = `Surplus OM : ${gnf(diff)}`;
   }
   /* Sauvegarde après 800ms */
   clearTimeout(_omSave);
@@ -1106,21 +1113,19 @@ function confirmValidate(theorique) {
          ${ecart===0 ? '±0 (caisse exacte)' : ecart>0 ? `Manque ${gnf(ecart)}` : `Excédent ${gnf(Math.abs(ecart))}`}
        </strong>` : '';
 
-  /* ── Écart OM ── */
+  /* ── Vérification OM (informatif — l'argent OM est sur le compte mobile, pas en caisse) ── */
   const totOM   = allVentes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
   const omInput = document.getElementById('om-verifie');
   const omVal   = omInput?.value ? parseInt(omInput.value)
                   : (sessionData.total_om_verifie ?? null);
-  const ecartOM = (totOM > 0 && omVal !== null) ? totOM - omVal : 0;
+  const diffOM  = (totOM > 0 && omVal !== null) ? totOM - omVal : 0;
   const omLine  = totOM > 0
-    ? (ecartOM > 0
-        ? `<br>⚠ Écart OM : <strong style="color:var(--danger)">Manque ${gnf(ecartOM)}</strong>
-           <br><small style="color:var(--muted)">Un remboursement sera créé automatiquement.</small>`
-        : ecartOM < 0
-        ? `<br>📱 OM : <strong style="color:#5BA3CC">Surplus ${gnf(Math.abs(ecartOM))}</strong>`
+    ? (diffOM !== 0 && omVal !== null
+        ? `<br>📱 OM : <strong style="color:#FF7800">${gnf(totOM)} attendu / ${gnf(omVal)} vérifié</strong>
+           <br><small style="color:var(--muted)">⚠ À signaler au gestionnaire — non déduit de la caisse.</small>`
         : omVal !== null
-        ? `<br>📱 OM : <strong style="color:var(--ok)">✓ exact (${gnf(totOM)})</strong>`
-        : `<br><small style="color:var(--muted)">OM non vérifié (${gnf(totOM)} attendu)</small>`)
+        ? `<br>📱 OM : <strong style="color:var(--ok)">✓ vérifié (${gnf(totOM)})</strong>`
+        : `<br><small style="color:var(--muted)">📱 OM ${gnf(totOM)} — non vérifié sur le téléphone</small>`)
     : '';
 
   $('overlay-sheet').innerHTML = `
@@ -1165,18 +1170,10 @@ async function validateSession(theorique, reel, note) {
     sessionData.total_reel    = reel;
     sessionData.ecart         = ecartVal;
 
-    /* ── Créer remboursement OM si manque ── */
-    if (ecartOM > 0 && empId && sessionData.id) {
-      await db.from('remboursements_ecart').insert({
-        session_id: sessionData.id,
-        employe_id: empId,
-        montant:    ecartOM,
-        note:       `Manquant OM — attendu ${gnf(totOM)}, vérifié ${gnf(omVerif)}`,
-        statut:     'en_attente'
-      }).catch(() => {});  /* silencieux si échec */
-    }
+    /* OM : pas de remboursement — l'argent OM est sur le compte mobile du lounge,
+       pas dans la caisse physique. Une différence est à vérifier par le manager. */
 
-    ML.logAction(`💰 Caisse clôturée · Ventes ${gnf(allVentes.reduce((s,v)=>s+v.total,0))} · Théorique ${gnf(theorique)}${ecartOM>0?` · Écart OM ${gnf(ecartOM)}`:''}`);
+    ML.logAction(`💰 Caisse clôturée · Ventes ${gnf(allVentes.reduce((s,v)=>s+v.total,0))} · Théorique ${gnf(theorique)}${ecartOM>0?` · OM à vérifier ${gnf(ecartOM)}`:''}`);
     toast('Caisse clôturée — gestionnaire notifié ✓', 'ok');
     renderCaisse();
   } catch(e) { toast('Erreur : '+e.message, 'ko'); }
