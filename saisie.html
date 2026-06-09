@@ -226,7 +226,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  await Promise.all([loadProduits(), initSession()]);
+  const [, sessionOk] = await Promise.all([loadProduits(), initSession()]);
+  if (sessionOk !== false) {
+    renderPage();
+    subscribeRealtime();
+  }
 });
 
 async function loadProduits() {
@@ -267,12 +271,11 @@ async function initSession() {
 
     ventes = myVentes || [];
     closed = ventes.length > 0 && ventes.every(v => v.valide_staff);
-
-    renderPage();
-    subscribeRealtime();
+    return true; /* succès */
 
   } catch(e) {
     $('main-body').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+    return false;
   }
 }
 
