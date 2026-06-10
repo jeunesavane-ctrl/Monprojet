@@ -413,8 +413,9 @@ function renderCaisse() {
   const totSorties = allMouvements.filter(m => m.type==='sortie').reduce((s,m) => s+m.montant, 0);
   const totAchats  = allAchats.reduce((s,a) => s+a.montant, 0);
 
-  /* Théorique espèces uniquement (OM exclu du théorique) */
-  const theoriqueEsp = fond + totEsp + totEntrees - totSorties - totAchats;
+  /* Théorique total = espèces + OM + fond + entrées - sorties - achats */
+  const theorique    = fond + totVentes + totEntrees - totSorties - totAchats;
+  const theoriqueEsp = fond + totEsp    + totEntrees - totSorties - totAchats;
   const reelEsp      = sessionData.total_reel;
   const reelOM       = sessionData.total_om_verifie;
   /* Écart espèces + écart OM = écart total */
@@ -723,8 +724,8 @@ function renderCaisse() {
              <span style="color:var(--danger) !important">${gnf(totAchats)}</span>
            </div>` : ''}
       <div class="recap-total">
-        <span class="recap-total-lbl">Théorique espèces</span>
-        <span class="recap-total-val">${gnf(theoriqueEsp)}</span>
+        <span class="recap-total-lbl">Théorique total</span>
+        <span class="recap-total-val">${gnf(theorique)}</span>
       </div>
       ${reelSection}
     </div>`;
