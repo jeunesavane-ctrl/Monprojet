@@ -798,13 +798,20 @@ function rapportItem(r) {
             <div style="font-size:13px;color:var(--muted)">${r.obs||r.note_exception}</div>
           </div>` : ''}
         ${r.hash ? `<div class="hash-block"><strong>SHA-256</strong>${r.hash}</div>` : ''}
-        <div style="margin-top:10px;text-align:right">
+        <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px">
           <button onclick="event.stopPropagation();printRapport('${r.id}')"
             style="padding:6px 14px;font-size:11px;font-weight:600;letter-spacing:.8px;
               border-radius:var(--rs);border:1px solid var(--b1);background:var(--bg3);
               color:var(--muted);cursor:pointer">
-            🖨 Imprimer ce rapport
+            🖨 Imprimer
           </button>
+          ${role === 'owner' ? `
+          <button onclick="event.stopPropagation();openDeleteRapport('${r.id}','${r.session_id||''}','${r.num||'?'}','${r.date_display||r.date}')"
+            style="padding:6px 14px;font-size:11px;font-weight:600;letter-spacing:.8px;
+              border-radius:var(--rs);border:1px solid rgba(255,80,80,.3);
+              background:rgba(255,80,80,.06);color:var(--danger);cursor:pointer">
+            🗑 Supprimer
+          </button>` : ''}
         </div>
       </div>
     </div>`;
@@ -885,6 +892,55 @@ function printRapport(id) {
 function toggleHist(id) { $('hi-'+id)?.classList.toggle('open'); }
 
 /* ════════════════════════════════════════════
+   SUPPRESSION RAPPORT (owner uniquement)
+════════════════════════════════════════════ */
+let _delRapport = null;
+
+function openDeleteRapport(id, sessionId, num, dateDisplay) {
+  _delRapport = { id, sessionId, num, dateDisplay };
+  const ov = $('del-overlay');
+  $('del-num').textContent   = `N°${String(num).padStart(3,'0')}`;
+  $('del-date').textContent  = dateDisplay;
+  $('del-err').textContent   = '';
+  ov.style.display = 'flex';
+}
+
+function closeDeleteRapport() {
+  $('del-overlay').style.display = 'none';
+  _delRapport = null;
+}
+
+async function confirmDeleteRapport() {
+  if (!_delRapport) return;
+  const { id, sessionId } = _delRapport;
+  const btn = $('del-btn');
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    /* 1. Supprimer le rapport */
+    const { error: e1 } = await db.from('rapports').delete().eq('id', id);
+    if (e1) throw e1;
+    /* 2. Si la session existe, la remettre en "valide_caissier"
+          (permet une revalidation si besoin) */
+    if (sessionId) {
+      await db.from('sessions_caisse')
+        .update({ statut: 'valide_caissier', note_manager: null })
+        .eq('id', sessionId);
+    }
+    ML.logAction(`🗑 Rapport N°${String(_delRapport.num).padStart(3,'0')} supprimé`);
+    toast(`Rapport N°${String(_delRapport.num).padStart(3,'0')} supprimé`, 'ok');
+    /* Retirer de l'UI sans recharger */
+    document.getElementById('hi-' + id)?.remove();
+    histData = histData.filter(r => r.id !== id);
+    closeDeleteRapport();
+  } catch(e) {
+    $('del-err').textContent = 'Erreur : ' + e.message;
+    btn.disabled = false;
+    btn.textContent = 'SUPPRIMER';
+  }
+}
+
+/* ════════════════════════════════════════════
    EXPORT CSV
 ════════════════════════════════════════════ */
 function exportCSV() {
@@ -943,5 +999,34 @@ function exportCSV() {
   toast(`${filtered.length} rapport${filtered.length>1?'s':''} exporté${filtered.length>1?'s':''} ✓`, 'ok');
 }
 </script>
+
+<!-- ═══ MODAL SUPPRESSION RAPPORT ═══ -->
+<div id="del-overlay" style="display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.88);z-index:200;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--bg2);border:1px solid rgba(255,80,80,.3);border-radius:var(--r);
+    padding:24px 20px;width:100%;max-width:360px">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--danger);
+      letter-spacing:1px;margin-bottom:4px">Supprimer ce rapport ?</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+      Rapport <strong id="del-num" style="color:var(--text)"></strong>
+      du <strong id="del-date" style="color:var(--text)"></strong><br>
+      La session caisse sera remise en attente de validation.
+    </div>
+    <div id="del-err" style="font-size:12px;color:var(--danger);min-height:14px;margin-bottom:8px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button onclick="closeDeleteRapport()"
+        style="padding:14px;background:transparent;border:1px solid var(--b1);
+          border-radius:var(--r);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer">
+        Annuler
+      </button>
+      <button id="del-btn" onclick="confirmDeleteRapport()"
+        style="padding:14px;background:var(--danger);border:none;border-radius:var(--r);
+          color:#fff;font-size:13px;font-weight:700;cursor:pointer">
+        SUPPRIMER
+      </button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

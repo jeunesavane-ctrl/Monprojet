@@ -168,59 +168,10 @@
       </div>
     </div>
 
-    <!-- ⚠ Zone dangereuse — Réinitialisation -->
-    <div class="card" style="border:1px solid rgba(255,80,80,.25)">
-      <div class="card-head">
-        <div class="card-title" style="color:var(--danger)">⚠ Zone dangereuse</div>
-      </div>
-      <div class="card-body">
-        <div style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:12px">
-          <b style="color:var(--text)">Efface uniquement :</b> rapports, sessions caisse, présences,
-          justifications, avances, salaires versés, logs.<br>
-          <b style="color:var(--ok)">✓ Conservés :</b> produits, charges fixes, comptes employés, config, PINs.
-          <br><b style="color:var(--danger)">Action irréversible.</b>
-        </div>
-        <button onclick="openReset()"
-          style="width:100%;padding:12px;border:1px solid var(--danger);border-radius:var(--r);
-            background:rgba(255,80,80,.08);color:var(--danger);font-size:13px;font-weight:600;
-            cursor:pointer;-webkit-tap-highlight-color:transparent">
-          🗑 Réinitialiser les rapports
-        </button>
-      </div>
-    </div>
+    <!-- Suppression des rapports : voir Historique → bouton 🗑 sur chaque rapport -->
 
   </div>
 
-  <!-- ═══════════════════════════════════════════════════
-       MODAL RÉINITIALISATION — PIN propriétaire requis
-  ═══════════════════════════════════════════════════ -->
-  <div id="overlay-reset" style="display:none;position:fixed;inset:0;
-    background:rgba(0,0,0,.88);z-index:200;align-items:center;justify-content:center">
-    <div style="background:var(--bg2);border:1px solid rgba(255,80,80,.3);border-radius:var(--r);
-      padding:24px 20px;width:calc(100% - 40px);max-width:400px">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--danger);
-        letter-spacing:1px;margin-bottom:6px">Confirmer la réinitialisation</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5">
-        Entrez votre PIN propriétaire pour confirmer.<br>
-        Cette action est <b style="color:var(--danger)">irréversible</b>.
-      </div>
-      <div class="field" style="margin-bottom:12px">
-        <label>PIN propriétaire</label>
-        <input id="reset-pin" type="password" inputmode="numeric" maxlength="4"
-          placeholder="••••" style="font-size:22px;text-align:center;letter-spacing:8px"
-          onkeydown="if(event.key==='Enter')confirmReset()">
-      </div>
-      <div id="reset-err" style="font-size:13px;color:var(--danger);min-height:14px;margin-bottom:10px"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <button class="btn-secondary" onclick="closeReset()">Annuler</button>
-        <button onclick="confirmReset()"
-          style="padding:14px;background:var(--danger);border:none;border-radius:var(--r);
-            color:#fff;font-size:13px;font-weight:700;cursor:pointer">
-          RÉINITIALISER
-        </button>
-      </div>
-    </div>
-  </div>
 
   <!-- ═══════════════════════════════════════════════════
        MODAL UNIFIÉ — Nouveau compte / Modification
@@ -798,53 +749,6 @@ async function loadLogs() {
   }
 }
 
-/* ── Réinitialisation des données ── */
-function openReset() {
-  $('reset-pin').value = '';
-  $('reset-err').textContent = '';
-  $('overlay-reset').style.display = 'flex';
-  setTimeout(() => $('reset-pin').focus(), 80);
-}
-function closeReset() {
-  $('overlay-reset').style.display = 'none';
-}
-
-async function confirmReset() {
-  const pin = $('reset-pin').value.trim();
-  if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-    $('reset-err').textContent = 'PIN : 4 chiffres requis'; return;
-  }
-  const h       = await sha256(pin);
-  const hashes  = ML.getHashes();
-  if (h !== hashes.hOwner) {
-    $('reset-err').textContent = 'PIN incorrect — réinitialisation annulée';
-    $('reset-pin').value = '';
-    $('reset-pin').focus();
-    return;
-  }
-
-  /* PIN validé — efface UNIQUEMENT les données transactionnelles
-     NE PAS TOUCHER : employes, produits, charges, config            */
-  const TABLES = [
-    'salaires_verses',   /* paiements de salaires */
-    'avances',           /* demandes d'avances */
-    'presences',         /* pointage */
-    'justifications',    /* justifications absences */
-    'rapports',          /* rapports journaliers */
-    'sessions_caisse',   /* sessions + cascade → ventes, mouvements, achats, crédits, remboursements */
-    'logs'               /* historique actions */
-  ];
-  try {
-    for (const t of TABLES) {
-      await db.from(t).delete().not('id','is',null);
-    }
-    ML.logAction('🗑 Réinitialisation des rapports');
-    toast('Rapports réinitialisés ✓ Produits et charges conservés.','ok');
-    closeReset();
-  } catch(e) {
-    $('reset-err').textContent = 'Erreur : ' + e.message;
-  }
-}
 
 /* ── PIN partagé (Gestionnaire / Manager) ── */
 function togglePc(target) {
