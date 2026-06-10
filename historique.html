@@ -352,17 +352,18 @@ async function loadHistCaissier() {
 }
 
 function renderCaissierEntry(sess, m) {
-  const fond       = sess.fond_caisse || 0;
-  const totV       = m.totV || 0;
-  const totOM      = m.totOM || 0;
-  const totEsp     = totV - totOM;
-  const totEntrees = m.totEntrees || 0;
-  const totSorties = m.totSorties || 0;
-  const totAchats  = m.totAchats  || 0;
-  const theorique  = fond + totV + totEntrees - totSorties - totAchats;
-  const reel       = sess.total_reel ?? null;
-  // Préférer l'écart stocké en base (calculé à la clôture) sinon recalcul local
-  const ecart      = sess.ecart != null ? sess.ecart : (reel != null ? theorique - reel : null);
+  const fond        = sess.fond_caisse || 0;
+  const totV        = m.totV || 0;
+  const totOM       = m.totOM || 0;
+  const totEsp      = totV - totOM;
+  const totEntrees  = m.totEntrees || 0;
+  const totSorties  = m.totSorties || 0;
+  const totAchats   = m.totAchats  || 0;
+  /* théorique espèces uniquement (OM exclu pour le fallback) */
+  const theoriqueEsp = fond + totEsp + totEntrees - totSorties - totAchats;
+  const reel         = sess.total_reel ?? null;
+  /* Préférer l'écart stocké (calculé à la clôture) — fallback en espèces seulement */
+  const ecart        = sess.ecart != null ? sess.ecart : (reel != null ? theoriqueEsp - reel : null);
   const nbStaff    = m.staffSet ? m.staffSet.size : 0;
 
   const statut = sess.statut;

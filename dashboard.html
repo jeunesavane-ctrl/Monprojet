@@ -582,7 +582,7 @@ async function openValidation(sessId, sessDate) {
       db.from('ventes_session').select('*,employes(nom,prenom)')
         .eq('session_id', sessId).order('employe_id,created_at'),
       db.from('mouvements_caisse').select('*').eq('session_id', sessId).order('created_at'),
-      db.from('sessions_caisse').select('fond_caisse,total_reel,total_om_verifie,note_caissier').eq('id', sessId).single(),
+      db.from('sessions_caisse').select('fond_caisse,total_reel,total_om_verifie,note_caissier,ecart').eq('id', sessId).single(),
       db.from('rapports').select('num').order('num',{ascending:false}).limit(1),
       db.from('achats_session').select('montant,produit_nom').eq('session_id', sessId)
     ]);
@@ -608,12 +608,17 @@ async function openValidation(sessId, sessDate) {
     const theorique  = theoriqueEsp + totOM;
     const reelEsp    = sessInfo.total_reel         ?? null;
     const reelOM     = sessInfo.total_om_verifie   ?? null;
-    const reel       = (reelEsp != null && (totOM === 0 || reelOM != null))
-      ? reelEsp + (reelOM ?? 0) : null;
-    const ecart      = reel != null ? theorique - reel : null;
-    const ecartColor = ecart===null?'var(--muted)':ecart===0?'var(--ok)':ecart>0?'var(--danger)':'#5BA3CC';
-    const ecartTxt   = ecart===null?'—':ecart===0?'✓ Exacte':ecart>0?`− ${gnf(ecart)}`:`+ ${gnf(Math.abs(ecart))}`;
-    /* Écarts individuels */
+    /* Écart total : vérité de la caissière, calculée lors de la clôture */
+    const storedEcart = sessInfo.ecart ?? null;
+    const ecartColor  = storedEcart===null
+      ? (reelEsp !== null && totOM > 0 ? 'var(--muted)' : 'var(--muted)')
+      : storedEcart===0 ? 'var(--ok)' : storedEcart>0 ? 'var(--danger)' : '#5BA3CC';
+    const ecartTxt    = storedEcart===null
+      ? (reelEsp !== null && totOM > 0 ? 'OM non vérifié' : '—')
+      : storedEcart===0 ? '✓ Caisse exacte'
+      : storedEcart>0   ? `Manque ${gnf(storedEcart)}`
+      : `Excédent ${gnf(Math.abs(storedEcart))}`;
+    /* Écarts individuels (informatif) */
     const ecartEspVal = reelEsp != null ? theoriqueEsp - reelEsp : null;
     const ecartOMVal  = (reelOM != null && totOM > 0) ? totOM - reelOM : null;
     const ecartEspCol = ecartEspVal===null?'var(--muted)':ecartEspVal===0?'var(--ok)':ecartEspVal>0?'var(--danger)':'#5BA3CC';
@@ -728,23 +733,32 @@ async function openValidation(sessId, sessDate) {
             <span style="color:var(--muted)">Déclaré staff</span>
             <span style="color:#FF7800">${gnf(totOM)}</span>
           </div>
+          ${reelOM != null ? `
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
             <span style="color:var(--muted)">Reçu caissière</span>
-            <span style="color:#FF7800">${reelOM != null ? gnf(reelOM) : '—'}</span>
+            <span style="color:#FF7800">${gnf(reelOM)}</span>
           </div>
           ${ecartOMVal !== null ? `
           <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600">
             <span style="color:${ecartOMCol}">Écart OM</span>
             <span style="color:${ecartOMCol}">${ecartOMTxt}</span>
           </div>` : ''}
+          ` : `
+          <div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:3px">
+            Non vérifié par caissière — aucun écart OM compté
+          </div>`}
         </div>` : ''}
-        <!-- Écart total -->
-        ${reel != null ? `
+        <!-- Écart total (basé sur la valeur stockée à la clôture) -->
+        ${(storedEcart !== null || (reelEsp !== null && totOM === 0)) ? `
         <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;
           border-top:1px solid var(--gring);margin-top:6px;padding-top:6px">
           <span style="color:${ecartColor}">Écart total</span>
           <span style="color:${ecartColor}">${ecartTxt}</span>
-        </div>` : ''}
+        </div>` : (reelEsp !== null && totOM > 0 ? `
+        <div style="font-size:12px;color:var(--muted);font-style:italic;
+          border-top:1px solid var(--gring);margin-top:6px;padding-top:6px;text-align:center">
+          OM non vérifié — écart total indisponible
+        </div>` : '')}
       </div>
 
       <!-- Dépenses manager -->
@@ -768,7 +782,7 @@ async function openValidation(sessId, sessDate) {
           Annuler
         </button>
         <button class="btn-ok"
-          onclick="finalizeSession('${sessId}','${sessDate}',${totVentes},${nextNum},${totC},${totB},${fond},${totEntrees},${totSorties},${reel??'null'},${ecart??'null'})">
+          onclick="finalizeSession('${sessId}','${sessDate}',${totVentes},${nextNum},${totC},${totB},${fond},${totEntrees},${totSorties},${reelEsp??'null'},${storedEcart??'null'})">
           VALIDER N°${pad3(nextNum)}
         </button>
       </div>`;
