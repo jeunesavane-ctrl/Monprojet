@@ -320,13 +320,19 @@ function renderPage() {
     $('main-body').innerHTML = banner + `
       <div class="session-done">
         <div class="session-done-icon">✓</div>
-        <div class="session-done-title">Session clôturée</div>
+        <div class="session-done-title">Saisie envoyée</div>
         <div class="session-done-sub">
-          Rapport envoyé à la caisse.<br>
-          Total : <strong style="color:var(--gold)">${gnf(total)}</strong>
+          ${ventes.length} vente${ventes.length>1?'s':''} · <strong style="color:var(--gold)">${gnf(total)}</strong>
           ${totOM ? `<br>OM : <strong style="color:#FF7800">${gnf(totOM)}</strong> · Espèces : <strong>${gnf(totEsp)}</strong>` : ''}
         </div>
       </div>
+      <button onclick="nouvellesSaisies()"
+        style="width:100%;margin-top:10px;padding:16px;border-radius:var(--r);
+          border:1px solid rgba(201,168,76,.35);background:rgba(201,168,76,.06);
+          color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:18px;
+          letter-spacing:2px;cursor:pointer;-webkit-tap-highlight-color:transparent">
+        + AJOUTER DES VENTES
+      </button>
       ${renderVentesList(false)}
       ${renderNotes()}`;
     initNotes();
@@ -584,6 +590,12 @@ async function deleteVente(id) {
   } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
 }
 
+/* ── Nouvelle saisie après clôture ── */
+function nouvellesSaisies() {
+  closed = false;
+  renderPage();
+}
+
 /* ── Clôture ── */
 function confirmClose() {
   const total  = ventes.reduce((s, v) => s + (v.total || 0), 0);
@@ -595,7 +607,7 @@ function confirmClose() {
       <strong style="color:var(--text)">${ventes.length} vente${ventes.length>1?'s':''}</strong>
       pour un total de <strong style="color:var(--gold)">${gnf(total)}</strong>.<br>
       ${totOM > 0 ? `💵 Espèces : <strong>${gnf(totEsp)}</strong> · 📱 OM : <strong style="color:#FF7800">${gnf(totOM)}</strong><br>` : ''}
-      <br>Une fois clôturée, vous ne pouvez plus modifier.
+      <br>Vos ventes seront envoyées à la caisse. Vous pourrez en ajouter d'autres après.
     </div>
     <div class="sheet-btns">
       <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
