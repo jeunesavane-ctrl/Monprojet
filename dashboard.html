@@ -154,7 +154,19 @@ async function loadDash() {
       </button>` : '';
 
     if (!data.length && !pendingSessions.length) {
-      body.innerHTML = '<div class="state-msg">Aucun rapport enregistré.</div>' + btnRapPasse;
+      body.innerHTML = `
+        <div style="text-align:center;padding:52px 20px 32px">
+          <div style="font-size:44px;opacity:.3;margin-bottom:18px">📊</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;
+            letter-spacing:2.5px;color:var(--text);margin-bottom:10px">
+            AUCUN RAPPORT
+          </div>
+          <div style="font-size:13px;color:#888;line-height:1.7;max-width:280px;margin:0 auto">
+            La base est vide. Ouvrez une session caisse pour démarrer
+            et créer votre premier rapport.
+          </div>
+        </div>
+      ` + btnRapPasse;
       return;
     }
     if (!data.length) {
