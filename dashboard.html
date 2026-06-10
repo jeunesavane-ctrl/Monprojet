@@ -580,7 +580,7 @@ async function openValidation(sessId, sessDate) {
     const ventes    = ventesRes.data || [];
     const mouvs     = mouvRes.data   || [];
     const sessInfo  = sessRes.data   || {};
-    const nextNum   = ((rapRes.data?.[0]?.num) || 0) + 1;
+    const nextNum   = parseInt(rapRes.data?.[0]?.num || '0', 10) + 1;
 
     /* Totaux */
     const fond       = sessInfo.fond_caisse || 0;
@@ -796,7 +796,7 @@ async function finalizeSession(sessId, sessDate, totVentes, nextNum, totC, totB,
     await Promise.all([
       db.from('rapports').insert({
         date:           sessDate,
-        num:            nextNum,
+        num:            pad3(nextNum),
         date_display:   frDateShort(sessDate),
         manager,
         total_chicha:   totC,
