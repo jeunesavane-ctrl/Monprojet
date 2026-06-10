@@ -175,15 +175,16 @@
       </div>
       <div class="card-body">
         <div style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:12px">
-          Efface toutes les données transactionnelles (rapports, présences, avances, caisse, logs).
-          Les comptes, produits et charges sont conservés.
+          <b style="color:var(--text)">Efface uniquement :</b> rapports, sessions caisse, présences,
+          justifications, avances, salaires versés, logs.<br>
+          <b style="color:var(--ok)">✓ Conservés :</b> produits, charges fixes, comptes employés, config, PINs.
           <br><b style="color:var(--danger)">Action irréversible.</b>
         </div>
         <button onclick="openReset()"
           style="width:100%;padding:12px;border:1px solid var(--danger);border-radius:var(--r);
             background:rgba(255,80,80,.08);color:var(--danger);font-size:13px;font-weight:600;
             cursor:pointer;-webkit-tap-highlight-color:transparent">
-          🗑 Réinitialiser les données de test
+          🗑 Réinitialiser les rapports
         </button>
       </div>
     </div>
@@ -822,14 +823,23 @@ async function confirmReset() {
     return;
   }
 
-  /* PIN validé → effacement des données transactionnelles */
-  const TABLES = ['salaires_verses','avances','presences','rapports','sessions_caisse','logs'];
+  /* PIN validé — efface UNIQUEMENT les données transactionnelles
+     NE PAS TOUCHER : employes, produits, charges, config            */
+  const TABLES = [
+    'salaires_verses',   /* paiements de salaires */
+    'avances',           /* demandes d'avances */
+    'presences',         /* pointage */
+    'justifications',    /* justifications absences */
+    'rapports',          /* rapports journaliers */
+    'sessions_caisse',   /* sessions + cascade → ventes, mouvements, achats, crédits, remboursements */
+    'logs'               /* historique actions */
+  ];
   try {
     for (const t of TABLES) {
       await db.from(t).delete().not('id','is',null);
     }
-    ML.logAction('🗑 Réinitialisation des données de test');
-    toast('Données réinitialisées ✓ Base propre.','ok');
+    ML.logAction('🗑 Réinitialisation des rapports');
+    toast('Rapports réinitialisés ✓ Produits et charges conservés.','ok');
     closeReset();
   } catch(e) {
     $('reset-err').textContent = 'Erreur : ' + e.message;
