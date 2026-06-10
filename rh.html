@@ -1143,7 +1143,7 @@ async function validerPaie() {
     const label = new Date(mois+'-15').toLocaleDateString('fr-FR',
       {month:'long', year:'numeric'});
     const { data: ex } = await db.from('charges').select('id')
-      .eq('mois',mois).eq('categorie','personnel').ilike('libelle','Salaires%');
+      .eq('mois',mois).eq('categorie','personnel').ilike('label','Salaires%');
     if (ex?.length) {
       await db.from('charges').update({montant, paye:false}).eq('id',ex[0].id);
       toast('Charge salaires mise à jour ✓','ok');

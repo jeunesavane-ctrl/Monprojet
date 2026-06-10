@@ -74,7 +74,7 @@ Activité : chicha + boissons. HTML/CSS/JS pur, Supabase JS v2 via CDN, auto-dep
 | `justifications` | id, employe_id, date, type, motif, statut (en_attente/approuvee/rejetee) |
 | `avances` | id, employe_id, montant, date, statut (en_attente/approuvee/rejetee), rembourse, obs, note_demande |
 | `salaires_verses` | id, employe_id, mois, salaire_brut, avances_deduites, ecarts_deduits, surplus_caisse, net_verse, nb_absences_nj, sanction_type, sanction_montant, nb_retards, sanction_retard_montant, paye_le — UNIQUE(employe_id, mois) |
-| `charges` | id, libelle, montant, mois, categorie, paye, date_paiement, recurrence |
+| `charges` | id, label, montant, mois, categorie, paye, date_paiement, recurrence |
 | `produits` | id, nom, type, stock_actuel, seuil_bas, prix, prix_achat, unite_vente, packaging_label, unite_par_packaging, actif **NOT NULL DEFAULT true** |
 | `sessions_caisse` | id, date, statut, fond_caisse, total_reel, total_om_verifie, ecart, caissier_id, note_caissier, note_manager |
 | `remboursements_ecart` | id, session_id, employe_id, montant, note, statut (en_attente/valide/rejete), created_at |
