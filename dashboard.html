@@ -606,8 +606,8 @@ async function openValidation(sessId, sessDate) {
     const ecartOMVal  = (reelOM != null && totOM > 0) ? totOM - reelOM : null;
     const ecartEspCol = ecartEspVal===null?'var(--muted)':ecartEspVal===0?'var(--ok)':ecartEspVal>0?'var(--danger)':'#5BA3CC';
     const ecartEspTxt = ecartEspVal===null?'—':ecartEspVal===0?'✓ Exacte':ecartEspVal>0?`Manque ${gnf(ecartEspVal)}`:`Excédent ${gnf(Math.abs(ecartEspVal))}`;
-    const ecartOMCol  = ecartOMVal===null?'var(--muted)':ecartOMVal===0?'var(--ok)':ecartOMVal>0?'#FF7800':'#5BA3CC';
-    const ecartOMTxt  = ecartOMVal===null?'—':ecartOMVal===0?'✓ Conforme':ecartOMVal>0?`Différence ${gnf(ecartOMVal)}`:`Surplus ${gnf(Math.abs(ecartOMVal))}`;
+    const ecartOMCol  = ecartOMVal===null?'var(--muted)':ecartOMVal===0?'var(--ok)':ecartOMVal>0?'var(--danger)':'#5BA3CC';
+    const ecartOMTxt  = ecartOMVal===null?'—':ecartOMVal===0?'✓ Conforme':ecartOMVal>0?`Manque ${gnf(ecartOMVal)}`:`Surplus ${gnf(Math.abs(ecartOMVal))}`;
 
     /* Par staff */
     const byEmp = {};
@@ -713,11 +713,11 @@ async function openValidation(sessId, sessDate) {
           <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.2px;
             color:rgba(255,120,0,.6);margin-bottom:4px">📱 Orange Money</div>
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
-            <span style="color:var(--muted)">Attendu</span>
+            <span style="color:var(--muted)">Déclaré staff</span>
             <span style="color:#FF7800">${gnf(totOM)}</span>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
-            <span style="color:var(--muted)">Vérifié</span>
+            <span style="color:var(--muted)">Reçu caissière</span>
             <span style="color:#FF7800">${reelOM != null ? gnf(reelOM) : '—'}</span>
           </div>
           ${ecartOMVal !== null ? `
