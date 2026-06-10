@@ -301,30 +301,37 @@ function renderStaffEntry({ session, ventes }) {
    CAISSIER — sessions_caisse
 ════════════════════════════════════════════ */
 async function loadHistCaissier() {
-  const [sessRes, ventesRes, mouvRes] = await Promise.all([
+  const [sessRes, ventesRes, mouvRes, achatsRes] = await Promise.all([
     db.from('sessions_caisse').select('*').order('date',{ascending:false}).limit(60),
     db.from('ventes_session').select('session_id,total,paiement,employe_id').order('created_at'),
-    db.from('mouvements_caisse').select('session_id,type,montant').order('created_at')
+    db.from('mouvements_caisse').select('session_id,type,montant').order('created_at'),
+    db.from('achats_session').select('session_id,montant').order('created_at')
   ]);
 
-  const sessions   = sessRes.data  || [];
-  const ventes     = ventesRes.data || [];
-  const mouvements = mouvRes.data  || [];
+  const sessions   = sessRes.data   || [];
+  const ventes     = ventesRes.data  || [];
+  const mouvements = mouvRes.data    || [];
+  const achats     = achatsRes.data  || [];
 
   /* Calculer les totaux par session */
   const map = {};
   ventes.forEach(v => {
-    if (!map[v.session_id]) map[v.session_id] = { totV:0, totOM:0, staffSet:new Set() };
+    if (!map[v.session_id]) map[v.session_id] = { totV:0, totOM:0, totAchats:0, staffSet:new Set() };
     map[v.session_id].totV += v.total;
     if (v.paiement === 'om') map[v.session_id].totOM += v.total;
     if (v.employe_id) map[v.session_id].staffSet.add(v.employe_id);
   });
   mouvements.forEach(m => {
-    if (!map[m.session_id]) map[m.session_id] = { totV:0, totOM:0, staffSet:new Set() };
+    if (!map[m.session_id]) map[m.session_id] = { totV:0, totOM:0, totAchats:0, staffSet:new Set() };
     if (!map[m.session_id].totEntrees) map[m.session_id].totEntrees = 0;
     if (!map[m.session_id].totSorties) map[m.session_id].totSorties = 0;
     if (m.type === 'entree') map[m.session_id].totEntrees += m.montant;
     else                     map[m.session_id].totSorties += m.montant;
+  });
+  achats.forEach(a => {
+    if (!map[a.session_id]) map[a.session_id] = { totV:0, totOM:0, totAchats:0, staffSet:new Set() };
+    if (!map[a.session_id].totAchats) map[a.session_id].totAchats = 0;
+    map[a.session_id].totAchats += a.montant;
   });
 
   if (!sessions.length) {
@@ -351,9 +358,11 @@ function renderCaissierEntry(sess, m) {
   const totEsp     = totV - totOM;
   const totEntrees = m.totEntrees || 0;
   const totSorties = m.totSorties || 0;
-  const theorique  = fond + totV + totEntrees - totSorties;
-  const reel       = sess.total_reel;
-  const ecart      = reel != null ? theorique - reel : null;
+  const totAchats  = m.totAchats  || 0;
+  const theorique  = fond + totV + totEntrees - totSorties - totAchats;
+  const reel       = sess.total_reel ?? null;
+  // Préférer l'écart stocké en base (calculé à la clôture) sinon recalcul local
+  const ecart      = sess.ecart != null ? sess.ecart : (reel != null ? theorique - reel : null);
   const nbStaff    = m.staffSet ? m.staffSet.size : 0;
 
   const statut = sess.statut;
@@ -619,7 +628,7 @@ async function loadHistManager() {
   const role  = ML.getRole();
   const extra = ML.getExtra();
 
-  let query = db.from('rapports').select('*').order('date',{ascending:false});
+  let query = db.from('rapports').select('*').order('date',{ascending:false}).limit(500);
 
   const { data, error } = await query;
   if (error) throw error;

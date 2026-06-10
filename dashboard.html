@@ -592,7 +592,7 @@ async function openValidation(sessId, sessDate) {
     const totEsp     = totVentes - totOM;
     const totEntrees = mouvs.filter(m=>m.type==='entree').reduce((s,m)=>s+m.montant,0);
     const totSorties = mouvs.filter(m=>m.type==='sortie').reduce((s,m)=>s+m.montant,0);
-    const theoriqueEsp = fond + totEsp + totEntrees - totSorties;
+    const theoriqueEsp = fond + totEsp + totEntrees - totSorties - totAchatsTrackes;
     const theorique  = theoriqueEsp + totOM;
     const reelEsp    = sessInfo.total_reel         ?? null;
     const reelOM     = sessInfo.total_om_verifie   ?? null;
@@ -898,7 +898,7 @@ function mrCalc() {
   const fond = v('mr-fond'), totC = v('mr-chicha'), totB = v('mr-boissons');
   const achats = v('mr-achats'), entrees = v('mr-entrees'), sorties = v('mr-sorties');
   const totV = totC + totB;
-  const theo = fond + totV + entrees - sorties;
+  const theo = fond + totV + entrees - sorties - achats;
   const net  = totV - achats;
   const reelVal = $('mr-reel')?.value;
   const reel = reelVal ? parseInt(reelVal) : null;
@@ -942,7 +942,7 @@ async function saveManualRapport() {
   const note    = ($('mr-note')?.value || '').trim();
 
   const totV    = totC + totB;
-  const theo    = fond + totV + entrees - sorties;
+  const theo    = fond + totV + entrees - sorties - achats;
   const net     = totV - achats;
   const depenses= sorties + achats;
   const ecart   = reel != null ? theo - reel : null;
@@ -977,14 +977,14 @@ async function saveManualRapport() {
 
     /* Numéro suivant */
     const { data: lastRap } = await db.from('rapports').select('num').order('num',{ascending:false}).limit(1);
-    const nextNum = ((lastRap?.[0]?.num) || 0) + 1;
+    const nextNum = parseInt((lastRap?.[0]?.num) || '0', 10) + 1;
 
     /* Manager */
     const { data: emp } = await db.from('employes').select('nom,prenom').eq('role','manager').limit(1);
     const manager = emp?.[0] ? [emp[0].prenom,emp[0].nom].filter(Boolean).join(' ') : 'Gestionnaire';
 
     await db.from('rapports').insert({
-      date, num:nextNum, date_display:frDateShort(date), manager, session_id:sessId,
+      date, num:pad3(nextNum), date_display:frDateShort(date), manager, session_id:sessId,
       total_chicha:totC, total_boissons:totB, total_achats:achats,
       recettes:totV, depenses, net,
       obs: note || null,

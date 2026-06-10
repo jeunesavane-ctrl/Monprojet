@@ -671,7 +671,7 @@ async function validerDemande(id, montant = 0, nom = '') {
 
 async function refuserDemande(id, montant = 0, nom = '') {
   try {
-    await db.from('avances').update({ statut:'rejetee', rembourse:true }).eq('id',id);
+    await db.from('avances').update({ statut:'rejetee' }).eq('id',id);
     ML.logAction(`❌ Avance refusée — ${nom} · ${gnf(montant)}`);
     toast('Demande refusée','ok');
     loadDemandes();
@@ -1149,11 +1149,11 @@ async function validerPaie() {
       toast('Charge salaires mise à jour ✓','ok');
     } else {
       await db.from('charges').insert({
-        libelle:   `Salaires ${label}`,
+        label:     `Salaires ${label}`,
         categorie: 'personnel',
         montant,
         mois,
-        frequence: 'mensuel',
+        recurrence: 'mensuel',
         paye:      false
       });
       toast('Masse salariale inscrite dans les charges ✓','ok');

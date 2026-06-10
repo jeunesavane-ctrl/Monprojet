@@ -371,7 +371,7 @@ async function loadJ1() {
 async function fetchNextNum() {
   if (!db) return;
   try {
-    const { data } = await db.from('rapports').select('num').order('timestamp',{ascending:false}).limit(1);
+    const { data } = await db.from('rapports').select('num').order('date',{ascending:false}).limit(1);
     nextNum = data?.length ? parseInt(data[0].num||'0',10)+1 : 1;
   } catch {}
   $('r-num').textContent = 'N°'+pad3(nextNum);
@@ -566,7 +566,6 @@ async function soumettreAvance() {
       date:        todayISO(),
       obs:         motif,
       statut:      'en_attente',
-      demandeur_id: extra.employe_id,
       note_demande: motif
     });
     toast('Demande envoyée ✓ — en attente de validation','ok');

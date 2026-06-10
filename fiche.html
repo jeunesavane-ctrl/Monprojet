@@ -67,7 +67,7 @@
       <div class="card-head">
         <div class="card-title">Présences</div>
         <input type="month" id="pres-mois" class="month-sel"
-          onchange="loadPresences()">
+          onchange="loadPresences(); loadSanctionStatus(ML.getExtra().employe_id);">
       </div>
       <div class="card-body">
         <div id="pres-stats"><div class="state-msg">Chargement…</div></div>
@@ -589,7 +589,7 @@ async function soumettreJustification() {
 
 /* ── Sanctions absences (affiché dans la carte Présences) ───────────── */
 async function loadSanctionStatus(empId) {
-  const mois  = todayISO().slice(0,7);
+  const mois  = $('pres-mois')?.value || todayISO().slice(0,7);
   const debut = mois + '-01';
   const fin   = new Date(+mois.slice(0,4), +mois.slice(5,7), 0).toISOString().slice(0,10);
   try {

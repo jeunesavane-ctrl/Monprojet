@@ -193,7 +193,7 @@ function initPage(allowedRoles) {
 async function loadNavBadges() {
   if (!db) return;
   const role = ML.getRole();
-  if (!['caissier','manager','owner'].includes(role)) return;
+  if (!['caissier','manager','owner','associe'].includes(role)) return;
   try {
     const isManager = ['manager','owner'].includes(role);
 

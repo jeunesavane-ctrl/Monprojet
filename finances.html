@@ -231,7 +231,7 @@ async function loadBilan() {
     const [rapRes, chargesRes, assocRes, cfgRes] = await Promise.all([
       db.from('rapports').select('net,total_chicha,total_boissons,total_achats')
         .gte('date',debut).lte('date',fin),
-      db.from('charges').select('montant,libelle,paye').eq('mois',mois),
+      db.from('charges').select('montant,label,paye').eq('mois',mois),
       db.from('employes').select('pourcentage').eq('role','associe').eq('actif',true),
       db.from('config').select('key,value')
     ]);
@@ -303,7 +303,7 @@ async function loadBilan() {
           ${charges.map(c=>`
             <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;
               border-bottom:1px solid var(--bg3)">
-              <span>${c.libelle}</span>
+              <span>${c.label}</span>
               <span style="color:${c.paye?'var(--ok)':'var(--danger)'};font-weight:500">
                 ${c.paye?'✓':''} ${gnf(c.montant)}</span>
             </div>`).join('')}
@@ -321,7 +321,7 @@ async function loadCharges() {
   const mois = $('mois-sel')?.value || new Date().toISOString().slice(0,7);
   try {
     const { data } = await db.from('charges').select('*').eq('mois',mois)
-      .order('paye').order('libelle');
+      .order('paye').order('label');
     const list = data || [];
     if (!list.length) {
       $('charges-list').innerHTML = '<div class="state-msg">Aucune charge ce mois.</div>'; return;
@@ -329,8 +329,8 @@ async function loadCharges() {
     $('charges-list').innerHTML = list.map(c=>`
       <div class="charge-item">
         <div class="charge-info">
-          <div class="charge-libelle">${c.libelle}</div>
-          <div class="charge-meta">${c.categorie||''} · ${c.frequence||''}</div>
+          <div class="charge-libelle">${c.label}</div>
+          <div class="charge-meta">${c.categorie||''} · ${c.recurrence||''}</div>
         </div>
         <div style="text-align:right">
           <div class="charge-montant">${gnf(c.montant)}</div>
@@ -352,9 +352,9 @@ async function saveCharge() {
   if (!lib||!mnt) { toast('Libellé et montant requis','ko'); return; }
   try {
     await db.from('charges').insert({
-      libelle:lib, montant:mnt,
+      label:lib, montant:mnt,
       categorie:$('ch-cat').value,
-      frequence:$('ch-freq').value,
+      recurrence:$('ch-freq').value,
       mois:$('ch-mois').value,
       paye:$('ch-paye').value==='true'
     });
