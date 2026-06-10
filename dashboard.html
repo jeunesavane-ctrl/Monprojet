@@ -118,7 +118,7 @@ async function loadDash() {
   try {
     const [rapRes, prodRes, cfgRes, assocRes, sessRes, rembPendRes, avancePendRes, chargesRes] = await Promise.all([
       db.from('rapports').select('*').order('date',{ascending:false}),
-      db.from('produits').select('*').neq('actif',false),
+      db.from('produits').select('*').not('actif','is',false),
       db.from('config').select('key,value'),
       db.from('employes').select('pourcentage').eq('role','associe').eq('actif',true),
       db.from('sessions_caisse').select('id,date,statut,note_caissier')

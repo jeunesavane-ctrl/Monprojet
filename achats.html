@@ -137,7 +137,7 @@ async function loadData() {
       db.from('sessions_caisse').select('id,statut').eq('date', today).maybeSingle(),
       db.from('produits')
         .select('id,nom,type,stock_actuel,stock_min,prix_defaut,prix_achat,unite_vente,packaging_label,unite_par_packaging')
-        .neq('actif', false).order('nom')
+        .not('actif', 'is', false).order('nom')
     ]);
 
     produits = prodRes.data || [];

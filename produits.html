@@ -182,7 +182,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       Des produits ont <code>actif = NULL</code> et n'apparaissent pas dans les ventes.<br>
       Exécutez <strong>une seule fois</strong> dans Supabase SQL Editor :<br>
       <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:11px;display:block;margin-top:6px;white-space:pre;overflow-x:auto">UPDATE produits SET actif = true WHERE actif IS NULL;
-ALTER TABLE produits ALTER COLUMN actif SET DEFAULT true;</code>`;
+ALTER TABLE produits ALTER COLUMN actif SET DEFAULT true;
+ALTER TABLE produits ALTER COLUMN actif SET NOT NULL;</code>`;
     document.querySelector('.body-wrap')?.prepend(migrHint);
   }
 
@@ -215,7 +216,7 @@ function switchProdTab(tab) {
 async function loadCommande() {
   const el = $('cmd-content');
   try {
-    const { data } = await db.from('produits').select('*').neq('actif',false).order('nom');
+    const { data } = await db.from('produits').select('*').not('actif','is',false).order('nom');
     const prods = data || [];
     const low = prods.filter(p => p.stock_min > 0 && (p.stock_actuel??0) <= p.stock_min);
 
@@ -252,7 +253,7 @@ async function loadCommande() {
 
 async function loadProds() {
   try {
-    const { data } = await db.from('produits').select('*').neq('actif',false).order('nom');
+    const { data } = await db.from('produits').select('*').not('actif','is',false).order('nom');
     const prods = data || [];
     ['chicha','boisson'].forEach(type => {
       const list = prods.filter(p=>p.type===type);

@@ -237,8 +237,12 @@ async function loadProduits() {
   try {
     const { data, error } = await db.from('produits')
       .select('nom,type,prix_defaut')
-      .neq('actif', false).order('nom');
-    if (error) console.error('produits:', error.message);
+      .not('actif', 'is', false)
+      .order('nom');
+    if (error) {
+      console.error('produits:', error.message);
+      toast('Erreur chargement produits : ' + error.message, 'ko');
+    }
     produits = (data || []).map(p => ({
       ...p,
       prix: p.prix_defaut || 0
