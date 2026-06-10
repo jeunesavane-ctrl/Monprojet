@@ -199,16 +199,17 @@
   <div id="toast"></div>
 
 <script>
-let sessionId   = null;
-let empId       = null;
-let empNom      = '';
-let produits    = [];
-let ventes      = [];
-let closed      = false;
-let activeType  = 'chicha';
-let paiement    = 'especes';
-let selectedProd = null; /* { nom, prix, type } */
-let _savingVente = false;
+let sessionId     = null;
+let sessionStatut = 'ouvert';
+let empId         = null;
+let empNom        = '';
+let produits      = [];
+let ventes        = [];
+let closed        = false;
+let activeType    = 'chicha';
+let paiement      = 'especes';
+let selectedProd  = null;
+let _savingVente  = false;
 let _noteSave;
 
 const noteKey = () => `ml_note_${empId}_${todayISO()}`;
@@ -267,7 +268,8 @@ async function initSession() {
       if (error) throw error;
       existing = created;
     }
-    sessionId = existing.id;
+    sessionId     = existing.id;
+    sessionStatut = existing.statut || 'ouvert';
 
     const { data: myVentes } = await db
       .from('ventes_session').select('*')
@@ -275,7 +277,7 @@ async function initSession() {
 
     ventes = myVentes || [];
     closed = ventes.length > 0 && ventes.every(v => v.valide_staff);
-    return true; /* succès */
+    return true;
 
   } catch(e) {
     $('main-body').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
@@ -285,27 +287,36 @@ async function initSession() {
 
 function subscribeRealtime() {
   if (!sessionId) return;
-  db.channel('ml-saisie-' + empId)
-    .on('postgres_changes', {
-      event: '*', schema: 'public', table: 'ventes_session',
-      filter: `session_id=eq.${sessionId}`
-    }, async () => {
-      const { data } = await db.from('ventes_session').select('*')
-        .eq('session_id', sessionId).eq('employe_id', empId).order('created_at');
-      ventes = data || [];
-      closed = ventes.length > 0 && ventes.every(v => v.valide_staff);
-      renderPage();
-    }).subscribe();
+  const ch = db.channel('ml-saisie-' + empId);
+  ch.on('postgres_changes', {
+    event: '*', schema: 'public', table: 'ventes_session',
+    filter: `session_id=eq.${sessionId}`
+  }, async () => {
+    const { data } = await db.from('ventes_session').select('*')
+      .eq('session_id', sessionId).eq('employe_id', empId).order('created_at');
+    ventes = data || [];
+    closed = ventes.length > 0 && ventes.every(v => v.valide_staff);
+    renderPage();
+  });
+  ch.on('postgres_changes', {
+    event: 'UPDATE', schema: 'public', table: 'sessions_caisse',
+    filter: `id=eq.${sessionId}`
+  }, payload => {
+    sessionStatut = payload.new?.statut || sessionStatut;
+    renderPage();
+  });
+  ch.subscribe();
 }
 
 /* ════════════════════════════════════════════
    RENDER
 ════════════════════════════════════════════ */
 function renderPage() {
-  const today  = todayISO();
-  const total  = ventes.reduce((s, v) => s + (v.total || 0), 0);
-  const totOM  = ventes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
-  const totEsp = total - totOM;
+  const today     = todayISO();
+  const total     = ventes.reduce((s, v) => s + (v.total || 0), 0);
+  const totOM     = ventes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
+  const totEsp    = total - totOM;
+  const sessLocked = sessionStatut === 'valide_caissier' || sessionStatut === 'valide_manager';
 
   const banner = `
     <div class="sess-banner">
@@ -313,8 +324,27 @@ function renderPage() {
         <div class="sess-date">${frDate(today)}</div>
         <div class="sess-meta">${empNom}</div>
       </div>
-      <span class="badge ${closed ? 'ok' : 'gold'}">${closed ? 'Clôturée' : 'En service'}</span>
+      <span class="badge ${sessLocked ? 'ko' : closed ? 'ok' : 'gold'}">
+        ${sessLocked ? 'Validée caisse' : closed ? 'Envoyée' : 'En service'}
+      </span>
     </div>`;
+
+  /* Session clôturée par la caissière — lecture seule */
+  if (sessLocked) {
+    $('main-body').innerHTML = banner + `
+      <div class="session-done" style="border-color:rgba(217,84,84,.3);background:rgba(217,84,84,.06)">
+        <div class="session-done-icon">🔒</div>
+        <div class="session-done-title" style="color:var(--danger)">Session clôturée</div>
+        <div class="session-done-sub">
+          La caissière a validé la session — aucune modification possible.<br>
+          ${ventes.length ? `Tes ventes : <strong style="color:var(--gold)">${gnf(total)}</strong>` : 'Aucune vente enregistrée.'}
+        </div>
+      </div>
+      ${renderVentesList(false)}
+      ${renderNotes()}`;
+    initNotes();
+    return;
+  }
 
   if (closed) {
     $('main-body').innerHTML = banner + `
@@ -551,6 +581,11 @@ function closeSheet() {
 /* ── Ajouter vente ── */
 async function confirmAdd() {
   if (_savingVente || !selectedProd) return;
+  if (sessionStatut === 'valide_caissier' || sessionStatut === 'valide_manager') {
+    toast('Session clôturée par la caissière — impossible d\'ajouter', 'ko');
+    closeSheet();
+    return;
+  }
 
   const qty   = Math.max(1, parseInt($('cs-qty')?.value) || 1);
   const prix  = selectedProd.prix > 0
@@ -590,8 +625,12 @@ async function deleteVente(id) {
   } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
 }
 
-/* ── Nouvelle saisie après clôture ── */
+/* ── Nouvelle saisie après clôture (bloqué si caissière a validé) ── */
 function nouvellesSaisies() {
+  if (sessionStatut === 'valide_caissier' || sessionStatut === 'valide_manager') {
+    toast('Session déjà validée par la caissière', 'ko');
+    return;
+  }
   closed = false;
   renderPage();
 }

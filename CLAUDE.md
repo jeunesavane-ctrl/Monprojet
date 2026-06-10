@@ -1,8 +1,8 @@
-# Medellin Lounge — CLAUDE.md v9.0
+# Medellin Lounge — CLAUDE.md v10.0
 
 ## Projet
 Application web de gestion interne — **Medellin Lounge** (Conakry, Guinée).
-Activité : chicha + boissons. HTML/CSS/JS pur, Supabase JS v2 via CDN, auto-deploy Netlify.
+Activité : chicha + boissons. HTML/CSS/JS pur, Supabase JS v2 via CDN, Netlify Pro (déploiement **manuel**).
 
 ---
 
@@ -11,7 +11,9 @@ Activité : chicha + boissons. HTML/CSS/JS pur, Supabase JS v2 via CDN, auto-dep
 - **GitHub :** `https://github.com/jeunesavane-ctrl/Monprojet.git` (branche `main`)
 - **Production :** `https://medellin-lounge.com` (domaine custom, Netlify Pro)
 - **Netlify fallback :** `https://medellin-lounge.netlify.app`
-- **⚠ Tout passe par `git push origin main`** — jamais Netlify Drop
+- **⚠ `git push origin main`** = versioning seulement (auto-deploy DÉSACTIVÉ)
+- **Déploiement** = manuel depuis le dashboard Netlify, quand le propriétaire est satisfait
+- Ne jamais dire "c'est en ligne" après un push — dire "code poussé sur git"
 
 ---
 
@@ -170,7 +172,18 @@ theoriqueEsp  = fond + totEsp           + entrées - sorties - achats
 
 ### Session caisse
 - `caisse.html` **auto-crée** une session pour aujourd'hui si elle n'existe pas (rôle caissier/manager/owner)
-- Flux : session ouverte → staff saisissent → caissier clôture → manager valide → rapport créé
+- `saisie.html` **aussi** crée la session si elle n'existe pas (rôle staff)
+- Flux : session ouverte → staff saisissent (plusieurs tours possibles) → caissier clôture → manager valide → rapport créé
+
+### Flow de données par source
+```
+saisie.html  (staff)   → ventes_session   → caisse.html lit tout (inclus dans totaux)
+achats.html  (achats)  → achats_session   → caisse.html lit + rapport.html préremplit
+chicha.html  (chicha)  → sorties_chicha   → STOCK UNIQUEMENT (pas dans caisse.html)
+rapport.html (manager) → chicha/boissons saisis MANUELLEMENT + achats préremplis → rapports
+```
+⚠ `sorties_chicha` = suivi inventaire chicha, PAS utilisé pour les calculs financiers du rapport.
+⚠ Le manager saisit manuellement les lignes chicha et boissons dans rapport.html.
 
 ### Validation gestionnaire (dashboard.html openValidation)
 - ⚠ **NE PAS recalculer l'écart** dans `openValidation()` — utiliser `sessInfo.ecart` (valeur stockée à la clôture)
@@ -178,6 +191,25 @@ theoriqueEsp  = fond + totEsp           + entrées - sorties - achats
 - `storedEcart = sessInfo.ecart ?? null` → passer à `finalizeSession` comme 11e argument
 - Si `reelOM = null` → afficher "Non vérifié — aucun écart OM compté" (pas "Reçu caissière: —")
 - `finalizeSession` reçoit `(sessId, sessDate, totVentes, nextNum, totC, totB, fond, totEntrees, totSorties, reelEsp, storedEcart)`
+
+---
+
+## saisie.html — comportement multi-saisies (v10)
+- Staff peut saisir plusieurs **tours de ventes** dans la même journée
+- Après clôture → écran "Saisie envoyée ✓" + bouton **"+ AJOUTER DES VENTES"**
+- `sessionStatut` est lu depuis `sessions_caisse` au chargement et suivi en temps réel
+- Si session = `valide_caissier` ou `valide_manager` → écran **🔒 Session clôturée** (lecture seule)
+- `confirmAdd()` et `nouvellesSaisies()` bloquent toute modification si session locked
+- Listener Postgres sur `sessions_caisse` : si la caissière valide pendant que le staff a l'écran ouvert → verrouillage automatique
+
+---
+
+## Bugs corrigés (historique à ne pas réintroduire)
+| Fichier | Bug | Fix |
+|---------|-----|-----|
+| `bilan.html` | SELECT incluait `statut` (n'existe pas dans `rapports`) → données vides | Retiré `statut` du SELECT |
+| `rh.html` | `validerPaie()` cherchait `.ilike('libelle','Salaires%')` → jamais trouvé → doublons | Changé en `.ilike('label','Salaires%')` |
+| `charges` table | Colonne documentée `libelle` mais s'appelle **`label`** | Corrigé dans CLAUDE.md |
 
 ---
 
@@ -389,3 +421,10 @@ ALTER TABLE votes_prop DISABLE ROW LEVEL SECURITY;
 
 ## Pour reprendre
 Dis : **"Lis le CLAUDE.md et continue"**
+
+## État du projet au 2026-06-10
+- **18 pages** toutes fonctionnelles et dans la nav
+- **Bugs connus résolus** : bilan vide, doublon charges salaires, saisie bloquée après 1 tour
+- **associes.html** : partie financière OK ; votes (`propositions`/`votes_prop`) OK si tables créées en Supabase (SQL dans ce fichier)
+- **Serveur local** : `python -m http.server 5500` depuis `C:\Users\jeune\Monprojet` → http://localhost:5500
+- **Prochaines pistes possibles** : amélioration dashboard, export PDF rapport, notifications push, gestion des congés longue durée
