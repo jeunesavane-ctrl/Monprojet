@@ -413,14 +413,16 @@ function renderCaisse() {
   const totSorties = allMouvements.filter(m => m.type==='sortie').reduce((s,m) => s+m.montant, 0);
   const totAchats  = allAchats.reduce((s,a) => s+a.montant, 0);
 
-  /* Théorique TOTAL — espèces + OM, la caissière gère les deux */
+  /* Théorique espèces uniquement (OM exclu du théorique) */
   const theoriqueEsp = fond + totEsp + totEntrees - totSorties - totAchats;
-  const theorique    = theoriqueEsp + totOM;
-  const reelEsp      = sessionData.total_reel;         /* espèces comptées */
-  const reelOM       = sessionData.total_om_verifie;   /* OM vérifié sur téléphone */
-  const reel = (reelEsp != null && (totOM === 0 || reelOM != null))
-    ? reelEsp + (reelOM ?? 0) : null;
-  const ecart = reel != null ? theorique - reel : null;
+  const reelEsp      = sessionData.total_reel;
+  const reelOM       = sessionData.total_om_verifie;
+  /* Écart espèces + écart OM = écart total */
+  const ecartEsp  = reelEsp != null ? theoriqueEsp - reelEsp : null;
+  const ecartOM   = (totOM > 0 && reelOM != null) ? totOM - reelOM : null;
+  const ecart     = ecartEsp != null
+    ? (totOM === 0 ? ecartEsp : (ecartOM != null ? ecartEsp + ecartOM : null))
+    : null;
 
   /* ── Par staff ── */
   const byEmp = {};
@@ -595,30 +597,28 @@ function renderCaisse() {
       }).join('');
 
   /* ── 6. Récapitulatif ── */
+  /* Couleurs / textes pour chaque écart */
+  const ecartEspColor = ecartEsp === null ? 'var(--muted)'
+    : ecartEsp === 0 ? 'var(--ok)' : ecartEsp > 0 ? 'var(--danger)' : '#5BA3CC';
+  const ecartEspTxt = ecartEsp === null ? '—'
+    : ecartEsp === 0 ? '✓ Exacte'
+    : ecartEsp > 0   ? `Manque ${gnf(ecartEsp)}`
+    : `Excédent ${gnf(Math.abs(ecartEsp))}`;
+
+  const ecartOMColor = ecartOM === null ? 'var(--muted)'
+    : ecartOM === 0 ? 'var(--ok)' : ecartOM > 0 ? 'var(--danger)' : '#5BA3CC';
+  const ecartOMTxt = ecartOM === null ? '—'
+    : ecartOM === 0 ? '✓ Conforme'
+    : ecartOM > 0   ? `Manque ${gnf(ecartOM)}`
+    : `Surplus ${gnf(Math.abs(ecartOM))}`;
+
   const ecartColor = ecart === null ? 'var(--muted)'
-    : ecart === 0 ? 'var(--ok)'
-    : ecart > 0   ? 'var(--danger)'
-    : '#5BA3CC';
-  const ecartTxt = ecart === null ? '—'
+    : ecart === 0 ? 'var(--ok)' : ecart > 0 ? 'var(--danger)' : '#5BA3CC';
+  const ecartTxt = ecart === null
+    ? (ecartEsp !== null && totOM > 0 ? 'OM à vérifier' : '—')
     : ecart === 0 ? '✓ Caisse exacte'
     : ecart > 0   ? `Manque ${gnf(ecart)}`
     : `Excédent de ${gnf(Math.abs(ecart))}`;
-
-  /* ── Écarts individuels ── */
-  const ecartEspVal = reelEsp != null ? theoriqueEsp - reelEsp : null;
-  const ecartOMVal  = (reelOM != null && totOM > 0) ? totOM - reelOM : null;
-  const ecartEspTxt = ecartEspVal === null ? '' :
-    ecartEspVal === 0 ? '✓ Espèces exactes' :
-    ecartEspVal > 0   ? `Espèces : manque ${gnf(ecartEspVal)}` :
-    `Espèces : excédent ${gnf(Math.abs(ecartEspVal))}`;
-  const ecartEspCol = ecartEspVal === null ? 'var(--muted)' :
-    ecartEspVal === 0 ? 'var(--ok)' : ecartEspVal > 0 ? 'var(--danger)' : '#5BA3CC';
-  const ecartOMTxt  = ecartOMVal === null ? '' :
-    ecartOMVal === 0 ? '✓ OM conforme' :
-    ecartOMVal > 0   ? `OM : différence ${gnf(ecartOMVal)}` :
-    `OM : surplus ${gnf(Math.abs(ecartOMVal))}`;
-  const ecartOMCol  = ecartOMVal === null ? 'var(--muted)' :
-    ecartOMVal === 0 ? 'var(--ok)' : ecartOMVal > 0 ? '#FF7800' : '#5BA3CC';
 
   const reelSection = isVal
     ? `<div class="recap-sep"></div>
@@ -626,18 +626,22 @@ function renderCaisse() {
          <span>💵 Espèces comptées</span>
          <span>${reelEsp != null ? gnf(reelEsp) : '—'}</span>
        </div>
-       ${totOM > 0 ? `<div class="recap-row" style="color:#FF7800">
-         <span>📱 OM vérifié</span>
-         <span>${reelOM != null ? gnf(reelOM) : '—'}</span>
+       ${ecartEsp !== null ? `<div class="recap-row">
+         <span style="color:${ecartEspColor}">Écart espèces</span>
+         <span style="color:${ecartEspColor};font-weight:600">${ecartEspTxt}</span>
        </div>` : ''}
-       <div class="recap-row" style="border-top:1px solid var(--b1);padding-top:6px;margin-top:2px">
-         <span>Total réel</span>
-         <span style="color:var(--text);font-weight:600">${reel != null ? gnf(reel) : '—'}</span>
+       ${totOM > 0 ? `<div class="recap-row" style="color:#FF7800">
+         <span>📱 OM reçu</span>
+         <span>${reelOM != null ? gnf(reelOM) : '—'}</span>
        </div>
-       <div class="recap-row">
-         <span>Écart</span>
+       ${ecartOM !== null ? `<div class="recap-row">
+         <span style="color:${ecartOMColor}">Écart OM</span>
+         <span style="color:${ecartOMColor};font-weight:600">${ecartOMTxt}</span>
+       </div>` : ''}` : ''}
+       ${ecart !== null ? `<div class="recap-row" style="border-top:1px solid var(--b1);padding-top:6px;margin-top:2px">
+         <span style="font-weight:600">Écart total</span>
          <span style="color:${ecartColor};font-weight:600">${ecartTxt}</span>
-       </div>`
+       </div>` : ''}`
     : ro
     ? `<div class="recap-sep"></div>
        <div class="recap-row">
@@ -651,22 +655,22 @@ function renderCaisse() {
            placeholder="0" value="${reelEsp ?? ''}"
            oninput="updateEcart(${theoriqueEsp},${totOM})">
          <div id="ecart-esp-display" style="font-size:12px;font-weight:500;
-           margin:4px 0 2px;min-height:16px;color:${ecartEspVal !== null ? ecartEspCol : 'transparent'}">
-           ${ecartEspTxt}
+           margin:4px 0 2px;min-height:16px">
+           ${ecartEsp !== null ? `<span style="color:${ecartEspColor}">${ecartEspTxt}</span>` : ''}
          </div>
          ${totOM > 0 ? `
          <div class="kpi-label" style="margin:10px 0 8px;color:rgba(255,120,0,.7)">
-           📱 OM sur le téléphone</div>
+           📱 OM reçu sur le téléphone</div>
          <input class="reel-input" id="om-verifie" type="number" inputmode="numeric"
            placeholder="${totOM}" value="${reelOM ?? ''}"
            style="color:#FF7800;border-color:rgba(255,120,0,.3);background:rgba(255,120,0,.05)"
            oninput="updateEcart(${theoriqueEsp},${totOM})">
          <div id="ecart-om-display" style="font-size:12px;font-weight:500;
-           margin:4px 0 2px;min-height:16px;color:${ecartOMVal !== null ? ecartOMCol : 'transparent'}">
-           ${ecartOMTxt}
+           margin:4px 0 2px;min-height:16px">
+           ${ecartOM !== null ? `<span style="color:${ecartOMColor}">${ecartOMTxt}</span>` : ''}
          </div>` : ''}
          <div class="ecart-display" id="ecart-display" style="color:${ecartColor}">
-           ${ecart != null ? ecartTxt : (reelEsp != null && totOM > 0 ? 'Entrez le montant OM pour voir l\'écart total' : '')}
+           ${ecart != null ? ecartTxt : (ecartEsp !== null && totOM > 0 ? 'Entrez le montant OM pour voir l\'écart total' : '')}
          </div>
        </div>`;
 
@@ -719,8 +723,8 @@ function renderCaisse() {
              <span style="color:var(--danger) !important">${gnf(totAchats)}</span>
            </div>` : ''}
       <div class="recap-total">
-        <span class="recap-total-lbl">Théorique total</span>
-        <span class="recap-total-val">${gnf(theorique)}</span>
+        <span class="recap-total-lbl">Théorique espèces</span>
+        <span class="recap-total-val">${gnf(theoriqueEsp)}</span>
       </div>
       ${reelSection}
     </div>`;
@@ -758,10 +762,10 @@ function renderCaisse() {
               <span style="color:var(--muted)">Compté</span>
               <span>${reelEsp != null ? gnf(reelEsp) : '—'}</span>
             </div>
-            ${ecartEspVal !== null ? `
+            ${ecartEsp !== null ? `
             <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600">
-              <span style="color:${ecartEspCol}">Écart</span>
-              <span style="color:${ecartEspCol}">${ecartEspTxt}</span>
+              <span style="color:${ecartEspColor}">Écart espèces</span>
+              <span style="color:${ecartEspColor}">${ecartEspTxt}</span>
             </div>` : ''}
           </div>
 
@@ -772,22 +776,22 @@ function renderCaisse() {
             <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
               color:rgba(255,120,0,.6);margin-bottom:5px">📱 Orange Money</div>
             <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
-              <span style="color:var(--muted)">Attendu</span>
+              <span style="color:var(--muted)">Déclaré staff</span>
               <strong style="color:#FF7800">${gnf(totOM)}</strong>
             </div>
             <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-              <span style="color:var(--muted)">Vérifié</span>
+              <span style="color:var(--muted)">Reçu caissière</span>
               <strong style="color:#FF7800">${reelOM != null ? gnf(reelOM) : '—'}</strong>
             </div>
-            ${ecartOMVal !== null ? `
+            ${ecartOM !== null ? `
             <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600">
-              <span style="color:${ecartOMCol}">Écart OM</span>
-              <span style="color:${ecartOMCol}">${ecartOMTxt}</span>
+              <span style="color:${ecartOMColor}">Écart OM</span>
+              <span style="color:${ecartOMColor}">${ecartOMTxt}</span>
             </div>` : ''}
           </div>` : ''}
 
-          <!-- Écart total -->
-          ${reel != null ? `
+          <!-- Écart total = espèces + OM -->
+          ${ecart !== null ? `
           <div style="border-top:1px solid var(--b1);padding-top:8px;margin-top:4px">
             <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700">
               <span style="color:${ecartColor}">Écart total</span>
@@ -1103,7 +1107,7 @@ function checkOmEcart(attendu) {
 }
 
 /* ════════════════════════════════════════════
-   ÉCART TOTAL (espèces + OM)
+   ÉCART TOTAL = écart espèces + écart OM
 ════════════════════════════════════════════ */
 function updateEcart(theoriqueEsp, totOM) {
   const espInput  = document.getElementById('reel-input');
@@ -1114,17 +1118,29 @@ function updateEcart(theoriqueEsp, totOM) {
   if (!espInput || !dispTotal) return;
   if (!espInput.value) {
     dispTotal.textContent = '';
-    if (dispEsp) dispEsp.textContent = '';
-    if (dispOM)  dispOM.textContent  = '';
+    if (dispEsp) dispEsp.innerHTML = '';
+    if (dispOM)  dispOM.innerHTML  = '';
     return;
   }
 
-  const reelEsp = parseInt(espInput.value) || 0;
-  const reelOM  = omInput?.value !== '' && omInput?.value != null
-    ? (parseInt(omInput.value) || 0) : null;
+  const reelEsp  = parseInt(espInput.value) || 0;
+  const ecartEsp = theoriqueEsp - reelEsp;
 
-  /* Auto-save OM si renseigné */
-  if (reelOM !== null) {
+  /* Affichage écart espèces */
+  if (dispEsp) {
+    const col = ecartEsp === 0 ? 'var(--ok)' : ecartEsp > 0 ? 'var(--danger)' : '#5BA3CC';
+    const txt = ecartEsp === 0 ? '✓ Exacte'
+      : ecartEsp > 0 ? `Manque ${gnf(ecartEsp)}` : `Excédent ${gnf(Math.abs(ecartEsp))}`;
+    dispEsp.innerHTML = `<span style="color:${col}">${txt}</span>`;
+  }
+
+  /* Écart OM */
+  let ecartOM = null;
+  if (totOM > 0 && omInput?.value) {
+    const reelOM = parseInt(omInput.value) || 0;
+    ecartOM = totOM - reelOM;
+
+    /* Auto-save OM */
     clearTimeout(_omSave);
     _omSave = setTimeout(async () => {
       await db.from('sessions_caisse')
@@ -1132,48 +1148,34 @@ function updateEcart(theoriqueEsp, totOM) {
         .eq('id', sessionData.id).catch(() => {});
       sessionData.total_om_verifie = reelOM;
     }, 800);
-  }
 
-  /* Écart espèces */
-  const ecartEsp = theoriqueEsp - reelEsp;
-  if (dispEsp) {
-    dispEsp.style.color = ecartEsp === 0 ? 'var(--ok)' : ecartEsp > 0 ? 'var(--danger)' : '#5BA3CC';
-    dispEsp.textContent = ecartEsp === 0
-      ? '✓ Espèces exactes'
-      : ecartEsp > 0 ? `Espèces : manque ${gnf(ecartEsp)}` : `Espèces : excédent ${gnf(Math.abs(ecartEsp))}`;
-  }
-
-  /* Écart OM */
-  if (totOM > 0 && reelOM !== null && dispOM) {
-    const ecartOM = totOM - reelOM;
-    dispOM.style.color = ecartOM === 0 ? 'var(--ok)' : ecartOM > 0 ? '#FF7800' : '#5BA3CC';
-    dispOM.textContent = ecartOM === 0
-      ? '✓ OM conforme'
-      : ecartOM > 0 ? `OM : différence ${gnf(ecartOM)}` : `OM : surplus ${gnf(Math.abs(ecartOM))}`;
+    if (dispOM) {
+      const col = ecartOM === 0 ? 'var(--ok)' : ecartOM > 0 ? 'var(--danger)' : '#5BA3CC';
+      const txt = ecartOM === 0 ? '✓ Conforme'
+        : ecartOM > 0 ? `Manque ${gnf(ecartOM)}` : `Surplus ${gnf(Math.abs(ecartOM))}`;
+      dispOM.innerHTML = `<span style="color:${col}">${txt}</span>`;
+    }
   } else if (dispOM) {
-    dispOM.textContent = '';
+    dispOM.innerHTML = '';
   }
 
   /* Total — attendre OM si transactions OM existent */
-  if (totOM > 0 && reelOM === null) {
+  if (totOM > 0 && !omInput?.value) {
     dispTotal.style.color = 'var(--muted)';
-    dispTotal.textContent = '⬆ Entrez le montant OM pour voir l\'écart total';
+    dispTotal.textContent = 'Entrez le montant OM pour voir l\'écart total';
     return;
   }
 
-  const theorique = theoriqueEsp + totOM;
-  const reelTotal = reelEsp + (reelOM ?? 0);
-  const ecart     = theorique - reelTotal;
-
-  if (ecart === 0) {
+  const ecartTotal = ecartEsp + (ecartOM ?? 0);
+  if (ecartTotal === 0) {
     dispTotal.style.color = 'var(--ok)';
     dispTotal.textContent = '✓ Caisse exacte';
-  } else if (ecart > 0) {
+  } else if (ecartTotal > 0) {
     dispTotal.style.color = 'var(--danger)';
-    dispTotal.textContent = `Total : manque ${gnf(ecart)}`;
+    dispTotal.textContent = `Manque ${gnf(ecartTotal)}`;
   } else {
     dispTotal.style.color = '#5BA3CC';
-    dispTotal.textContent = `Total : excédent ${gnf(Math.abs(ecart))}`;
+    dispTotal.textContent = `Excédent de ${gnf(Math.abs(ecartTotal))}`;
   }
 }
 
@@ -1181,38 +1183,41 @@ function updateEcart(theoriqueEsp, totOM) {
    CLÔTURE / VALIDATION
 ════════════════════════════════════════════ */
 function confirmValidate(theoriqueEsp, totOM) {
-  const espInput  = document.getElementById('reel-input');
-  const omInput   = document.getElementById('om-verifie');
-  const reelEsp   = espInput?.value ? parseInt(espInput.value) : null;
-  const reelOM    = omInput?.value  ? parseInt(omInput.value)
-                    : (sessionData.total_om_verifie ?? null);
-  const theorique = theoriqueEsp + totOM;
-  const reelTot   = (reelEsp != null && (totOM === 0 || reelOM != null))
-    ? reelEsp + (reelOM ?? 0) : null;
-  const ecart     = reelTot != null ? theorique - reelTot : null;
-  const note      = ($('f-note')?.value || '').trim();
+  const espInput = document.getElementById('reel-input');
+  const omInput  = document.getElementById('om-verifie');
+  const reelEsp  = espInput?.value ? parseInt(espInput.value) : null;
+  const reelOM   = omInput?.value  ? parseInt(omInput.value)
+                   : (sessionData.total_om_verifie ?? null);
+  const note     = ($('f-note')?.value || '').trim();
 
-  /* Écart total */
-  const ecartColor = ecart === null ? 'var(--muted)'
-    : ecart === 0 ? 'var(--ok)' : ecart > 0 ? 'var(--danger)' : '#5BA3CC';
-  const ecartTxt = ecart === null ? '—'
-    : ecart === 0 ? '±0 ✓ Caisse exacte'
-    : ecart > 0   ? `Manque ${gnf(ecart)}`
-    : `Excédent ${gnf(Math.abs(ecart))}`;
-
-  /* Écarts individuels */
+  /* Écart espèces */
   const ecartEsp = reelEsp != null ? theoriqueEsp - reelEsp : null;
-  const ecartOM  = (reelOM != null && totOM > 0) ? totOM - reelOM : null;
-  const ecartEspColor = ecartEsp === null ? 'var(--muted)' :
-    ecartEsp === 0 ? 'var(--ok)' : ecartEsp > 0 ? 'var(--danger)' : '#5BA3CC';
-  const ecartEspTxt = ecartEsp === null ? '—' :
-    ecartEsp === 0 ? '✓ Exacte' :
-    ecartEsp > 0   ? `Manque ${gnf(ecartEsp)}` : `Excédent ${gnf(Math.abs(ecartEsp))}`;
-  const ecartOMColor = ecartOM === null ? 'var(--muted)' :
-    ecartOM === 0 ? 'var(--ok)' : ecartOM > 0 ? '#FF7800' : '#5BA3CC';
-  const ecartOMTxt = ecartOM === null ? '—' :
-    ecartOM === 0 ? '✓ Conforme' :
-    ecartOM > 0   ? `Différence ${gnf(ecartOM)}` : `Surplus ${gnf(Math.abs(ecartOM))}`;
+  const ecartEspColor = ecartEsp === null ? 'var(--muted)'
+    : ecartEsp === 0 ? 'var(--ok)' : ecartEsp > 0 ? 'var(--danger)' : '#5BA3CC';
+  const ecartEspTxt = ecartEsp === null ? '—'
+    : ecartEsp === 0 ? '✓ Exacte'
+    : ecartEsp > 0   ? `Manque ${gnf(ecartEsp)}`
+    : `Excédent ${gnf(Math.abs(ecartEsp))}`;
+
+  /* Écart OM */
+  const ecartOM = (totOM > 0 && reelOM != null) ? totOM - reelOM : null;
+  const ecartOMColor = ecartOM === null ? 'var(--muted)'
+    : ecartOM === 0 ? 'var(--ok)' : ecartOM > 0 ? 'var(--danger)' : '#5BA3CC';
+  const ecartOMTxt = ecartOM === null ? '—'
+    : ecartOM === 0 ? '✓ Conforme'
+    : ecartOM > 0   ? `Manque ${gnf(ecartOM)}`
+    : `Surplus ${gnf(Math.abs(ecartOM))}`;
+
+  /* Écart total = espèces + OM */
+  const ecartTotal = ecartEsp != null
+    ? (totOM === 0 ? ecartEsp : (ecartOM != null ? ecartEsp + ecartOM : null))
+    : null;
+  const ecartColor = ecartTotal === null ? 'var(--muted)'
+    : ecartTotal === 0 ? 'var(--ok)' : ecartTotal > 0 ? 'var(--danger)' : '#5BA3CC';
+  const ecartTxt = ecartTotal === null ? '—'
+    : ecartTotal === 0 ? '±0 ✓ Caisse exacte'
+    : ecartTotal > 0   ? `Manque ${gnf(ecartTotal)}`
+    : `Excédent ${gnf(Math.abs(ecartTotal))}`;
 
   $('overlay-sheet').innerHTML = `
     <div class="sheet-title">Clôturer la caisse ?</div>
@@ -1242,11 +1247,11 @@ function confirmValidate(theoriqueEsp, totOM) {
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
           color:rgba(255,120,0,.6);margin-bottom:6px">📱 Orange Money</div>
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
-          <span style="color:var(--muted)">Attendu</span>
+          <span style="color:var(--muted)">Déclaré staff</span>
           <span style="color:#FF7800">${gnf(totOM)}</span>
         </div>
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-          <span style="color:var(--muted)">Vérifié</span>
+          <span style="color:var(--muted)">Reçu caissière</span>
           <span style="color:#FF7800">${reelOM != null ? gnf(reelOM) : '—'}</span>
         </div>
         <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600">
@@ -1255,10 +1260,10 @@ function confirmValidate(theoriqueEsp, totOM) {
         </div>
       </div>` : ''}
 
-      <!-- Écart total -->
+      <!-- Écart total = espèces + OM -->
       <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;
         padding:8px 10px;border-radius:8px;
-        background:${ecart===0?'rgba(0,200,100,.08)':ecart!=null&&ecart>0?'rgba(220,50,50,.08)':'rgba(255,255,255,.03)'}">
+        background:${ecartTotal===0?'rgba(0,200,100,.08)':ecartTotal!=null&&ecartTotal>0?'rgba(220,50,50,.08)':'rgba(255,255,255,.03)'}">
         <span style="color:${ecartColor}">Écart total</span>
         <span style="color:${ecartColor}">${ecartTxt}</span>
       </div>
@@ -1270,29 +1275,31 @@ function confirmValidate(theoriqueEsp, totOM) {
     <div class="sheet-btns">
       <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
       <button class="btn-ok"
-        onclick="validateSession(${theorique},${reelEsp??'null'},${reelOM??'null'},'${note.replace(/'/g,"\\'")}')">
+        onclick="validateSession(${theoriqueEsp},${reelEsp??'null'},${reelOM??'null'},${totOM},'${note.replace(/'/g,"\\'")}')">
         CONFIRMER
       </button>
     </div>`;
   $('overlay').classList.add('on');
 }
 
-async function validateSession(theorique, reelEsp, reelOM, note) {
+async function validateSession(theoriqueEsp, reelEsp, reelOM, totOM, note) {
   $('overlay').classList.remove('on');
   try {
     const empId    = ML.getExtra()?.employe_id || null;
-    const totOM    = allVentes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
-    const reelTot  = (reelEsp != null && (totOM === 0 || reelOM != null))
-      ? reelEsp + (reelOM ?? 0) : null;
-    const ecartVal = reelTot != null ? theorique - reelTot : null;
+    /* Écart total = écart espèces + écart OM */
+    const ecartEsp = reelEsp != null ? theoriqueEsp - reelEsp : null;
+    const ecartOM  = (totOM > 0 && reelOM != null) ? totOM - reelOM : null;
+    const ecartVal = ecartEsp != null
+      ? (totOM === 0 ? ecartEsp : (ecartOM != null ? ecartEsp + ecartOM : null))
+      : null;
 
     const { error } = await db.from('sessions_caisse').update({
       statut:           'valide_caissier',
       note_caissier:    note || null,
       total_reel:       reelEsp ?? null,       /* espèces comptées */
-      total_om_verifie: reelOM  ?? null,       /* OM vérifié */
+      total_om_verifie: reelOM  ?? null,       /* OM reçu caissière */
       caissier_id:      empId,
-      ecart:            ecartVal               /* sur le total espèces + OM */
+      ecart:            ecartVal               /* écart espèces + écart OM */
     }).eq('id', sessionData.id);
     if (error) throw error;
 
@@ -1302,7 +1309,7 @@ async function validateSession(theorique, reelEsp, reelOM, note) {
     sessionData.total_om_verifie = reelOM;
     sessionData.ecart            = ecartVal;
 
-    ML.logAction(`💰 Caisse clôturée · Total ${gnf(allVentes.reduce((s,v)=>s+v.total,0))} · Théorique ${gnf(theorique)}${ecartVal?` · Écart ${gnf(ecartVal)}`:''}`);
+    ML.logAction(`💰 Caisse clôturée · Total ${gnf(allVentes.reduce((s,v)=>s+v.total,0))} · Théorique esp. ${gnf(theoriqueEsp)}${ecartVal?` · Écart ${gnf(ecartVal)}`:''}`);
     toast('Caisse clôturée — gestionnaire notifié ✓', 'ok');
     renderCaisse();
   } catch(e) { toast('Erreur : '+e.message, 'ko'); }
