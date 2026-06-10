@@ -142,6 +142,7 @@ const NAV = [
   { href:'charges.html',    label:'Charges',    roles:['manager','owner'] },
   { href:'finances.html',   label:'Finances',   roles:['owner','manager','associe'] },
   { href:'bilan.html',      label:'Bilan',      roles:['owner','manager','associe'] },
+  { href:'associes.html',   label:'Associés',   roles:['owner','associe'] },
   { href:'parametres.html', label:'Paramètres', roles:['owner'] },
 ];
 

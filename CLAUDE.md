@@ -1,4 +1,4 @@
-# Medellin Lounge — CLAUDE.md v8.0
+# Medellin Lounge — CLAUDE.md v9.0
 
 ## Projet
 Application web de gestion interne — **Medellin Lounge** (Conakry, Guinée).
@@ -25,9 +25,9 @@ Activité : chicha + boissons. HTML/CSS/JS pur, Supabase JS v2 via CDN, auto-dep
 ## 7 rôles
 | Rôle | Pages accessibles |
 |------|-------------------|
-| `owner` | Tout (17 pages) |
+| `owner` | Tout (18 pages) |
 | `manager` | Dashboard, Chicha, Achats, Caisse, Rapport, Pointage, Historique, RH, Avances, Charges, Finances, Bilan |
-| `associe` | Dashboard, Caisse (lecture), Historique, Finances (Mes Parts), Bilan |
+| `associe` | Dashboard, Caisse (lecture), Historique, Finances (Mes Parts), Bilan, Associés |
 | `caissier` | Caisse, Historique, Ma Fiche, Avance |
 | `staff` | Saisie, Historique, Ma Fiche, Avance |
 | `chicha` | Chicha, Historique, Ma Fiche, Avance |
@@ -35,7 +35,7 @@ Activité : chicha + boissons. HTML/CSS/JS pur, Supabase JS v2 via CDN, auto-dep
 
 ---
 
-## Navigation — 17 items (shared.js)
+## Navigation — 18 items (shared.js)
 ```javascript
 { href:'dashboard.html',  roles:['manager','owner','associe'] },
 { href:'saisie.html',     roles:['staff'] },
@@ -53,6 +53,7 @@ Activité : chicha + boissons. HTML/CSS/JS pur, Supabase JS v2 via CDN, auto-dep
 { href:'charges.html',    roles:['manager','owner'] },
 { href:'finances.html',   roles:['owner','manager','associe'] },
 { href:'bilan.html',      roles:['owner','manager','associe'] },
+{ href:'associes.html',   roles:['owner','associe'] },
 { href:'parametres.html', roles:['owner'] },
 ```
 
@@ -79,6 +80,11 @@ Activité : chicha + boissons. HTML/CSS/JS pur, Supabase JS v2 via CDN, auto-dep
 | `remboursements_ecart` | id, session_id, employe_id, montant, note, statut (en_attente/valide/rejete), created_at |
 | `logs` | id, role, action, timestamp |
 | `credits` | id, employe_id, session_id, montant, rembourse |
+| `mouvements_caisse` | id, session_id, type (entree/sortie), motif, montant, note, created_at |
+| `achats_session` | id, session_id, categorie, produit_nom, montant, qty, prix_unitaire, created_at |
+| `sorties_chicha` | id, session_id, employe_id, arome, qty, valide, created_at |
+| `propositions` | id, titre, description, auteur_nom, statut (ouvert/ferme), created_at |
+| `votes_prop` | id, proposition_id, votant_key, votant_nom, poids, choix (bool), created_at — UNIQUE(proposition_id, votant_key) |
 
 > ⚠ La table `associes` N'EXISTE PLUS — tout est dans `employes` (colonne `pourcentage`)
 > ⚠ `salaires.html` EXISTE mais est **exclu de la nav** (logique périmée, conflit avec rh.html)
@@ -196,7 +202,7 @@ theoriqueEsp  = fond + totEsp           + entrées - sorties - achats
 | `charges.html` | manager/owner | Charges fixes mensuelles (loyer, salaires fixes…) |
 | `finances.html` | owner/manager/associe | Bilan / Dividendes / Trésorerie / Charges / Évolution |
 | `bilan.html` | owner/manager/associe | Bilan mensuel complet + répartition des parts |
-| `associes.html` | owner/manager/associe | Parts par associé, historique 6 mois, votes |
+| `associes.html` | owner/associe | Parts par associé sur 3/6/12 mois + Propositions & Votes |
 | `parametres.html` | owner | PINs, comptes, config, part lounge, part gestionnaire |
 
 ---
@@ -316,6 +322,67 @@ ALTER TABLE sessions_caisse
 UPDATE produits SET actif = true WHERE actif IS NULL;
 ALTER TABLE produits ALTER COLUMN actif SET DEFAULT true;
 ALTER TABLE produits ALTER COLUMN actif SET NOT NULL;
+
+-- Mouvements caisse (entrées/sorties manuelles dans session)
+CREATE TABLE IF NOT EXISTS mouvements_caisse (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  session_id UUID REFERENCES sessions_caisse(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('entree','sortie')),
+  motif TEXT,
+  montant INTEGER NOT NULL,
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE mouvements_caisse DISABLE ROW LEVEL SECURITY;
+
+-- Achats tracké dans session (achats.html)
+CREATE TABLE IF NOT EXISTS achats_session (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  session_id UUID REFERENCES sessions_caisse(id) ON DELETE CASCADE,
+  categorie TEXT,
+  produit_nom TEXT,
+  montant INTEGER NOT NULL,
+  qty NUMERIC DEFAULT 1,
+  prix_unitaire INTEGER,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE achats_session DISABLE ROW LEVEL SECURITY;
+
+-- Sorties chicha (chicha.html)
+CREATE TABLE IF NOT EXISTS sorties_chicha (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  session_id UUID REFERENCES sessions_caisse(id) ON DELETE SET NULL,
+  employe_id UUID REFERENCES employes(id) ON DELETE CASCADE,
+  arome TEXT,
+  qty INTEGER NOT NULL DEFAULT 1,
+  valide BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE sorties_chicha DISABLE ROW LEVEL SECURITY;
+
+-- Propositions (associes.html — votes entre associés)
+CREATE TABLE IF NOT EXISTS propositions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  titre TEXT NOT NULL,
+  description TEXT,
+  auteur_nom TEXT NOT NULL,
+  statut TEXT DEFAULT 'ouvert',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE propositions DISABLE ROW LEVEL SECURITY;
+
+-- Votes sur propositions
+CREATE TABLE IF NOT EXISTS votes_prop (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  proposition_id UUID REFERENCES propositions(id) ON DELETE CASCADE,
+  votant_key TEXT NOT NULL,
+  votant_nom TEXT,
+  poids NUMERIC,
+  choix BOOLEAN NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(proposition_id, votant_key)
+);
+ALTER TABLE votes_prop DISABLE ROW LEVEL SECURITY;
 ```
 
 ---
