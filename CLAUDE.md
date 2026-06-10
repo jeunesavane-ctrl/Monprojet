@@ -1,4 +1,4 @@
-# Medellin Lounge — CLAUDE.md v6.0
+# Medellin Lounge — CLAUDE.md v8.0
 
 ## Projet
 Application web de gestion interne — **Medellin Lounge** (Conakry, Guinée).
@@ -8,10 +8,10 @@ Activité : chicha + boissons. HTML/CSS/JS pur, Supabase JS v2 via CDN, auto-dep
 
 ## Chemins & déploiement
 - **Dossier :** `C:\Users\jeune\Monprojet`
-- **GitHub :** `https://github.com/Jlefasavane/Monprojet.git` (branche `main`)
-- **Netlify :** `https://medellin-lounge.netlify.app` — auto-deploy sur `git push`
-- **Serveur local :** `python -m http.server 8080` depuis `C:\Users\jeune\Monprojet`
-- **⚠ Ne plus utiliser Netlify Drop** — tout passe par `git push origin main`
+- **GitHub :** `https://github.com/jeunesavane-ctrl/Monprojet.git` (branche `main`)
+- **Production :** `https://medellin-lounge.com` (domaine custom, Netlify Pro)
+- **Netlify fallback :** `https://medellin-lounge.netlify.app`
+- **⚠ Tout passe par `git push origin main`** — jamais Netlify Drop
 
 ---
 
@@ -74,7 +74,7 @@ Activité : chicha + boissons. HTML/CSS/JS pur, Supabase JS v2 via CDN, auto-dep
 | `avances` | id, employe_id, montant, date, statut (en_attente/approuvee/rejetee), rembourse, obs, note_demande |
 | `salaires_verses` | id, employe_id, mois, salaire_brut, avances_deduites, ecarts_deduits, surplus_caisse, net_verse, nb_absences_nj, sanction_type, sanction_montant, nb_retards, sanction_retard_montant, paye_le — UNIQUE(employe_id, mois) |
 | `charges` | id, libelle, montant, mois, categorie, paye, date_paiement, recurrence |
-| `produits` | id, nom, type, stock_actuel, stock_min, prix_defaut, prix_achat, unite_vente, packaging_label, unite_par_packaging, actif |
+| `produits` | id, nom, type, stock_actuel, seuil_bas, prix, prix_achat, unite_vente, packaging_label, unite_par_packaging, actif **NOT NULL DEFAULT true** |
 | `sessions_caisse` | id, date, statut, fond_caisse, total_reel, total_om_verifie, ecart, caissier_id, note_caissier, note_manager |
 | `remboursements_ecart` | id, session_id, employe_id, montant, note, statut (en_attente/valide/rejete), created_at |
 | `logs` | id, role, action, timestamp |
@@ -82,6 +82,7 @@ Activité : chicha + boissons. HTML/CSS/JS pur, Supabase JS v2 via CDN, auto-dep
 
 > ⚠ La table `associes` N'EXISTE PLUS — tout est dans `employes` (colonne `pourcentage`)
 > ⚠ `salaires.html` EXISTE mais est **exclu de la nav** (logique périmée, conflit avec rh.html)
+> ⚠ Filtre produits actifs : toujours `.not('actif','is',false)` — jamais `.eq('actif',true)` ni `.neq('actif',false)` (excluraient les NULL)
 
 ### Config keys
 | Clé | Description | Défaut |
@@ -147,12 +148,30 @@ PAYER  → INSERT salaires_verses + UPDATE avances SET rembourse=true
 ANNULER → DELETE salaires_verses (avances gardent rembourse=true)
 ```
 
-### Écart caisse
+### Écart caisse — FORMULE CORRECTE
 ```
-ecart = theorique - reel    (+ = manque caissier, − = excédent/surplus)
-theorique = fond_caisse + totEspeces + entrees - sorties - achats
-                              ↑ OM EXCLUS (OM vérifié séparément)
+TOTAL = espèces + OM  (les deux sont de l'argent reçu)
+
+théorique     = fond + totVentes(esp+OM) + entrées - sorties - achats
+theoriqueEsp  = fond + totEsp           + entrées - sorties - achats
+
+écart espèces = theoriqueEsp - réel_espèces_comptées
+écart OM      = totOM_déclaré_staff - totOM_reçu_caissière
+écart total   = écart espèces + écart OM   ← stocké dans sessions_caisse.ecart
+
+(+ = manque, − = excédent/surplus)
 ```
+
+### Session caisse
+- `caisse.html` **auto-crée** une session pour aujourd'hui si elle n'existe pas (rôle caissier/manager/owner)
+- Flux : session ouverte → staff saisissent → caissier clôture → manager valide → rapport créé
+
+### Validation gestionnaire (dashboard.html openValidation)
+- ⚠ **NE PAS recalculer l'écart** dans `openValidation()` — utiliser `sessInfo.ecart` (valeur stockée à la clôture)
+- Le SELECT sessions_caisse doit inclure `ecart` : `...note_caissier,ecart`
+- `storedEcart = sessInfo.ecart ?? null` → passer à `finalizeSession` comme 11e argument
+- Si `reelOM = null` → afficher "Non vérifié — aucun écart OM compté" (pas "Reçu caissière: —")
+- `finalizeSession` reçoit `(sessId, sessDate, totVentes, nextNum, totC, totB, fond, totEntrees, totSorties, reelEsp, storedEcart)`
 
 ---
 
@@ -168,7 +187,7 @@ theorique = fond_caisse + totEspeces + entrees - sorties - achats
 | `caisse.html` | caissier/manager/owner/associe | Session caisse, mouvements, clôture, remboursements écart |
 | `rapport.html` | manager/owner | Génère le rapport journalier depuis session caisse |
 | `pointage.html` | manager/owner | Présences/absences/retards/congés par date |
-| `historique.html` | tous | Liste rapports avec filtres |
+| `historique.html` | tous | Liste rapports avec filtres + 🗑 suppression par rapport (owner) |
 | `fiche.html` | staff/caissier/chicha/achats | Solde salaire estimé, avances, écarts caissier |
 | `avance.html` | staff/caissier/chicha/achats | Demande d'avance sur salaire |
 | `produits.html` | manager/owner | Catalogue produits + stock |
@@ -178,7 +197,7 @@ theorique = fond_caisse + totEspeces + entrees - sorties - achats
 | `finances.html` | owner/manager/associe | Bilan / Dividendes / Trésorerie / Charges / Évolution |
 | `bilan.html` | owner/manager/associe | Bilan mensuel complet + répartition des parts |
 | `associes.html` | owner/manager/associe | Parts par associé, historique 6 mois, votes |
-| `parametres.html` | owner | PINs, comptes, config, part lounge, part gestionnaire, danger zone |
+| `parametres.html` | owner | PINs, comptes, config, part lounge, part gestionnaire |
 
 ---
 
@@ -218,12 +237,15 @@ Associé voit UNIQUEMENT un onglet "Mes Parts" (injected) — part perso 6 mois.
 ## parametres.html
 - **Part lounge** : % réservé au lounge avant distribution (config `part_lounge`, défaut 10)
 - **Part gestionnaire** : % fixe (config `owner_pct`) ou auto (100% − assocs%)
-  - Validation live : gestionnaire% + associés% = 100%
-  - Bouton "Remettre en auto" supprime la config
-- **Comptes** : tout dans `employes`, un seul "+ Nouveau", associés avec `pourcentage`
-- **Zone dangereuse** : reset data (protégé PIN owner)
-  - Efface : rapports, presences, avances, salaires_verses, sessions_caisse, logs
-  - Conserve : employes, produits, charges, config
+- ⚠ **PAS de reset en masse** — la zone dangereuse a été supprimée
+- Suppression des rapports : se fait rapport par rapport depuis `historique.html`
+
+## historique.html — Suppression de rapport (owner)
+- Bouton 🗑 visible uniquement pour le rôle `owner` dans chaque rapport ouvert
+- `openDeleteRapport(id, sessionId, num, dateDisplay)` → modal de confirmation
+- `confirmDeleteRapport()` → DELETE rapports WHERE id + UPDATE sessions_caisse SET statut='valide_caissier'
+- La session est remise en attente (permet revalidation) ; pas de cascade suppression
+- Variable globale `_delRapport` stocke l'entrée en cours de suppression
 
 ---
 
@@ -237,10 +259,8 @@ Associé voit UNIQUEMENT un onglet "Mes Parts" (injected) — part perso 6 mois.
 
 ## SQL migrations — à exécuter si tables manquantes
 
-Les pages affichent automatiquement le SQL si la table est absente. En cas de base vierge :
-
 ```sql
--- Presences (pointage.html l'affiche si manquante)
+-- Presences
 CREATE TABLE IF NOT EXISTS presences (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   employe_id UUID REFERENCES employes(id) ON DELETE CASCADE,
@@ -291,6 +311,11 @@ ALTER TABLE sessions_caisse
   ADD COLUMN IF NOT EXISTS caissier_id        UUID REFERENCES employes(id),
   ADD COLUMN IF NOT EXISTS surplus_caisse     INTEGER DEFAULT 0,
   ADD COLUMN IF NOT EXISTS total_om_verifie   INTEGER;
+
+-- Produits : actif NOT NULL (à exécuter une fois)
+UPDATE produits SET actif = true WHERE actif IS NULL;
+ALTER TABLE produits ALTER COLUMN actif SET DEFAULT true;
+ALTER TABLE produits ALTER COLUMN actif SET NOT NULL;
 ```
 
 ---
