@@ -443,9 +443,9 @@ async function loadComptes() {
             <div style="display:flex;gap:10px;align-items:flex-start;flex:1;min-width:0">
               <div class="compte-dot ${e.actif&&hasPin?'on':'off'}" style="margin-top:5px"></div>
               <div>
-                <div class="compte-nom">${nomComplet}</div>
+                <div class="compte-nom">${escHtml(nomComplet)}</div>
                 <div class="compte-meta">
-                  ${!isAssoc && e.poste ? `<span>${e.poste}</span>` : ''}
+                  ${!isAssoc && e.poste ? `<span>${escHtml(e.poste)}</span>` : ''}
                   ${hasPin ? `<span class="role-chip ${curRole}">${ROLE_LBL[curRole]||curRole}</span>` : ''}
                   ${isAssoc ? `<span style="color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:14px">${e.pourcentage||0}%</span>` : ''}
                   <span style="color:${hasPin&&e.actif?'var(--ok)':hasPin?'var(--danger)':'var(--muted)'}">
@@ -456,26 +456,26 @@ async function loadComptes() {
             <div class="compte-actions">
               ${hasPin ? `
                 <button class="ca-btn" style="color:${e.actif?'var(--danger)':'var(--ok)'}"
-                  onclick="toggleEmpActif('${e.id}','${nomComplet}',${e.actif})">
+                  onclick="toggleEmpActif('${e.id}','${jsStr(nomComplet)}',${e.actif})">
                   ${e.actif?'Désactiver':'Réactiver'}
                 </button>
                 <button class="ca-btn" style="color:var(--muted)"
-                  onclick="openResetPin('employe','${e.id}','${nomComplet}')">
+                  onclick="openResetPin('employe','${e.id}','${jsStr(nomComplet)}')">
                   Reset PIN
                 </button>
                 ${!isAssoc && nextLbl ? `
                   <button class="ca-btn" style="color:var(--gold)"
-                    onclick="cyclerRole('${e.id}','${curRole}','${nomComplet}')">
+                    onclick="cyclerRole('${e.id}','${curRole}','${jsStr(nomComplet)}')">
                     → ${nextLbl}
                   </button>` : ''}
                 ${isAssoc ? `
                   <button class="ca-btn" style="color:var(--gold)"
-                    onclick="openEditPct('${e.id}','${nomComplet}',${e.pourcentage||0})">
+                    onclick="openEditPct('${e.id}','${jsStr(nomComplet)}',${e.pourcentage||0})">
                     Modifier %
                   </button>` : ''}
               ` : `
                 <button class="ca-btn" style="color:var(--ok)"
-                  onclick="openDonnerAcces('${e.id}','${nomComplet}')">
+                  onclick="openDonnerAcces('${e.id}','${jsStr(nomComplet)}')">
                   Donner accès
                 </button>
               `}
@@ -726,7 +726,7 @@ async function loadLogs() {
         <div class="log-item" style="flex-direction:column;align-items:flex-start;gap:3px;
           background:rgba(201,168,76,.05);border-radius:8px;padding:9px 12px;
           border:1px solid rgba(201,168,76,.12)">
-          <div style="font-size:13px;font-weight:500;line-height:1.4">${l.action}</div>
+          <div style="font-size:13px;font-weight:500;line-height:1.4">${escHtml(l.action)}</div>
           <div class="log-ts">
             <span style="color:var(--gold);font-size:10px;text-transform:uppercase;
               letter-spacing:.5px">${role}</span> · ${dateStr} à ${timeStr}
@@ -738,7 +738,7 @@ async function loadLogs() {
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:15px;opacity:.5">🔑</span>
           <div>
-            <div class="log-role">${who}</div>
+            <div class="log-role">${escHtml(who)}</div>
             <div class="log-ts">${dateStr} à ${timeStr}</div>
           </div>
         </div>

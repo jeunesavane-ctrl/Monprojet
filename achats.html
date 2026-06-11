@@ -152,8 +152,15 @@ async function loadData() {
       }
       const { data: cr, error } = await db
         .from('sessions_caisse').insert({ date: today, statut:'ouvert' }).select().single();
-      if (error) throw error;
-      sessRes.data = cr;
+      if (error) {
+        /* Session créée en parallèle par un autre rôle (date UNIQUE) → on relit */
+        const { data: again } = await db
+          .from('sessions_caisse').select('id,statut').eq('date', today).maybeSingle();
+        if (!again) throw error;
+        sessRes.data = again;
+      } else {
+        sessRes.data = cr;
+      }
     }
     sessionId = sessRes.data.id;
 
@@ -366,7 +373,7 @@ async function renderAchatList() {
       <div class="achat-item">
         <div class="achat-icon">🛒</div>
         <div class="achat-info">
-          <div class="achat-label">${a.produit_nom}</div>
+          <div class="achat-label">${escHtml(a.produit_nom)}</div>
           <div class="achat-meta">×${a.qty} — ${dt}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
@@ -564,10 +571,8 @@ function isoFromDaysAgo(n) {
   return d.toISOString().slice(0,10);
 }
 
-function escHtml(s) {
-  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+/* escHtml vient désormais de shared.js (définition locale supprimée :
+   la redéclaration entrait en collision avec le const global). */
 
 document.addEventListener('click', e => {
   if (e.target === $('overlay')) $('overlay').classList.remove('on');

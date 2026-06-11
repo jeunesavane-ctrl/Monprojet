@@ -233,11 +233,27 @@ async function loadBilan() {
   /* Fallback si aucun rapport (colonne net absente) */
   const margeBrute    = rapports.length > 0 ? margeRapports : (recettesTotal - achatsTotal);
 
-  const chargesTotal  = charges.reduce((s,c) => s + (c.montant||0), 0);
-  const salairesTotal = salaires.reduce((s,v) => s + (v.salaire_brut||0), 0);
+  /* ── Salaires comptés UNE SEULE FOIS ──────────────────────────
+     validerPaie (rh.html) inscrit la masse salariale comme charge
+     « Salaires … » (categorie personnel). La soustraire via les
+     charges ET via salaires_verses revenait à déduire les salaires
+     deux fois. Convention : salaires au brut, une seule fois.
+     - chargesHorsSalaires : vraies charges fixes (loyer, élec…)
+     - salairesTotal : salaires_verses (source vérité) ; à défaut,
+       la charge « Salaires » si la paie n'a pas encore été versée */
+  const isChargeSalaires = c =>
+    (c.categorie||'') === 'personnel' && /^salaires/i.test(c.label||'');
+  const chargeSalairesTotal = charges.filter(isChargeSalaires)
+    .reduce((s,c) => s + (c.montant||0), 0);
+  const chargesHorsSalaires = charges.filter(c => !isChargeSalaires(c))
+    .reduce((s,c) => s + (c.montant||0), 0);
+  /* Total charges (salaires inclus) — base des parts, cohérent avec finances.html */
+  const chargesTotal   = chargesHorsSalaires + chargeSalairesTotal;
+  const salairesVerses = salaires.reduce((s,v) => s + (v.salaire_brut||0), 0);
+  const salairesTotal  = salairesVerses > 0 ? salairesVerses : chargeSalairesTotal;
 
-  /* Résultat net comptable = Marge − Charges − Salaires (affiché en KPI) */
-  const resultatComptable = margeBrute - chargesTotal - salairesTotal;
+  /* Résultat net comptable = Marge − Charges hors salaires − Salaires (1 fois) */
+  const resultatComptable = margeBrute - chargesHorsSalaires - salairesTotal;
   /* Résultat distribuable = Marge − Charges uniquement (cohérent avec finances.html) */
   const resultatNet = margeBrute - chargesTotal;
 
@@ -245,7 +261,7 @@ async function loadBilan() {
   $('kpi-recettes').textContent = fmtM(recettesTotal);
   $('kpi-achats').textContent   = fmtM(achatsTotal);
   $('kpi-marge').textContent    = fmtM(margeBrute);
-  $('kpi-charges').textContent  = fmtM(chargesTotal);
+  $('kpi-charges').textContent  = fmtM(chargesHorsSalaires);
   $('kpi-salaires').textContent = fmtM(salairesTotal);
   $('kpi-net').textContent      = fmtM(resultatComptable);
   $('kpi-net').style.color      = resultatComptable >= 0 ? 'var(--ok)' : 'var(--danger)';
@@ -253,8 +269,8 @@ async function loadBilan() {
   /* Titre impression */
   $('bilan-title').textContent  = `MEDELLIN LOUNGE — Bilan ${frMonth(mois+'-01')}`;
 
-  /* ── Compte de résultat ── */
-  renderCompte({ recettesTotal, achatsTotal, margeBrute, chargesTotal, salairesTotal, resultatNet: resultatComptable });
+  /* ── Compte de résultat (charges hors salaires + salaires en ligne séparée) ── */
+  renderCompte({ recettesTotal, achatsTotal, margeBrute, chargesTotal: chargesHorsSalaires, salairesTotal, resultatNet: resultatComptable });
 
   /* ── Sessions détail ── */
   if (rapports.length) {
@@ -293,7 +309,7 @@ async function loadBilan() {
       ${associes.map(a => {
         const part = Math.round(distribuable * (a.pourcentage||0) / 100);
         return `<div class="part-row">
-          <div>${a.nom}<span class="part-pct">${a.pourcentage||0}%</span></div>
+          <div>${escHtml(a.nom)}<span class="part-pct">${a.pourcentage||0}%</span></div>
           <div class="part-val">${gnf(part)}</div>
         </div>`;
       }).join('')}

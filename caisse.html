@@ -232,6 +232,8 @@ let employes      = [];
 let _realtimeSub  = false;
 let _noteSave;
 let _savingOp     = false;
+let _clotureCtx   = null;   /* contexte de clôture (évite de passer la note via onclick) */
+let _finalizing   = false;  /* garde anti double-clôture */
 
 const isReadOnly  = () => ML.getRole() !== 'caissier';
 const caisseNoteKey = () => `ml_caisse_note_${todayISO()}`;
@@ -337,8 +339,15 @@ ALTER TABLE credits DISABLE ROW LEVEL SECURITY;</div>
         .from('sessions_caisse')
         .insert({ date: today, statut:'ouvert' })
         .select().single();
-      if (cErr) throw cErr;
-      sess = created;
+      if (cErr) {
+        /* Session créée en parallèle par un autre rôle (date UNIQUE) → on relit */
+        const { data: again } = await db
+          .from('sessions_caisse').select('*').eq('date', today).maybeSingle();
+        if (!again) throw cErr;
+        sess = again;
+      } else {
+        sess = created;
+      }
     }
     sessionData = sess;
 
@@ -392,6 +401,16 @@ function subscribeRealtime(sessId) {
       filter:`session_id=eq.${sessId}` }, refresh)
     .on('postgres_changes',{ event:'*',schema:'public',table:'achats_session',
       filter:`session_id=eq.${sessId}` }, refresh)
+    .on('postgres_changes',{ event:'UPDATE',schema:'public',table:'sessions_caisse',
+      filter:`id=eq.${sessId}` }, payload => {
+      /* Session modifiée ailleurs (ex. rapport supprimé → session rouverte).
+         On resynchronise l'état et on libère le verrou de clôture. */
+      if (payload.new) {
+        sessionData = { ...sessionData, ...payload.new };
+        if (sessionData.statut === 'ouvert') { _finalizing = false; _clotureCtx = null; }
+        renderCaisse();
+      }
+    })
     .subscribe();
 }
 
@@ -483,8 +502,8 @@ function renderCaisse() {
       <div class="mvt-item">
         <div class="mvt-badge ${m.type}">${m.type==='entree'?'↑':'↓'}</div>
         <div class="mvt-info">
-          <div class="mvt-motif">${m.motif}</div>
-          <div class="mvt-note">${m.note||''} <span style="opacity:.4;font-size:10px">${agoTxt}</span></div>
+          <div class="mvt-motif">${escHtml(m.motif)}</div>
+          <div class="mvt-note">${escHtml(m.note||'')} <span style="opacity:.4;font-size:10px">${agoTxt}</span></div>
         </div>
         <div class="mvt-montant ${m.type}">
           ${m.type==='entree'?'+':'−'} ${gnf(m.montant)}
@@ -516,8 +535,8 @@ function renderCaisse() {
   const creditRows = allCredits.length ? allCredits.map(c => `
     <div class="credit-item${c.rembourse?' done':''}">
       <div class="credit-info">
-        <div class="credit-nom">${c.client_nom}</div>
-        ${c.note ? `<div class="credit-note">${c.note}</div>` : ''}
+        <div class="credit-nom">${escHtml(c.client_nom)}</div>
+        ${c.note ? `<div class="credit-note">${escHtml(c.note)}</div>` : ''}
       </div>
       <div class="credit-montant">${gnf(c.montant)}</div>
       ${!ro && !isVal
@@ -564,7 +583,7 @@ function renderCaisse() {
         const rows  = vs.map(v => `
           <div class="cv-row">
             <div class="cv-dot ${v.type}"></div>
-            <div class="cv-label">${v.label}</div>
+            <div class="cv-label">${escHtml(v.label)}</div>
             <div class="cv-qty">×${v.qty}</div>
             <span class="cv-pm">${v.paiement==='om'?'📱':'💵'}</span>
             <div class="cv-total">${gnf(v.total)}</div>
@@ -574,7 +593,7 @@ function renderCaisse() {
             <div class="staff-head" onclick="toggleStaff('${empId}')">
               <div class="staff-avatar">${init}</div>
               <div class="staff-info">
-                <div class="staff-nom">${nom}</div>
+                <div class="staff-nom">${escHtml(nom)}</div>
                 <div class="staff-sub">${vs.length} vente${vs.length>1?'s':''} ·
                   <span style="color:${close?'var(--ok)':'var(--gold)'}">
                     ${close?'Clôturée':'En cours'}
@@ -805,7 +824,7 @@ function renderCaisse() {
         ${sessionData.note_caissier
           ? `<div style="margin-top:10px;font-size:12px;color:var(--muted);
                font-style:italic;text-align:center;opacity:.7">
-               "${sessionData.note_caissier}"</div>` : ''}
+               "${escHtml(sessionData.note_caissier)}"</div>` : ''}
       </div>`;
   } else if (ro) {
     clotureBlock = `
@@ -887,6 +906,7 @@ function openFondModal() {
 
 async function saveFond() {
   const val = parseInt(document.getElementById('fond-input')?.value) || 0;
+  if (val < 0) { toast('Le fond de caisse ne peut pas être négatif', 'ko'); return; }
   try {
     await db.from('sessions_caisse').update({ fond_caisse:val }).eq('id', sessionData.id);
     sessionData.fond_caisse = val;
@@ -955,8 +975,8 @@ async function saveMouvement(type) {
   const montant = parseInt(document.getElementById('mv-montant')?.value) || 0;
   const note    = document.getElementById('mv-note')?.value.trim() || null;
 
-  if (!motif)   { toast('Motif requis', 'ko'); return; }
-  if (!montant) { toast('Montant requis', 'ko'); return; }
+  if (!motif)         { toast('Motif requis', 'ko'); return; }
+  if (!(montant > 0)) { toast('Montant invalide (doit être positif)', 'ko'); return; }
 
   /* Protection grosse sortie > 500K GNF */
   if (type === 'sortie' && montant >= 500000) {
@@ -1026,8 +1046,8 @@ async function saveCredit() {
   const montant    = parseInt(document.getElementById('cr-montant')?.value) || 0;
   const note       = document.getElementById('cr-note')?.value.trim() || null;
 
-  if (!client_nom) { toast('Nom du client requis', 'ko'); return; }
-  if (!montant)    { toast('Montant requis', 'ko'); return; }
+  if (!client_nom)    { toast('Nom du client requis', 'ko'); return; }
+  if (!(montant > 0)) { toast('Montant invalide (doit être positif)', 'ko'); return; }
 
   _savingOp = true;
   try {
@@ -1191,6 +1211,10 @@ function confirmValidate(theoriqueEsp, totOM) {
                    : (sessionData.total_om_verifie ?? null);
   const note     = ($('f-note')?.value || '').trim();
 
+  /* Mémorise le contexte : la note n'est plus injectée dans un onclick
+     (une apostrophe / guillemet / retour-ligne cassait la validation). */
+  _clotureCtx = { theoriqueEsp, reelEsp, reelOM, totOM, note };
+
   /* Écart espèces */
   const ecartEsp = reelEsp != null ? theoriqueEsp - reelEsp : null;
   const ecartEspColor = ecartEsp === null ? 'var(--muted)'
@@ -1275,15 +1299,18 @@ function confirmValidate(theoriqueEsp, totOM) {
     </div>
     <div class="sheet-btns">
       <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
-      <button class="btn-ok"
-        onclick="validateSession(${theoriqueEsp},${reelEsp??'null'},${reelOM??'null'},${totOM},'${note.replace(/'/g,"\\'")}')">
+      <button class="btn-ok" onclick="validateSession()">
         CONFIRMER
       </button>
     </div>`;
   $('overlay').classList.add('on');
 }
 
-async function validateSession(theoriqueEsp, reelEsp, reelOM, totOM, note) {
+async function validateSession() {
+  if (_finalizing) return;
+  if (!_clotureCtx) { toast('Contexte de clôture introuvable — réessayez', 'ko'); return; }
+  const { theoriqueEsp, reelEsp, reelOM, totOM, note } = _clotureCtx;
+  _finalizing = true;
   $('overlay').classList.remove('on');
   try {
     const empId    = ML.getExtra()?.employe_id || null;
@@ -1294,14 +1321,21 @@ async function validateSession(theoriqueEsp, reelEsp, reelOM, totOM, note) {
       ? (totOM === 0 ? ecartEsp : (ecartOM != null ? ecartEsp + ecartOM : null))
       : null;
 
-    const { error } = await db.from('sessions_caisse').update({
+    const payload = {
       statut:           'valide_caissier',
       note_caissier:    note || null,
       total_reel:       reelEsp ?? null,       /* espèces comptées */
       total_om_verifie: reelOM  ?? null,       /* OM reçu caissière */
       caissier_id:      empId,
-      ecart:            ecartVal               /* écart espèces + écart OM */
-    }).eq('id', sessionData.id);
+      ecart:            ecartVal,              /* écart total (espèces + OM) — affichage */
+      ecart_especes:    ecartEsp ?? null       /* écart ESPÈCES seul — seul déduit de la paie */
+    };
+    let { error } = await db.from('sessions_caisse').update(payload).eq('id', sessionData.id);
+    if (error && /ecart_especes/.test(error.message||'')) {
+      /* Colonne pas encore migrée → on clôture sans elle (repli) */
+      delete payload.ecart_especes;
+      ({ error } = await db.from('sessions_caisse').update(payload).eq('id', sessionData.id));
+    }
     if (error) throw error;
 
     sessionData.statut           = 'valide_caissier';
@@ -1309,11 +1343,13 @@ async function validateSession(theoriqueEsp, reelEsp, reelOM, totOM, note) {
     sessionData.total_reel       = reelEsp;
     sessionData.total_om_verifie = reelOM;
     sessionData.ecart            = ecartVal;
+    sessionData.ecart_especes    = ecartEsp ?? null;
 
     ML.logAction(`💰 Caisse clôturée · Total ${gnf(allVentes.reduce((s,v)=>s+v.total,0))} · Théorique esp. ${gnf(theoriqueEsp)}${ecartVal?` · Écart ${gnf(ecartVal)}`:''}`);
     toast('Caisse clôturée — gestionnaire notifié ✓', 'ok');
+    _clotureCtx = null;
     renderCaisse();
-  } catch(e) { toast('Erreur : '+e.message, 'ko'); }
+  } catch(e) { _finalizing = false; toast('Erreur : '+e.message, 'ko'); }
 }
 
 document.addEventListener('click', e => {
@@ -1351,9 +1387,9 @@ async function loadRemboursementsEnAttente() {
           ${rembs.map(r => `
             <div class="avance-item" id="rrow-${r.id}">
               <div style="flex:1">
-                <div style="font-size:14px;font-weight:500">${nomMap[r.employe_id] || '?'}</div>
+                <div style="font-size:14px;font-weight:500">${escHtml(nomMap[r.employe_id] || '?')}</div>
                 <div class="avance-info">
-                  ${gnf(r.montant)}${r.note ? ` · ${r.note}` : ''}
+                  ${gnf(r.montant)}${r.note ? ` · ${escHtml(r.note)}` : ''}
                 </div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">
                   ${frDateShort(r.created_at?.slice(0,10))}

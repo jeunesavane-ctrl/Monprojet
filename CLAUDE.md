@@ -148,8 +148,10 @@ absNJ            = absences - justifications_approuvees (ce mois)
 sanctions_abs    = brut × (0 si absNJ=0, 0.10 si absNJ=2, 0.15 si absNJ≥3)
 sanctions_ret    = brut × 0.10 si retards ≥ 5 ce mois
 avances_ded      = SUM(avances WHERE statut='approuvee' AND rembourse=false) — TOUTES dates
-ecarts_ded       = SUM(sessions_caisse.ecart > 0) - SUM(remboursements_valides) — ce mois
-surplus_bonus    = SUM(|sessions_caisse.ecart < 0|) — ce mois
+ecarts_ded       = SUM(ecart_especes > 0) - SUM(remboursements_valides) — ce mois
+                   (ecart_especes ?? ecart : repli sur l'écart total avant migration ;
+                    l'écart OM N'EST PLUS déduit du salaire caissier)
+surplus_bonus    = SUM(|ecart_especes < 0|) — ce mois
 net_verse        = MAX(0, brut - sanctions_abs - sanctions_ret - avances_ded - ecarts_ded + surplus_bonus)
 
 PAYER  → INSERT salaires_verses + UPDATE avances SET rembourse=true
@@ -163,11 +165,16 @@ TOTAL = espèces + OM  (les deux sont de l'argent reçu)
 théorique     = fond + totVentes(esp+OM) + entrées - sorties - achats
 theoriqueEsp  = fond + totEsp           + entrées - sorties - achats
 
-écart espèces = theoriqueEsp - réel_espèces_comptées
+écart espèces = theoriqueEsp - réel_espèces_comptées   ← stocké dans sessions_caisse.ecart_especes
 écart OM      = totOM_déclaré_staff - totOM_reçu_caissière
-écart total   = écart espèces + écart OM   ← stocké dans sessions_caisse.ecart
+écart total   = écart espèces + écart OM               ← stocké dans sessions_caisse.ecart (affichage)
 
 (+ = manque, − = excédent/surplus)
+
+⚠ PAIE : seul `ecart_especes` impacte le salaire caissier. L'écart OM (déclaratif
+   staff vs reçu téléphone) N'EST PAS un manquant caissier → jamais déduit.
+   rh.html / fiche.html lisent `ecart_especes ?? ecart` (repli pour sessions
+   d'avant la migration `ecart_especes`).
 ```
 
 ### Session caisse
@@ -210,6 +217,22 @@ rapport.html (manager) → chicha/boissons saisis MANUELLEMENT + achats préremp
 | `bilan.html` | SELECT incluait `statut` (n'existe pas dans `rapports`) → données vides | Retiré `statut` du SELECT |
 | `rh.html` | `validerPaie()` cherchait `.ilike('libelle','Salaires%')` → jamais trouvé → doublons | Changé en `.ilike('label','Salaires%')` |
 | `charges` table | Colonne documentée `libelle` mais s'appelle **`label`** | Corrigé dans CLAUDE.md |
+| `rapport.html` | `fetchNextNum` triait par `date` → N° en double si un rapport jour passé existait | Calcul `max(num)` numérique (+ idem `dashboard.html` × 2) |
+| `rapport.html` | `checkDejaEnvoye` cosmétique (opacity) → 2e rapport possible le même jour | `disabled=true` + flag `dejaEnvoye` bloque `openConfirm`/`doSubmit` |
+| `caisse.html` | Note de clôture passée dans un `onclick` → apostrophe/guillemet cassait la validation | Note passée via `_clotureCtx` + garde anti double-clôture `_finalizing` |
+| `caisse/avances/fiche` | Montants négatifs acceptés (`if(!montant)`) → totaux corrompus | Validation `if(!(montant>0))` partout |
+| `saisie/caisse/chicha/achats` | Création session non atomique → erreur clé dupliquée si 2 rôles ouvrent en même temps | Re-`select` de la session existante si l'`insert` échoue |
+| `fiche.html` | `soumettreAvance` ne vérifiait pas les demandes en attente → spam (incohérent avec `avance.html`) | Anti-doublon `en_attente` ajouté |
+| **TOUTES pages** | XSS stocké : données saisies injectées en `innerHTML` sans échappement | Helper `escHtml()` dans `shared.js` appliqué à tous les noms/notes/produits/libellés/titres |
+| `parametres/rh/charges` | Noms/libellés à apostrophe (N'Diaye, « l'eau ») dans des `onclick` → handler cassé | Helper `jsStr()` dans `shared.js` pour échapper le contexte JS-attribut |
+| `achats.html` | `function escHtml` locale en collision avec le `const escHtml` global de `shared.js` → page cassée | Définition locale supprimée (utilise celle de `shared.js`) |
+| `bilan.html` | Salaires comptés **2 fois** (charge « Salaires » créée par `validerPaie` + `salaires_verses`) → résultat net faux | Salaires comptés **une fois au brut** : `chargesHorsSalaires` séparé ; parts inchangées (cohérent finances.html) |
+| `caisse/rh/fiche/rapport` | Écart **OM** mélangé à l'écart espèces dans `ecart` → déduit à tort du salaire caissier | Nouvelle colonne `ecart_especes` (écart espèces seul) ; paie déduit `ecart_especes ?? ecart` (repli historique) |
+| `dashboard.html` | `finalizeSession` pouvait créer un 2e rapport pour une date déjà couverte | Garde `_finalizingSess` + vérif `rapports` existant pour la date avant insert |
+
+> ⚙ **Convention** : toute donnée utilisateur injectée via `innerHTML` doit passer par `escHtml(...)`. Toute donnée passée dans `onclick="fn('…')"` doit passer par `jsStr(...)`. Les deux sont dans `shared.js`.
+
+> 🔐 **Sécurité structurelle (base ouverte)** : voir **`SECURITE.md`** — RLS désactivé + clé anon publique = base accessible à tous. **Non corrigeable côté HTML** : nécessite RLS + login côté serveur (Edge Function) à déployer dans Supabase. Plan de bascule par phases dans `SECURITE.md`.
 
 ---
 
@@ -280,10 +303,16 @@ Associé voit UNIQUEMENT un onglet "Mes Parts" (injected) — part perso 6 mois.
 
 ## historique.html — Suppression de rapport (owner)
 - Bouton 🗑 visible uniquement pour le rôle `owner` dans chaque rapport ouvert
-- `openDeleteRapport(id, sessionId, num, dateDisplay)` → modal de confirmation
-- `confirmDeleteRapport()` → DELETE rapports WHERE id + UPDATE sessions_caisse SET statut='valide_caissier'
-- La session est remise en attente (permet revalidation) ; pas de cascade suppression
-- Variable globale `_delRapport` stocke l'entrée en cours de suppression
+- `openDeleteRapport(id, sessionId, num, dateDisplay, rawDate)` → modal de confirmation
+  (le bandeau `del-session-info` explique le devenir de la session)
+- `confirmDeleteRapport()` → DELETE rapports WHERE id, puis :
+  - rapport du **JOUR** → session **ROUVERTE** (`statut='ouvert'`) : le staff peut
+    ressaisir (saisie.html se déverrouille en temps réel), la caissière reclôturer
+    (caisse.html écoute aussi sessions_caisse et libère `_finalizing`), le manager
+    revalider → nouveau rapport
+  - rapport **passé** → `statut='valide_caissier'` (revalidation depuis Dashboard ;
+    saisie.html ne charge que la session du jour, donc réouverture inutile)
+- Pas de cascade suppression ; `_delRapport` stocke l'entrée en cours
 
 ---
 
@@ -348,7 +377,11 @@ ALTER TABLE sessions_caisse
   ADD COLUMN IF NOT EXISTS ecart              INTEGER,
   ADD COLUMN IF NOT EXISTS caissier_id        UUID REFERENCES employes(id),
   ADD COLUMN IF NOT EXISTS surplus_caisse     INTEGER DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS total_om_verifie   INTEGER;
+  ADD COLUMN IF NOT EXISTS total_om_verifie   INTEGER,
+  -- ⚠ NOUVEAU (à exécuter) : écart ESPÈCES seul, séparé de l'écart total.
+  -- Seul cet écart est déduit du salaire caissier (l'écart OM ne l'est plus).
+  -- Repli automatique sur `ecart` pour les sessions clôturées avant migration.
+  ADD COLUMN IF NOT EXISTS ecart_especes      INTEGER;
 
 -- Produits : actif NOT NULL (à exécuter une fois)
 UPDATE produits SET actif = true WHERE actif IS NULL;
@@ -422,9 +455,23 @@ ALTER TABLE votes_prop DISABLE ROW LEVEL SECURITY;
 ## Pour reprendre
 Dis : **"Lis le CLAUDE.md et continue"**
 
-## État du projet au 2026-06-10
+## État du projet au 2026-06-11
 - **18 pages** toutes fonctionnelles et dans la nav
-- **Bugs connus résolus** : bilan vide, doublon charges salaires, saisie bloquée après 1 tour
+- **Audit complet 2026-06-11** : bugs de correction + calculs + cas limites corrigés (voir table « Bugs corrigés »)
 - **associes.html** : partie financière OK ; votes (`propositions`/`votes_prop`) OK si tables créées en Supabase (SQL dans ce fichier)
 - **Serveur local** : `python -m http.server 5500` depuis `C:\Users\jeune\Monprojet` → http://localhost:5500
-- **Prochaines pistes possibles** : amélioration dashboard, export PDF rapport, notifications push, gestion des congés longue durée
+- ⚠ **Migration à exécuter** : **`MIGRATION_2026-06-11.sql`** (colonne `ecart_especes` + **recalcul rétroactif** des sessions passées + uniformisation `rapports.recettes`). Sans elle : repli auto sur `ecart`, comportement inchangé. Les sessions « rapport jour passé » (sans ventes tracées) ne sont volontairement pas recalculées.
+- 🔐 **Sécurité** : voir `SECURITE.md` (base ouverte — à traiter côté Supabase, phase par phase)
+- **Prochaines pistes** : déploiement sécurité (`SECURITE.md`), export PDF rapport, congés longue durée
+
+### ✅ Résolu lors de l'audit 2026-06-11
+- **Double-comptage salaires (bilan)** → comptés une fois au brut ; parts inchangées.
+- **Écart OM déduit du salaire caissier** → seul l'écart espèces (`ecart_especes`) est déduit.
+- **XSS stocké** → `escHtml()` partagé appliqué aux sinks d'escalade (caisse, dashboard, historique, associés, paramètres, rh…) ; `jsStr()` pour les `onclick` (noms à apostrophe).
+- **N° de rapport en double / double soumission / valeurs négatives / course création session** → corrigés (table « Bugs corrigés »).
+
+### ⚠ À traiter — décisions / déploiement requis
+1. **SÉCURITÉ — base ouverte (`SECURITE.md`)** : RLS désactivé + clé anon publique. **Non corrigeable côté HTML** : RLS + login serveur (Edge Function) à déployer dans Supabase. Plan de bascule par phases prêt dans `SECURITE.md`. **Mesure immédiate : changer les PIN par défaut** (`1234` staff).
+2. **Hash d'intégrité rapports** : décoratif (non-HMAC, jamais vérifié). À supprimer ou remplacer par un HMAC serveur une fois la sécurité de base en place.
+3. **Blocage rapport si veille sans rapport** : un jour de fermeture légitime bloque le lendemain (contournement = « rapport jour passé »). Politique à décider (autoriser les trous ?).
+4. **XSS résiduel (faible)** : quelques sinks en pages owner/manager only (finances, avances, salaires) non échappés — risque d'escalade faible (données saisies par managers). À finir pour l'exhaustivité.

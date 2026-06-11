@@ -318,8 +318,8 @@ function renderStaffList() {
     <div class="list-item" style="flex-direction:column;align-items:stretch;gap:6px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div class="list-info">
-          <div class="list-name">${e.nom} ${e.prenom||''}</div>
-          <div class="list-sub">${e.poste||'—'} · ${gnf(e.salaire_base||0)}/mois</div>
+          <div class="list-name">${escHtml(e.nom)} ${escHtml(e.prenom||'')}</div>
+          <div class="list-sub">${escHtml(e.poste||'—')} · ${gnf(e.salaire_base||0)}/mois</div>
         </div>
         <div class="list-actions">
           <button class="btn-secondary" style="font-size:11px;padding:5px 10px"
@@ -463,8 +463,8 @@ function renderPresence(date) {
         <div style="display:flex;justify-content:space-between;
           align-items:center;margin-bottom:8px">
           <div>
-            <div style="font-size:14px;font-weight:500">${e.nom} ${e.prenom||''}</div>
-            <div style="font-size:12px;color:var(--muted)">${e.poste||''}</div>
+            <div style="font-size:14px;font-weight:500">${escHtml(e.nom)} ${escHtml(e.prenom||'')}</div>
+            <div style="font-size:12px;color:var(--muted)">${escHtml(e.poste||'')}</div>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">
@@ -554,21 +554,21 @@ async function loadDemandes() {
           <div class="avance-item" style="border-left:3px solid var(--gold)">
             <div style="display:flex;justify-content:space-between;align-items:flex-start">
               <div>
-                <div style="font-size:14px;font-weight:600">${nom}</div>
+                <div style="font-size:14px;font-weight:600">${escHtml(nom)}</div>
                 <div class="avance-info">
-                  ${frDateShort(a.date)} · ${a.note_demande||a.obs||'—'}</div>
+                  ${frDateShort(a.date)} · ${escHtml(a.note_demande||a.obs||'—')}</div>
               </div>
               <div style="text-align:right">
                 <div class="avance-montant">${gnf(a.montant)}</div>
                 <div style="display:flex;gap:10px;margin-top:7px;justify-content:flex-end">
                   <button style="font-size:12px;color:var(--ok);background:none;border:none;
                     cursor:pointer;font-weight:600"
-                    onclick="validerDemande('${a.id}',${a.montant||0},'${nom}')">
+                    onclick="validerDemande('${a.id}',${a.montant||0},'${jsStr(nom)}')">
                     ✓ Approuver
                   </button>
                   <button style="font-size:12px;color:var(--danger);background:none;border:none;
                     cursor:pointer;font-weight:600"
-                    onclick="refuserDemande('${a.id}',${a.montant||0},'${nom}')">
+                    onclick="refuserDemande('${a.id}',${a.montant||0},'${jsStr(nom)}')">
                     ✕ Refuser
                   </button>
                 </div>
@@ -610,21 +610,21 @@ async function loadJustifDemandes() {
         <div class="avance-item" style="border-left:3px solid #5BA3CC">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
             <div>
-              <div style="font-size:14px;font-weight:600">${nom}</div>
+              <div style="font-size:14px;font-weight:600">${escHtml(nom)}</div>
               <div class="avance-info">
-                ${frDateShort(j.date)} · ${TYPES[j.type]||j.type}
-                ${j.motif ? ` · "${j.motif}"` : ''}
+                ${frDateShort(j.date)} · ${escHtml(TYPES[j.type]||j.type)}
+                ${j.motif ? ` · "${escHtml(j.motif)}"` : ''}
               </div>
             </div>
             <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;margin-top:2px">
               <button style="font-size:12px;color:var(--ok);background:none;border:none;
                 cursor:pointer;font-weight:600"
-                onclick="approuverJustif('${j.id}','${nom}')">
+                onclick="approuverJustif('${j.id}','${jsStr(nom)}')">
                 ✓ Accepter
               </button>
               <button style="font-size:12px;color:var(--danger);background:none;border:none;
                 cursor:pointer;font-weight:600"
-                onclick="rejeterJustif('${j.id}','${nom}')">
+                onclick="rejeterJustif('${j.id}','${jsStr(nom)}')">
                 ✕ Refuser
               </button>
             </div>
@@ -703,9 +703,9 @@ async function loadAvances() {
         <div class="avance-item">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
             <div>
-              <div style="font-size:14px;font-weight:500">${nom}</div>
+              <div style="font-size:14px;font-weight:500">${escHtml(nom)}</div>
               <div class="avance-info">
-                ${frDateShort(a.date)} · ${a.obs||a.note_demande||'—'}</div>
+                ${frDateShort(a.date)} · ${escHtml(a.obs||a.note_demande||'—')}</div>
             </div>
             <div style="text-align:right">
               <div class="avance-montant">${gnf(a.montant)}</div>
@@ -748,7 +748,7 @@ function populateAvEmploye() {
   sel.innerHTML = '<option value="">Sélectionner un employé…</option>' +
     employes.map(e =>
       `<option value="${e.id}" data-brut="${e.salaire_base||0}">
-        ${e.nom} ${e.prenom||''} — ${gnf(e.salaire_base||0)}/mois
+        ${escHtml(e.nom)} ${escHtml(e.prenom||'')} — ${gnf(e.salaire_base||0)}/mois
       </option>`
     ).join('');
 }
@@ -853,20 +853,16 @@ async function loadPaie() {
       .toISOString().slice(0,10);
 
     /* Tout en parallèle */
-    const [avRes, salaireRes, ecartsRes, surplusRes, rembValRes,
+    const [avRes, salaireRes, ecartsRes, rembValRes,
            presRes, justifRes, retardRes] = await Promise.all([
       db.from('avances').select('id,employe_id,montant')
         .eq('statut','approuvee').eq('rembourse',false),
       db.from('salaires_verses')
         .select('employe_id,salaire_brut,avances_deduites,ecarts_deduits,net_verse,paye_le')
         .eq('mois', mois),
-      db.from('sessions_caisse')           /* manques */
-        .select('id,caissier_id,ecart')
-        .gt('ecart', 0)
-        .gte('date', mois + '-01').lte('date', finMois),
-      db.from('sessions_caisse')           /* surplus */
-        .select('caissier_id,ecart')
-        .lt('ecart', 0)
+      db.from('sessions_caisse')           /* sessions du mois — écarts filtrés en JS
+                                              (ecart_especes peut exister avec ecart NULL : OM non vérifié) */
+        .select('*')
         .gte('date', mois + '-01').lte('date', finMois),
       db.from('remboursements_ecart')      /* remboursements validés — sans filtre date, on match par session_id */
         .select('session_id,employe_id,montant')
@@ -886,7 +882,16 @@ async function loadPaie() {
     ]);
 
     const avances    = avRes.data     || [];
-    const ecartsSess = ecartsRes.data || [];
+
+    /* ── Écart retenu pour la PAIE = écart ESPÈCES seul ─────────────
+       L'écart OM n'est pas un manquant caissier (déclaratif staff vs
+       reçu téléphone) → il n'impacte plus le salaire. Pour les
+       sessions d'avant migration (ecart_especes absent/null), on
+       retombe sur l'écart total : comportement historique conservé. */
+    const effEcart   = s => (s.ecart_especes ?? s.ecart) || 0;
+    const allEcarts  = ecartsRes.data || [];
+    const ecartsSess = allEcarts.filter(s => effEcart(s) > 0);
+
     const dejaPayeMap = {};
     (salaireRes.data||[]).forEach(s => { dejaPayeMap[s.employe_id] = s; });
 
@@ -896,10 +901,10 @@ async function loadPaie() {
       rembBySession[r.session_id] = (rembBySession[r.session_id]||0) + r.montant;
     });
 
-    /* Surplus par caissier */
+    /* Surplus (espèces) par caissier */
     const surplusMap = {};
-    (surplusRes.data||[]).forEach(s => {
-      surplusMap[s.caissier_id] = (surplusMap[s.caissier_id]||0) + Math.abs(s.ecart);
+    allEcarts.filter(s => effEcart(s) < 0).forEach(s => {
+      surplusMap[s.caissier_id] = (surplusMap[s.caissier_id]||0) + Math.abs(effEcart(s));
     });
 
     /* Comptages absences non justifiées + retards par employé */
@@ -914,7 +919,7 @@ async function loadPaie() {
       const eA            = avances.filter(a => a.employe_id === e.id);
       const avancesDed    = eA.reduce((s,a) => s+(a.montant||0), 0);
       const eE            = ecartsSess.filter(ec => ec.caissier_id === e.id);
-      const rawManques    = eE.reduce((s,ec) => s+(ec.ecart||0), 0);
+      const rawManques    = eE.reduce((s,ec) => s+effEcart(ec), 0);
       const rembVal       = eE.reduce((s,ec) => s+(rembBySession[ec.id]||0), 0);
       const surplusBonus  = surplusMap[e.id] || 0;
       const ecartsDed     = Math.max(0, rawManques - rembVal);
@@ -953,8 +958,8 @@ async function loadPaie() {
       <div class="paie-card ${p.paye?'paid':''}">
         <div class="paie-head">
           <div>
-            <div class="paie-nom">${p.nom} ${p.prenom||''}</div>
-            <div class="paie-poste">${p.poste||'—'}</div>
+            <div class="paie-nom">${escHtml(p.nom)} ${escHtml(p.prenom||'')}</div>
+            <div class="paie-poste">${escHtml(p.poste||'—')}</div>
           </div>
           <div style="text-align:right">
             <div class="paie-net" style="color:${p.paye?'var(--ok)':'var(--gold)'}">

@@ -4,7 +4,7 @@
     {
       "name": "medellin-lounge",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-l", "3737", "C:/Users/jeune/Monprojet"],
+      "runtimeArgs": ["serve", "-l", "3737", "C:/Users/jeune/Monprojet/.claude/worktrees/zen-lamport-88a79b"],
       "port": 3737
     }
   ]

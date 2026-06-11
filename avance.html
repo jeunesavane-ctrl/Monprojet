@@ -174,7 +174,7 @@ async function loadAvances() {
       <div class="avance-row">
         <div>
           <div style="font-size:14px;font-weight:500">${frDateShort(a.date)}</div>
-          <div class="avance-info">${a.note_demande || a.obs || '—'}</div>
+          <div class="avance-info">${escHtml(a.note_demande || a.obs || '—')}</div>
           ${LABELS[a.statut] || `<span class="chip">${a.statut}</span>`}
         </div>
         <div style="text-align:right">

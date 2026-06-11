@@ -143,8 +143,15 @@ async function initSession() {
       }
       const { data: created, error } = await db
         .from('sessions_caisse').insert({ date: today, statut:'ouvert' }).select().single();
-      if (error) throw error;
-      existing = created;
+      if (error) {
+        /* Session créée en parallèle par un autre rôle (date UNIQUE) → on relit */
+        const { data: again } = await db
+          .from('sessions_caisse').select('id,statut').eq('date', today).maybeSingle();
+        if (!again) throw error;
+        existing = again;
+      } else {
+        existing = created;
+      }
     }
     sessionId = existing.id;
 
@@ -267,7 +274,7 @@ function renderRecap(byArome, total) {
   if (!total) return '';
   const tags = Object.entries(byArome)
     .sort((a,b) => b[1]-a[1])
-    .map(([a,n]) => `<span class="arome-tag">${a} ×${n}</span>`).join('');
+    .map(([a,n]) => `<span class="arome-tag">${escHtml(a)} ×${n}</span>`).join('');
   return `
     <div class="chicha-recap">
       <div class="kpi-label">Total sorties</div>
@@ -287,8 +294,8 @@ function renderList(canDelete) {
       <div class="sortie-item">
         <div class="sortie-icon">🌿</div>
         <div class="sortie-info">
-          <div class="sortie-arome">${s.arome}</div>
-          <div class="sortie-meta">${hm}${s.note ? ' · ' + s.note : ''}</div>
+          <div class="sortie-arome">${escHtml(s.arome)}</div>
+          <div class="sortie-meta">${hm}${s.note ? ' · ' + escHtml(s.note) : ''}</div>
         </div>
         <div class="sortie-qty">×${s.qty}</div>
         ${canDelete ? `<button class="btn-icon" onclick="deleteSortie('${s.id}')">×</button>` : ''}

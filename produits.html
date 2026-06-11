@@ -232,7 +232,7 @@ async function loadCommande() {
         <div class="cmd-group-title">${label} (${list.length})</div>
         ${list.map(p=>`
           <div class="cmd-row">
-            <div class="cmd-nom">${p.nom}</div>
+            <div class="cmd-nom">${escHtml(p.nom)}</div>
             <div style="text-align:right">
               <div class="cmd-qte">Stock : ${p.stock_actuel??0}</div>
               <div style="font-size:11px;color:var(--muted)">Seuil : ${p.stock_min}</div>
@@ -275,11 +275,11 @@ async function loadProds() {
         return `
           <div class="prod-item">
             <div class="prod-info">
-              <div class="prod-nom">${p.nom}</div>
+              <div class="prod-nom">${escHtml(p.nom)}</div>
               <div class="prod-meta">
                 Vente : ${gnf(p.prix_defaut||0)}
                 ${p.prix_achat ? ` · Achat : ${gnf(p.prix_achat)}` : ''}
-                ${packQty > 1 ? ` · ${packQty} ${uniteLbl}/${packLbl}` : ''}
+                ${packQty > 1 ? ` · ${packQty} ${escHtml(uniteLbl)}/${escHtml(packLbl)}` : ''}
               </div>
             </div>
             <div class="prod-stock">

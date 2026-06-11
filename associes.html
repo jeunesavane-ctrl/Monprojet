@@ -166,7 +166,7 @@ async function loadAssocView() {
     el.innerHTML = `
       <div class="assoc-header">
         <div>
-          <div class="assoc-name">${nom}</div>
+          <div class="assoc-name">${escHtml(nom)}</div>
           <div class="assoc-role">Associé · ${n} derniers mois</div>
         </div>
         <div style="text-align:right">
@@ -256,7 +256,7 @@ async function loadOwnerView() {
         'border:1px solid rgba(201,168,76,.3);background:rgba(201,168,76,.05)':''}">
         <div class="owner-assoc-head">
           <div>
-            <div class="owner-assoc-nom" style="${isOwner?'color:var(--gold)':''}">${nom}</div>
+            <div class="owner-assoc-nom" style="${isOwner?'color:var(--gold)':''}">${escHtml(nom)}</div>
           </div>
           <div style="text-align:right">
             <div class="owner-assoc-pct">${pct.toFixed(1)}%</div>
@@ -404,7 +404,7 @@ function renderPropCard(p, allVotes, myInfo) {
   return `
     <div class="prop-card ${isClosed?'closed-prop':'open-prop'}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
-        <div class="prop-titre">${p.titre}</div>
+        <div class="prop-titre">${escHtml(p.titre)}</div>
         ${!isClosed && role === 'owner' ? `
           <button onclick="closeProp('${p.id}')" style="font-size:11px;padding:3px 10px;
             border-radius:8px;cursor:pointer;border:1px solid var(--b1);
@@ -412,8 +412,8 @@ function renderPropCard(p, allVotes, myInfo) {
             Clore
           </button>` : ''}
       </div>
-      ${p.description ? `<div class="prop-desc">${p.description}</div>` : ''}
-      <div class="prop-date">Par ${p.auteur_nom} · ${dt}</div>
+      ${p.description ? `<div class="prop-desc">${escHtml(p.description)}</div>` : ''}
+      <div class="prop-date">Par ${escHtml(p.auteur_nom)} · ${dt}</div>
 
       <!-- Barre de vote -->
       <div class="vote-bar-wrap">

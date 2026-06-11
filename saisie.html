@@ -265,8 +265,15 @@ async function initSession() {
     if (!existing) {
       const { data: created, error } = await db
         .from('sessions_caisse').insert({ date: today, statut:'ouvert' }).select().single();
-      if (error) throw error;
-      existing = created;
+      if (error) {
+        /* Session créée en parallèle par un autre rôle (date UNIQUE) → on relit */
+        const { data: again } = await db
+          .from('sessions_caisse').select('id,statut').eq('date', today).maybeSingle();
+        if (!again) throw error;
+        existing = again;
+      } else {
+        existing = created;
+      }
     }
     sessionId     = existing.id;
     sessionStatut = existing.statut || 'ouvert';
@@ -322,7 +329,7 @@ function renderPage() {
     <div class="sess-banner">
       <div style="flex:1">
         <div class="sess-date">${frDate(today)}</div>
-        <div class="sess-meta">${empNom}</div>
+        <div class="sess-meta">${escHtml(empNom)}</div>
       </div>
       <span class="badge ${sessLocked ? 'ko' : closed ? 'ok' : 'gold'}">
         ${sessLocked ? 'Validée caisse' : closed ? 'Envoyée' : 'En service'}
@@ -394,7 +401,7 @@ function renderPage() {
         return `
         <button type="button" class="prod-card ${p.type||'autre'}${selectedProd?.nom===p.nom?' selected':''}"
           onclick="selectProdByIndex(${idx})">
-          <div class="prod-card-nom">${p.nom}</div>
+          <div class="prod-card-nom">${escHtml(p.nom)}</div>
           <div class="prod-card-prix${!p.prix?' no-prix':''}">${p.prix ? gnf(p.prix) : '— GNF'}</div>
         </button>`;
       }).join('') : `<div class="grid-empty">Aucun produit dans cette catégorie</div>`}
@@ -434,7 +441,7 @@ function renderVentesList(canDelete) {
         <div class="vente-item">
           <div class="vente-dot ${v.type||'autre'}"></div>
           <div class="vente-info">
-            <div class="vente-label">${v.label}</div>
+            <div class="vente-label">${escHtml(v.label)}</div>
             <div class="vente-meta">×${v.qty} · ${gnf(v.prix_unit)}</div>
           </div>
           <span class="pay-badge ${pm}">${pm==='om'?'OM':'💵'}</span>
@@ -501,7 +508,7 @@ function openConfirmSheet() {
   const hasPrix = prix > 0;
 
   $('overlay-sheet').innerHTML = `
-      <div class="confirm-title">${nom}</div>
+      <div class="confirm-title">${escHtml(nom)}</div>
       <div class="confirm-prix-unit">${hasPrix ? gnf(prix)+' / unité' : 'Prix à saisir'}</div>
 
       ${!hasPrix ? `

@@ -87,6 +87,7 @@
 <script>
 const CH = {};
 let _realtimeSubbed = false;
+let _finalizingSess = false; /* garde anti double-validation de session */
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
@@ -177,7 +178,7 @@ async function loadDash() {
             <div style="font-size:26px;line-height:1;flex-shrink:0">💰</div>
             <div style="flex:1">
               <div style="font-weight:600;color:var(--gold);font-size:14px;margin-bottom:2px">Session caisse en attente — ${frDateShort(s.date)}</div>
-              <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${s.note_caissier||'Le caissier a validé — en attente de votre confirmation.'}</div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${s.note_caissier?escHtml(s.note_caissier):'Le caissier a validé — en attente de votre confirmation.'}</div>
               <button onclick="openValidation('${s.id}','${s.date}')"
                 style="padding:8px 18px;background:linear-gradient(180deg,var(--goldl),var(--gold));border:none;border-radius:var(--rs);color:#060606;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;cursor:pointer;">
                 VALIDER → CRÉER RAPPORT
@@ -302,7 +303,7 @@ async function loadDash() {
     const noteCard = role === 'manager' && cfg.note_manager ? `
       <div class="kpi-card wide" style="background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.22)">
         <div class="kpi-label">📋 Note du gestionnaire</div>
-        <div style="font-size:14px;line-height:1.65;white-space:pre-wrap">${cfg.note_manager}</div>
+        <div style="font-size:14px;line-height:1.65;white-space:pre-wrap">${escHtml(cfg.note_manager)}</div>
       </div>` : '';
 
     const objCard = objJour ? `
@@ -348,7 +349,7 @@ async function loadDash() {
       <div class="kpi-card wide" style="background:rgba(217,84,84,.07);border:1px solid rgba(217,84,84,.2)">
         <div class="kpi-label">⚠ Stock bas · ${low.length} produit${low.length>1?'s':''}</div>
         <div style="font-size:13px;color:var(--danger);line-height:1.6">
-          ${low.map(p=>`${p.nom}`).join(' · ')}
+          ${low.map(p=>`${escHtml(p.nom)}`).join(' · ')}
         </div>
       </div>` : '';
 
@@ -377,7 +378,7 @@ async function loadDash() {
           ${top5.map((p,i)=>`
             <div class="top-item">
               <div class="top-rank${i===0?' gold':''}">${i+1}</div>
-              <div class="top-info"><div class="top-name">${p.nom}</div></div>
+              <div class="top-info"><div class="top-name">${escHtml(p.nom)}</div></div>
               <div class="top-stats">
                 <div class="top-qty">${p.qty}</div>
                 <div class="top-total">${gnf(p.total)}</div>
@@ -393,13 +394,13 @@ async function loadDash() {
           <div class="card-sub">N°${last.num||'—'} · ${last.date_display||frDateShort(last.date)}</div>
         </div>
         <div class="card-body">
-          <div class="lr"><span>Manager</span><span>${last.manager||'—'}</span></div>
+          <div class="lr"><span>Manager</span><span>${last.manager?escHtml(last.manager):'—'}</span></div>
           <div class="lr"><span>Ventes chicha</span><span>${gnf(last.total_chicha)}</span></div>
           <div class="lr"><span>Ventes boissons</span><span>${gnf(last.total_boissons)}</span></div>
           <div class="lr neg"><span>Achats / dépenses</span><span>- ${gnf(last.total_achats)}</span></div>
           <div class="lr big"><span>Net du jour</span>
             <span style="color:${(last.net||0)>=0?'var(--ok)':'var(--danger)'}">${gnf(last.net)}</span></div>
-          ${last.obs?`<div style="font-size:13px;color:var(--muted);line-height:1.6;margin-top:2px">${last.obs}</div>`:''}
+          ${last.obs?`<div style="font-size:13px;color:var(--muted);line-height:1.6;margin-top:2px">${escHtml(last.obs)}</div>`:''}
         </div>
       </div>` : '';
 
@@ -413,7 +414,7 @@ async function loadDash() {
               Session caisse en attente — ${frDateShort(s.date)}
             </div>
             <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
-              ${s.note_caissier ? `Note caissier : ${s.note_caissier}` : 'Le caissier a validé — en attente de votre confirmation.'}
+              ${s.note_caissier ? `Note caissier : ${escHtml(s.note_caissier)}` : 'Le caissier a validé — en attente de votre confirmation.'}
             </div>
             <button onclick="openValidation('${s.id}','${s.date}')"
               style="padding:8px 18px;background:linear-gradient(180deg,var(--goldl),var(--gold));border:none;border-radius:var(--rs);color:#060606;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;cursor:pointer;">
@@ -583,7 +584,7 @@ async function openValidation(sessId, sessDate) {
         .eq('session_id', sessId).order('employe_id,created_at'),
       db.from('mouvements_caisse').select('*').eq('session_id', sessId).order('created_at'),
       db.from('sessions_caisse').select('fond_caisse,total_reel,total_om_verifie,note_caissier,ecart').eq('id', sessId).single(),
-      db.from('rapports').select('num').order('num',{ascending:false}).limit(1),
+      db.from('rapports').select('num'),
       db.from('achats_session').select('montant,produit_nom').eq('session_id', sessId)
     ]);
     const achatsTrackes = achatsRes.data || [];
@@ -592,7 +593,8 @@ async function openValidation(sessId, sessDate) {
     const ventes    = ventesRes.data || [];
     const mouvs     = mouvRes.data   || [];
     const sessInfo  = sessRes.data   || {};
-    const nextNum   = parseInt(rapRes.data?.[0]?.num || '0', 10) + 1;
+    /* Prochain N° = max numérique + 1 (tri texte cassait à partir de 1000) */
+    const nextNum   = (rapRes.data||[]).reduce((m,r) => Math.max(m, parseInt(r.num||'0',10)||0), 0) + 1;
 
     /* Totaux */
     const fond       = sessInfo.fond_caisse || 0;
@@ -638,7 +640,7 @@ async function openValidation(sessId, sessDate) {
       .map(([nom,d]) => `
         <div style="display:flex;justify-content:space-between;font-size:13px;
           padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)">
-          <span>${nom} <span style="color:var(--muted);font-size:11px">(${d.count} vente${d.count>1?'s':''})</span></span>
+          <span>${escHtml(nom)} <span style="color:var(--muted);font-size:11px">(${d.count} vente${d.count>1?'s':''})</span></span>
           <span style="color:var(--gold);font-weight:500">${gnf(d.total)}</span>
         </div>`).join('');
 
@@ -646,7 +648,7 @@ async function openValidation(sessId, sessDate) {
     const mouvLines = mouvs.length ? mouvs.map(m=>`
       <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0">
         <span style="color:${m.type==='entree'?'var(--ok)':'var(--danger)'}">
-          ${m.type==='entree'?'↑':'↓'} ${m.motif}
+          ${m.type==='entree'?'↑':'↓'} ${escHtml(m.motif)}
         </span>
         <span style="color:${m.type==='entree'?'var(--ok)':'var(--danger)'};font-weight:500">
           ${m.type==='entree'?'+':'-'} ${gnf(m.montant)}
@@ -659,7 +661,7 @@ async function openValidation(sessId, sessDate) {
       ? `<div style="background:rgba(255,255,255,.03);border:1px solid var(--b1);
            border-radius:var(--rs);padding:10px 12px;font-size:12px;
            color:var(--muted);font-style:italic;margin-bottom:14px">
-           "${sessInfo.note_caissier}"
+           "${escHtml(sessInfo.note_caissier)}"
          </div>` : '';
 
     sheet.innerHTML = `
@@ -808,13 +810,30 @@ async function openValidation(sessId, sessDate) {
 
 async function finalizeSession(sessId, sessDate, totVentes, nextNum, totC, totB,
                                fond, totEntrees, totSorties, reel, ecart) {
+  if (_finalizingSess) return;
   const achats = parseInt($('v-achats')?.value) || 0;
   const note   = ($('v-note')?.value || '').trim();
+  if (achats < 0) { toast('Achats invalides (négatif)', 'ko'); return; }
   const net    = totVentes - achats;
 
+  _finalizingSess = true;
   $('overlay').classList.remove('on');
 
   try {
+    /* Garde anti-doublon : si un rapport existe déjà pour cette date
+       (créé via rapport.html, qui ne change pas le statut de session),
+       on ne crée PAS de 2e rapport — on marque juste la session validée. */
+    const { data: existRap } = await db.from('rapports')
+      .select('id,num').eq('date', sessDate).limit(1);
+    if (existRap?.length) {
+      await db.from('sessions_caisse')
+        .update({ statut:'valide_manager', note_manager: note || null })
+        .eq('id', sessId);
+      toast(`Rapport N°${existRap[0].num||'?'} existe déjà pour le ${frDateShort(sessDate)} — session marquée validée (pas de doublon créé)`, 'ko');
+      loadDash();
+      return;
+    }
+
     const { data: emp } = await db.from('employes')
       .select('nom,prenom').eq('role','manager').limit(1);
     const manager = emp?.[0] ? [emp[0].prenom,emp[0].nom].filter(Boolean).join(' ') : 'Caisse';
@@ -850,6 +869,8 @@ async function finalizeSession(sessId, sessDate, totVentes, nextNum, totC, totB,
     loadDash();
   } catch(e) {
     toast('Erreur : ' + e.message, 'ko');
+  } finally {
+    _finalizingSess = false;
   }
 }
 
@@ -1001,9 +1022,9 @@ async function saveManualRapport() {
       sessId = newS.id;
     }
 
-    /* Numéro suivant */
-    const { data: lastRap } = await db.from('rapports').select('num').order('num',{ascending:false}).limit(1);
-    const nextNum = parseInt((lastRap?.[0]?.num) || '0', 10) + 1;
+    /* Numéro suivant = max numérique + 1 (cohérent avec rapport.html / openValidation) */
+    const { data: allRap } = await db.from('rapports').select('num');
+    const nextNum = (allRap||[]).reduce((m,r) => Math.max(m, parseInt(r.num||'0',10)||0), 0) + 1;
 
     /* Manager */
     const { data: emp } = await db.from('employes').select('nom,prenom').eq('role','manager').limit(1);
@@ -1281,7 +1302,7 @@ async function loadDashAssoc() {
     body.innerHTML = `
       <div class="kpi-card wide" style="background:var(--gdim);border:1px solid var(--gring)">
         <div class="kpi-label">Bienvenue</div>
-        <div class="kpi-val" style="color:var(--gold);font-size:28px">${nom}</div>
+        <div class="kpi-val" style="color:var(--gold);font-size:28px">${escHtml(nom)}</div>
         <div class="kpi-sub">Part : ${pct}% du bénéfice net mensuel</div>
       </div>
 

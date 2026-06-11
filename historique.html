@@ -254,7 +254,7 @@ function renderStaffEntry({ session, ventes }) {
   const rows = ventes.map(v => `
     <div class="vente-row">
       <div class="vente-dot ${v.type}"></div>
-      <div class="vente-lbl">${v.label}</div>
+      <div class="vente-lbl">${escHtml(v.label)}</div>
       <div class="vente-qty">×${v.qty}</div>
       <span class="vente-pm">${v.paiement==='om'?'📱':'💵'}</span>
       <div class="vente-tot">${gnf(v.total)}</div>
@@ -519,7 +519,7 @@ async function loadHistChicha() {
             const hm = new Date(s.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
             return `<div class="vente-row">
               <div class="vente-dot chicha"></div>
-              <div class="vente-lbl">${s.arome}</div>
+              <div class="vente-lbl">${escHtml(s.arome)}</div>
               <div class="vente-qty">${hm}</div>
               <div class="vente-tot" style="color:#FF7A00">×${s.qty}</div>
             </div>`;
@@ -602,7 +602,7 @@ async function loadHistAchats() {
         <div class="hist-head">
           <div class="hist-icon" style="background:rgba(140,80,220,.1);color:#B080F0;font-size:18px">🛒</div>
           <div class="hist-info">
-            <div class="hist-title">${a.produit_nom}</div>
+            <div class="hist-title">${escHtml(a.produit_nom)}</div>
             <div class="hist-sub">×${a.qty} — ${label}</div>
           </div>
           <div class="hist-right">
@@ -611,7 +611,7 @@ async function loadHistAchats() {
           </div>
         </div>
         <div class="hist-detail">
-          <div class="detail-row"><span>Produit</span><span>${a.produit_nom}</span></div>
+          <div class="detail-row"><span>Produit</span><span>${escHtml(a.produit_nom)}</span></div>
           <div class="detail-row"><span>Quantité</span><span>${a.qty}</span></div>
           <div class="detail-row"><span>Prix unitaire</span><span style="font-family:'Bebas Neue',sans-serif">${gnf(a.prix_unitaire)}</span></div>
           <div class="detail-row"><span><strong>Montant total</strong></span>
@@ -777,7 +777,7 @@ function rapportItem(r) {
         </div>
         <div class="hist-info">
           <div class="hist-title">${r.date_display || frDate(r.date)}</div>
-          <div class="hist-sub">N°${r.num||'?'} — ${r.manager||'?'}${r.caissier?' / '+r.caissier:''}</div>
+          <div class="hist-sub">N°${r.num||'?'} — ${escHtml(r.manager||'?')}${r.caissier?' / '+escHtml(r.caissier):''}</div>
         </div>
         <div class="hist-right">
           <div class="hist-val">${gnf(r.net)}</div>
@@ -795,7 +795,7 @@ function rapportItem(r) {
         ${r.obs||r.note_exception ? `
           <div class="det-sec">
             <div class="det-sec-t">Observations</div>
-            <div style="font-size:13px;color:var(--muted)">${r.obs||r.note_exception}</div>
+            <div style="font-size:13px;color:var(--muted)">${escHtml(r.obs||r.note_exception)}</div>
           </div>` : ''}
         ${r.hash ? `<div class="hash-block"><strong>SHA-256</strong>${r.hash}</div>` : ''}
         <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px">
@@ -806,7 +806,7 @@ function rapportItem(r) {
             🖨 Imprimer
           </button>
           ${role === 'owner' ? `
-          <button onclick="event.stopPropagation();openDeleteRapport('${r.id}','${r.session_id||''}','${r.num||'?'}','${r.date_display||r.date}')"
+          <button onclick="event.stopPropagation();openDeleteRapport('${r.id}','${r.session_id||''}','${r.num||'?'}','${jsStr(r.date_display||r.date)}','${r.date||''}')"
             style="padding:6px 14px;font-size:11px;font-weight:600;letter-spacing:.8px;
               border-radius:var(--rs);border:1px solid rgba(255,80,80,.3);
               background:rgba(255,80,80,.06);color:var(--danger);cursor:pointer">
@@ -852,7 +852,7 @@ function printRapport(id) {
     <div class="logo">MEDELLIN</div>
     <div class="sub">Lounge · Conakry</div>
     <h1>Rapport N°${String(r.num||'?').padStart(3,'0')}</h1>
-    <h2>${r.date_display||r.date||''} — ${r.manager||'—'}</h2>
+    <h2>${escHtml(r.date_display||r.date||'')} — ${escHtml(r.manager||'—')}</h2>
 
     <div class="sect">
       <div class="sect-t">Bilan financier</div>
@@ -881,7 +881,7 @@ function printRapport(id) {
     </div>`:''}
 
     ${r.obs?`<div class="sect"><div class="sect-t">Observations</div>
-      <div style="font-size:13px;color:#555;line-height:1.5">${r.obs}</div></div>`:''}
+      <div style="font-size:13px;color:#555;line-height:1.5">${escHtml(r.obs)}</div></div>`:''}
 
     <div class="foot">Imprimé le ${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} · Medellin Lounge · Conakry</div>
   </body></html>`);
@@ -896,12 +896,23 @@ function toggleHist(id) { $('hi-'+id)?.classList.toggle('open'); }
 ════════════════════════════════════════════ */
 let _delRapport = null;
 
-function openDeleteRapport(id, sessionId, num, dateDisplay) {
-  _delRapport = { id, sessionId, num, dateDisplay };
+function openDeleteRapport(id, sessionId, num, dateDisplay, rawDate) {
+  _delRapport = { id, sessionId, num, dateDisplay, rawDate };
   const ov = $('del-overlay');
   $('del-num').textContent   = `N°${String(num).padStart(3,'0')}`;
   $('del-date').textContent  = dateDisplay;
   $('del-err').textContent   = '';
+  /* Explique ce qui va se passer pour la session liée */
+  const info = $('del-session-info');
+  if (info) {
+    if (!sessionId) {
+      info.textContent = '';
+    } else if (rawDate === todayISO()) {
+      info.textContent = '↻ La session du jour sera ROUVERTE : le staff pourra ressaisir des ventes, la caissière reclôturer, et un nouveau rapport pourra être créé.';
+    } else {
+      info.textContent = '↻ La session repassera “en attente de validation” — tu pourras la revalider depuis le Dashboard (ou refaire un Rapport jour passé).';
+    }
+  }
   ov.style.display = 'flex';
 }
 
@@ -912,7 +923,7 @@ function closeDeleteRapport() {
 
 async function confirmDeleteRapport() {
   if (!_delRapport) return;
-  const { id, sessionId } = _delRapport;
+  const { id, sessionId, rawDate } = _delRapport;
   const btn = $('del-btn');
   btn.disabled = true;
   btn.textContent = '…';
@@ -920,15 +931,19 @@ async function confirmDeleteRapport() {
     /* 1. Supprimer le rapport */
     const { error: e1 } = await db.from('rapports').delete().eq('id', id);
     if (e1) throw e1;
-    /* 2. Si la session existe, la remettre en "valide_caissier"
-          (permet une revalidation si besoin) */
+    /* 2. Remettre la session liée dans le circuit :
+       — rapport du JOUR  → session ROUVERTE ('ouvert') : le staff peut
+         ressaisir, la caissière reclôturer, le manager revalider.
+       — rapport PASSÉ    → 'valide_caissier' (revalidation possible
+         depuis le Dashboard ; saisie.html ne charge que la session du jour). */
+    const isToday = rawDate === todayISO();
     if (sessionId) {
       await db.from('sessions_caisse')
-        .update({ statut: 'valide_caissier', note_manager: null })
+        .update({ statut: isToday ? 'ouvert' : 'valide_caissier', note_manager: null })
         .eq('id', sessionId);
     }
-    ML.logAction(`🗑 Rapport N°${String(_delRapport.num).padStart(3,'0')} supprimé`);
-    toast(`Rapport N°${String(_delRapport.num).padStart(3,'0')} supprimé`, 'ok');
+    ML.logAction(`🗑 Rapport N°${String(_delRapport.num).padStart(3,'0')} supprimé${sessionId ? (isToday ? ' · session du jour rouverte' : ' · session remise en validation') : ''}`);
+    toast(`Rapport N°${String(_delRapport.num).padStart(3,'0')} supprimé${sessionId && isToday ? ' — session rouverte aux saisies' : ''}`, 'ok');
     /* Retirer de l'UI sans recharger */
     document.getElementById('hi-' + id)?.remove();
     histData = histData.filter(r => r.id !== id);
@@ -1007,11 +1022,13 @@ function exportCSV() {
     padding:24px 20px;width:100%;max-width:360px">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--danger);
       letter-spacing:1px;margin-bottom:4px">Supprimer ce rapport ?</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.6">
       Rapport <strong id="del-num" style="color:var(--text)"></strong>
-      du <strong id="del-date" style="color:var(--text)"></strong><br>
-      La session caisse sera remise en attente de validation.
+      du <strong id="del-date" style="color:var(--text)"></strong>
     </div>
+    <div id="del-session-info" style="font-size:12px;color:var(--gold);line-height:1.6;
+      background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.2);
+      border-radius:var(--rs);padding:8px 12px;margin-bottom:14px"></div>
     <div id="del-err" style="font-size:12px;color:var(--danger);min-height:14px;margin-bottom:8px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <button onclick="closeDeleteRapport()"

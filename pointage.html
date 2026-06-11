@@ -169,8 +169,8 @@ function renderEmployes() {
         <div class="emp-row-head">
           <div class="emp-avatar">${init}</div>
           <div style="flex:1;min-width:0">
-            <div class="emp-nom">${nom}</div>
-            <div class="emp-poste">${emp.poste||emp.role||''}</div>
+            <div class="emp-nom">${escHtml(nom)}</div>
+            <div class="emp-poste">${escHtml(emp.poste||emp.role||'')}</div>
           </div>
           <div id="sv-${emp.id}" style="width:8px"></div>
         </div>

@@ -252,6 +252,7 @@ let rowCt = { chicha:0, boissons:0, achats:0 };
 let nextNum = 1;
 let prodCache = { chicha:[], boisson:[] };
 let sessCache = null; /* session caisse du jour — id, ecart, caissier_id */
+let dejaEnvoye = false; /* vrai si un rapport existe déjà pour aujourd'hui */
 
 /* Afficher le bouton demande d'avance si compte individuel */
 document.addEventListener('DOMContentLoaded', () => {
@@ -330,14 +331,19 @@ async function checkDejaEnvoye() {
   try {
     const { data } = await db.from('rapports').select('num').eq('date', todayISO());
     if (data?.length) {
+      dejaEnvoye = true;
       $('j1-recap').style.borderLeftColor = 'var(--ok)';
       $('j1-recap').style.display = 'block';
       $('j1-data').innerHTML = `
         <div style="font-size:13px;color:var(--ok);font-weight:500">
           ✓ Rapport N°${data.map(r=>r.num).join(', ')} déjà soumis aujourd'hui
         </div>`;
-      $('btn-submit').style.opacity = '0.5';
-      $('btn-submit').title = 'Un rapport a déjà été soumis aujourd\'hui';
+      const bs = $('btn-submit');
+      if (bs) {
+        bs.style.opacity = '0.5';
+        bs.disabled = true;
+        bs.title = 'Un rapport a déjà été soumis aujourd\'hui';
+      }
     }
   } catch {}
 }
@@ -371,8 +377,11 @@ async function loadJ1() {
 async function fetchNextNum() {
   if (!db) return;
   try {
-    const { data } = await db.from('rapports').select('num').order('date',{ascending:false}).limit(1);
-    nextNum = data?.length ? parseInt(data[0].num||'0',10)+1 : 1;
+    /* Prochain N° = max(num) numérique + 1 — robuste même si un rapport
+       d'un jour passé porte un num élevé (le tri par date donnait des doublons). */
+    const { data } = await db.from('rapports').select('num');
+    const maxNum = (data||[]).reduce((m,r) => Math.max(m, parseInt(r.num||'0',10)||0), 0);
+    nextNum = maxNum + 1;
   } catch {}
   $('r-num').textContent = 'N°'+pad3(nextNum);
 }
@@ -393,7 +402,7 @@ async function prefillAchatsFromSession() {
   try {
     /* cherche la session caisse du jour */
     const { data: sess } = await db.from('sessions_caisse')
-      .select('id,ecart,caissier_id').eq('date', todayISO()).maybeSingle();
+      .select('*').eq('date', todayISO()).maybeSingle();
     if (!sess) { addRow('achats'); return; }
     sessCache = sess; /* sauvegarde pour doSubmit */
 
@@ -434,7 +443,7 @@ async function prefillAchatsFromSession() {
 function updateDL(type) {
   const dl = $(type==='chicha'?'dl-chicha':'dl-boisson');
   if (!dl) return;
-  dl.innerHTML = prodCache[type].map(p=>`<option value="${p.nom}" data-prix="${p.prix_defaut||0}">`).join('');
+  dl.innerHTML = prodCache[type].map(p=>`<option value="${escHtml(p.nom)}" data-prix="${p.prix_defaut||0}">`).join('');
 }
 
 function addRow(type) {
@@ -527,7 +536,7 @@ async function loadStockForm() {
     $('stock-rows').innerHTML = data.map(p=>`
       <div class="stock-row">
         <div>
-          <div class="stock-nom">${p.nom}</div>
+          <div class="stock-nom">${escHtml(p.nom)}</div>
           <div class="stock-cur">Actuel : ${p.stock_actuel??0}</div>
         </div>
         <input type="number" class="stock-new" data-id="${p.id}"
@@ -574,6 +583,9 @@ async function soumettreAvance() {
 }
 
 function openConfirm() {
+  if (dejaEnvoye) {
+    toast('Un rapport a déjà été soumis aujourd\'hui','ko'); return;
+  }
   if (!$('f-manager').value.trim()||!$('f-caissier').value.trim()) {
     toast('Saisissez le manager et le caissier','ko'); return;
   }
@@ -582,6 +594,7 @@ function openConfirm() {
 function closeOverlay() { $('overlay').classList.remove('on'); }
 
 async function doSubmit() {
+  if (dejaEnvoye) { closeOverlay(); toast('Rapport déjà soumis aujourd\'hui','ko'); return; }
   $('btn-ok').disabled = true;
   $('btn-submit').disabled = true;
   closeOverlay();
@@ -636,9 +649,11 @@ async function doSubmit() {
     if (error) throw error;
 
     /* ── Créer remboursements_ecart pour écart ESPÈCES si manquant ── */
-    /* L'écart OM est créé séparément lors de la clôture caissier.
-       On cherche uniquement les remboursements espèces (note ≠ "Manquant OM"). */
-    if (sessCache?.id && sessCache?.ecart > 0 && sessCache?.caissier_id) {
+    /* Montant = écart espèces seul (ecart_especes) ; repli sur l'écart
+       total pour les sessions clôturées avant la migration. L'écart OM
+       n'est pas un manquant caissier. */
+    const ecartEspSess = (sessCache?.ecart_especes ?? sessCache?.ecart) || 0;
+    if (sessCache?.id && ecartEspSess > 0 && sessCache?.caissier_id) {
       const { data: existing } = await db.from('remboursements_ecart')
         .select('id')
         .eq('session_id', sessCache.id)
@@ -648,7 +663,7 @@ async function doSubmit() {
         await db.from('remboursements_ecart').insert({
           session_id:  sessCache.id,
           employe_id:  sessCache.caissier_id,
-          montant:     sessCache.ecart,
+          montant:     ecartEspSess,
           note:        `Manquant espèces — Rapport N°${pad3(nextNum)}`,
           statut:      'en_attente'
         });

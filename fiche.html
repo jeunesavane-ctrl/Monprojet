@@ -303,10 +303,19 @@ async function soumettreAvance() {
   const montant = parseInt($('f-avance-montant')?.value) || 0;
   const note    = ($('f-avance-note')?.value || '').trim();
 
-  if (!empId)   { toast('Compte introuvable','ko'); return; }
-  if (!montant) { toast('Montant requis','ko'); return; }
+  if (!empId)         { toast('Compte introuvable','ko'); return; }
+  if (!(montant > 0)) { toast('Montant invalide (doit être positif)','ko'); return; }
 
   try {
+    /* Anti-doublon : refuser une 2e demande si une est déjà en attente
+       (cohérent avec avance.html). */
+    const { data: pending } = await db.from('avances')
+      .select('id').eq('employe_id', empId).eq('statut','en_attente').limit(1);
+    if (pending?.length) {
+      toast('Vous avez déjà une demande en attente d\'approbation', 'ko');
+      return;
+    }
+
     const { error } = await db.from('avances').insert({
       employe_id:   empId,
       date:         todayISO(),
@@ -343,7 +352,7 @@ async function loadAvances(empId) {
         <div class="avance-item">
           <div>
             <div style="font-size:14px;font-weight:500">${frDateShort(a.date)}</div>
-            <div class="avance-info">${a.note_demande||a.obs||'—'}</div>
+            <div class="avance-info">${escHtml(a.note_demande||a.obs||'—')}</div>
             <span class="statut-chip ${a.statut==='en_attente'?'chip-wait':'chip-ok'}">
               ${a.statut==='en_attente'?'En attente':'Approuvée'}
             </span>
@@ -368,10 +377,8 @@ async function loadEcarts(empId) {
   try {
     const [sessRes, rembRes] = await Promise.all([
       db.from('sessions_caisse')
-        .select('id,date,ecart,total_reel')
+        .select('*')
         .eq('caissier_id', empId)
-        .not('ecart', 'is', null)
-        .neq('ecart', 0)
         .gte('date', debut).lte('date', fin)
         .order('date', { ascending: false }),
       db.from('remboursements_ecart')
@@ -379,7 +386,11 @@ async function loadEcarts(empId) {
         .eq('employe_id', empId)
     ]);
 
-    const sessions = sessRes.data || [];
+    /* Écart imputé à la caissière = écart ESPÈCES seul si disponible
+       (l'écart OM n'est pas un manquant caissier) ; sinon écart total
+       pour les sessions d'avant migration. */
+    const effEcart = s => (s.ecart_especes ?? s.ecart) || 0;
+    const sessions = (sessRes.data || []).filter(s => effEcart(s) !== 0);
 
     /* Maps : total validé et en attente par session */
     const rembValMap  = {};
@@ -393,17 +404,18 @@ async function loadEcarts(empId) {
     totalSurplus = 0;
 
     const rows = sessions.map(s => {
-      if (s.ecart > 0) {
+      const eff = effEcart(s);
+      if (eff > 0) {
         const validated  = rembValMap[s.id]  || 0;
         const pending    = rembPendMap[s.id] || 0;
-        const restant    = Math.max(0, s.ecart - validated);
+        const restant    = Math.max(0, eff - validated);
         const disponible = Math.max(0, restant - pending);
         totalEcarts += restant;
-        return { ...s, type:'manque', validated, pending, restant, disponible };
+        return { ...s, eff, type:'manque', validated, pending, restant, disponible };
       } else {
-        const bonus = Math.abs(s.ecart);
+        const bonus = Math.abs(eff);
         totalSurplus += bonus;
-        return { ...s, type:'surplus', bonus };
+        return { ...s, eff, type:'surplus', bonus };
       }
     });
 
@@ -430,8 +442,8 @@ async function loadEcarts(empId) {
             <div class="avance-montant" style="color:var(--ok)">+ ${gnf(r.bonus)}</div>
           </div>`;
       }
-      /* manque */
-      const theorique  = (r.total_reel||0) + r.ecart;
+      /* manque (espèces) */
+      const theorique  = (r.total_reel||0) + r.eff;
       const regularise = r.restant === 0;
       return `
         <div class="avance-item">
@@ -542,7 +554,7 @@ async function loadJustifications(empId) {
           <div style="font-size:14px;font-weight:500">${frDateShort(j.date)}
             <span style="font-size:12px;color:var(--muted)"> — ${TYPES[j.type]||j.type}</span>
           </div>
-          ${j.motif ? `<div class="avance-info">${j.motif}</div>` : ''}
+          ${j.motif ? `<div class="avance-info">${escHtml(j.motif)}</div>` : ''}
           <span class="statut-chip ${CHIPS[j.statut]||''}"
             style="${CSTYLE[j.statut]||''}">
             ${LABELS[j.statut]||j.statut}

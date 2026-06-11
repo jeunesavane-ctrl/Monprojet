@@ -361,8 +361,8 @@ async function addAvance(statut) {
   const montant = parseInt($('add-montant')?.value)||0;
   const note    = ($('add-note')?.value||'').trim();
 
-  if (!empId)   { toast('Sélectionnez un employé','ko'); return; }
-  if (!montant) { toast('Montant requis','ko'); return; }
+  if (!empId)         { toast('Sélectionnez un employé','ko'); return; }
+  if (!(montant > 0)) { toast('Montant invalide (doit être positif)','ko'); return; }
 
   const emp = _employes[empId];
   const salaire = emp?.salaire_base || 0;

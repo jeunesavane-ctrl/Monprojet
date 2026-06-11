@@ -303,7 +303,7 @@ async function loadBilan() {
           ${charges.map(c=>`
             <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;
               border-bottom:1px solid var(--bg3)">
-              <span>${c.label}</span>
+              <span>${escHtml(c.label)}</span>
               <span style="color:${c.paye?'var(--ok)':'var(--danger)'};font-weight:500">
                 ${c.paye?'✓':''} ${gnf(c.montant)}</span>
             </div>`).join('')}
@@ -329,8 +329,8 @@ async function loadCharges() {
     $('charges-list').innerHTML = list.map(c=>`
       <div class="charge-item">
         <div class="charge-info">
-          <div class="charge-libelle">${c.label}</div>
-          <div class="charge-meta">${c.categorie||''} · ${c.recurrence||''}</div>
+          <div class="charge-libelle">${escHtml(c.label)}</div>
+          <div class="charge-meta">${escHtml(c.categorie||'')} · ${escHtml(c.recurrence||'')}</div>
         </div>
         <div style="text-align:right">
           <div class="charge-montant">${gnf(c.montant)}</div>

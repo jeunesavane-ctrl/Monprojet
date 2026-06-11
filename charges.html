@@ -359,8 +359,8 @@ async function loadCharges() {
           <div class="charge-item ${paid?'paye':''}">
             <div class="charge-ico">${CAT_ICO[c.categorie]||'📦'}</div>
             <div class="charge-info">
-              <div class="charge-lbl">${c.label}${recurLbl}</div>
-              <div class="charge-cat">${CAT_NOM[c.categorie]||c.categorie}</div>
+              <div class="charge-lbl">${escHtml(c.label)}${recurLbl}</div>
+              <div class="charge-cat">${escHtml(CAT_NOM[c.categorie]||c.categorie)}</div>
               ${paid
                 ? `<span class="pay-badge ok">✅ Payé le ${c.date_paiement ? frDateShort(c.date_paiement) : '—'}</span>`
                 : `<span class="pay-badge ko">⏳ À payer</span>`}
@@ -369,7 +369,7 @@ async function loadCharges() {
             <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
               ${!paid
                 ? `<button class="btn-secondary" style="font-size:11px;padding:3px 8px"
-                    onclick="openPayOne('${c.id}','${c.label}',${c.montant})">💸</button>` : ''}
+                    onclick="openPayOne('${c.id}','${jsStr(c.label)}',${c.montant})">💸</button>` : ''}
               <button class="btn-icon" title="Supprimer"
                 onclick="deleteCharge('${c.id}')">✕</button>
             </div>
@@ -429,8 +429,8 @@ async function openPayGroupModal() {
       <input type="checkbox" name="pay-chk" value="${c.id}"
         data-montant="${c.montant}" onchange="updatePayTotal()">
       <div style="flex:1">
-        <div style="font-weight:500;font-size:13px">${c.label}</div>
-        <div style="font-size:11px;color:var(--muted)">${frMonth(c.mois+'-01')} · ${CAT_NOM[c.categorie]||c.categorie}</div>
+        <div style="font-weight:500;font-size:13px">${escHtml(c.label)}</div>
+        <div style="font-size:11px;color:var(--muted)">${frMonth(c.mois+'-01')} · ${escHtml(CAT_NOM[c.categorie]||c.categorie)}</div>
       </div>
       <span class="amt">${gnf(c.montant)}</span>
     </label>`).join('');

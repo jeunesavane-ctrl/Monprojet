@@ -114,6 +114,22 @@ const sha256 = async str => {
 
 const $ = id => document.getElementById(id);
 
+/* Échappe le HTML — à utiliser sur TOUTE donnée saisie par un utilisateur
+   avant injection via innerHTML (noms, notes, motifs, produits, titres…).
+   Empêche le XSS stocké : un nom de produit "<img src=x onerror=…>" ne
+   s'exécute plus dans le navigateur du manager. */
+const escHtml = s => String(s ?? '')
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+/* Échappe une chaîne destinée à un littéral JS entre apostrophes dans un
+   attribut onclick="fn('…')". Indispensable pour les noms ouest-africains
+   (N'Diaye, N'Guessan…) dont l'apostrophe cassait le handler. */
+const jsStr = s => String(s ?? '')
+  .replace(/\\/g,'\\\\').replace(/'/g,"\\'")
+  .replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/\r?\n/g,' ');
+
 let _toastTimer;
 function toast(msg, type = '') {
   const el = $('toast');
