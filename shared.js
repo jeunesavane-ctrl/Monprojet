@@ -28,6 +28,7 @@ const ML = {
     catch { return {}; }
   },
   lock() {
+    if (db) { try { db.auth.signOut(); } catch {} }
     sessionStorage.clear();
     window.location.href = 'index.html';
   },

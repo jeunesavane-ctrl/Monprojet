@@ -231,6 +231,11 @@ async function checkPin() {
     }
 
     const { role, extra } = data;
+    /* Crée une session Supabase avec le rôle en métadonnée (nécessaire pour RLS) */
+    try {
+      await db.auth.signInAnonymously();
+      await db.auth.updateUser({ data: { role } });
+    } catch {}
     ML.setSession(role, extra);
     window.location.href =
       role === 'staff'    ? 'saisie.html'  :
@@ -281,10 +286,12 @@ async function setupNext() {
     }
     const h = await sha256(setupBuf);
     try {
+      try { await db.auth.signInAnonymously(); } catch {}
       await db.from('config').upsert([
         { key: 'pin_owner',   value: h },
         { key: 'pin_manager', value: H_MANAGER_DEF }
       ]);
+      try { await db.auth.updateUser({ data: { role: 'owner' } }); } catch {}
       ML.setSession('owner', { nom: 'Gestionnaire' });
       window.location.href = 'parametres.html';
     } catch (e) {
@@ -298,6 +305,8 @@ async function setupNext() {
 document.addEventListener('DOMContentLoaded', async () => {
   if (!db) return;
   try {
+    /* Session anonyme obligatoire dès le chargement (RLS = authenticated) */
+    try { await db.auth.signInAnonymously(); } catch {}
     /* Vérifie juste si pin_owner existe — ne lit JAMAIS le hash */
     const { data } = await db.from('config').select('key').eq('key', 'pin_owner').limit(1);
     if (!data || !data.length) {

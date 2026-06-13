@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
     return json({ error: 'PIN invalide' }, 400);
 
   const h  = await sha256(pin);
-  const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
   /* 1. Owner / Manager via config */
   const { data: cfg } = await sb.from('config').select('key,value')
