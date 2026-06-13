@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -163,7 +163,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['owner','manager','associe'])) return;
+  if (!await initPage(['owner','manager','associe'])) return;
 
   const role    = ML.getRole();
   const tabIds  = ['bilan','dividendes','tresorerie','charges','ajout','evolution'];

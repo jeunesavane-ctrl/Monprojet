@@ -179,7 +179,8 @@ let _submitting = false;
 
 /* ── Bootstrap ── */
 document.body.insertAdjacentHTML('afterbegin', HEADER_HTML);
-if (!initPage(['staff'])) throw new Error('accès refusé');
+if (!ML.guard(['staff'])) throw new Error('accès refusé');
+renderNav(); ML.initAutoLock(); loadNavBadges();
 
 empId  = extra.employe_id || null;
 empNom = extra.nom || 'Staff';
@@ -269,6 +270,7 @@ document.body.insertAdjacentHTML('beforeend', `
    INIT
 ══════════════════════════════════════════════ */
 async function init() {
+  await _dbReady;
   $('lbl-date').textContent = frDate();
 
   if (!empId) {

@@ -265,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['manager','owner'])) return;
+  if (!await initPage(['manager','owner'])) return;
 
   /* Bloquer si le rapport du jour précédent est manquant */
   const check = await checkJourPrecedent();

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -255,7 +255,7 @@ let _paieData    = {};   /* { empId: paieObj } — données de paie du mois affi
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['owner','manager'])) return;
+  if (!await initPage(['owner','manager'])) return;
 
   $('pres-date-sel').value = todayISO();
   $('av-date').value       = todayISO();

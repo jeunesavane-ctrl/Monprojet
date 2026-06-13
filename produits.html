@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -171,7 +171,7 @@ let editId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['manager','owner'])) return;
+  if (!await initPage(['manager','owner'])) return;
 
   /* Vérification actif NULL → afficher migration si nécessaire */
   const { data: chkActif } = await db.from('produits').select('actif').is('actif', null).limit(1);

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -91,7 +91,7 @@ let _finalizingSess = false; /* garde anti double-validation de session */
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['manager','owner','associe'])) return;
+  if (!await initPage(['manager','owner','associe'])) return;
   document.addEventListener('click', e => {
     if (e.target === $('overlay')) $('overlay').classList.remove('on');
   });

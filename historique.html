@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -169,7 +169,7 @@ let histFilter = { period:'all', manager:'', minNet:'' };
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['staff','caissier','chicha','achats','manager','owner','associe'])) return;
+  if (!await initPage(['staff','caissier','chicha','achats','manager','owner','associe'])) return;
   loadHist();
 });
 

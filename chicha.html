@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -113,7 +113,7 @@ const noteKey     = () => `ml_chicha_note_${empId}_${todayISO()}`;
 
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['chicha','manager','owner'])) return;
+  if (!await initPage(['chicha','manager','owner'])) return;
 
   const extra = ML.getExtra();
   empId  = extra.employe_id || null;

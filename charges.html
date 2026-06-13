@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -209,7 +209,7 @@ let _payIds  = [];   /* IDs sélectionnés pour paiement groupé */
 
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['owner','manager'])) return;
+  if (!await initPage(['owner','manager'])) return;
   $('sel-mois').value    = todayISO().slice(0,7);
   $('pay-modal-date').value = todayISO();
 

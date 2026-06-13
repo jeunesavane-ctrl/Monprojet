@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -94,7 +94,7 @@ let _tableOk  = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['owner','manager'])) return;
+  if (!await initPage(['owner','manager'])) return;
   $('sel-date').value = todayISO();
 
   /* ── Vérifie que la table presences existe ── */

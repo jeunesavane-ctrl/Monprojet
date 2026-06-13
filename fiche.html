@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -191,7 +191,7 @@ let absNJCount          = 0;   /* nb absences non justifiées ce mois */
 
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['staff','caissier','chicha','achats'])) return;
+  if (!await initPage(['staff','caissier','chicha','achats'])) return;
 
   const extra = ML.getExtra();
   const empId = extra.employe_id;

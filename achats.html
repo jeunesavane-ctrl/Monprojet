@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -117,7 +117,7 @@ const isReadOnly = () => ML.getRole() !== 'achats';
 
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['achats','manager','owner'])) return;
+  if (!await initPage(['achats','manager','owner'])) return;
 
   const extra = ML.getExtra();
   empId  = extra.employe_id || null;

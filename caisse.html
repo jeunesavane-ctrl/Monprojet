@@ -241,7 +241,8 @@ const caisseKey   = () => `ml_caisse_note_${todayISO()}`;
 
 /* ── Bootstrap ── */
 document.body.insertAdjacentHTML('afterbegin', HEADER_HTML);
-if (!initPage(['caissier','manager','owner','associe'])) throw new Error('accès refusé');
+if (!ML.guard(['caissier','manager','owner','associe'])) throw new Error('accès refusé');
+renderNav(); ML.initAutoLock(); loadNavBadges();
 
 /* ── Squelette ── */
 document.body.insertAdjacentHTML('beforeend', `
@@ -256,6 +257,7 @@ document.body.insertAdjacentHTML('beforeend', `
    CHARGEMENT
 ══════════════════════════════════════════════ */
 async function init() {
+  await _dbReady;
   const today = todayISO();
   try {
     /* Créer session si absente (atomique) */

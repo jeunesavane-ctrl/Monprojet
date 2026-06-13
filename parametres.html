@@ -272,7 +272,7 @@ let _ncNom    = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['owner'])) return;
+  if (!await initPage(['owner'])) return;
   buildPinSections();
   await loadConfig();
   loadLogs();

@@ -201,7 +201,7 @@ function renderNav() {
 }
 
 /* ── PAGE INIT ───────────────────────────────────────────────── */
-function initPage(allowedRoles) {
+async function initPage(allowedRoles) {
   if (!ML.guard(allowedRoles)) return false;
   renderNav();
   ML.initAutoLock();
@@ -209,6 +209,7 @@ function initPage(allowedRoles) {
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission().catch(() => {});
   }
+  await _dbReady; /* attend que la session Supabase soit restaurée avant tout appel DB */
   loadNavBadges();
   return true;
 }
