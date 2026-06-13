@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Medellin Lounge — Référence de développement v11.0</title>
+<style>
+  /* ── POLICES ── */
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  /* ── RESET ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── PAGE ── */
+  html { font-size: 11pt; }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: #fff;
+    color: #111;
+    line-height: 1.6;
+    padding: 0;
+  }
+
+  /* ── COUVERTURE ── */
+  .cover {
+    background: #0D0D0D;
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 60px 72px;
+    page-break-after: always;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -120px; right: -120px;
+    width: 420px; height: 420px;
+    border-radius: 50%;
+    border: 2px solid rgba(201,168,76,0.15);
+  }
+  .cover::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; left: -80px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    border: 1px solid rgba(201,168,76,0.1);
+  }
+  .cover-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 9pt;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #C9A84C;
+    margin-bottom: 24px;
+  }
+  .cover-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 64pt;
+    line-height: 0.9;
+    color: #fff;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+  .cover-subtitle {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28pt;
+    color: #C9A84C;
+    margin-bottom: 40px;
+  }
+  .cover-divider {
+    width: 60px;
+    height: 3px;
+    background: #C9A84C;
+    margin-bottom: 40px;
+  }
+  .cover-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    width: 100%;
+    max-width: 520px;
+  }
+  .cover-meta-item { }
+  .cover-meta-label {
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 4px;
+  }
+  .cover-meta-value {
+    font-size: 10pt;
+    font-weight: 600;
+    color: #fff;
+  }
+  .cover-footer {
+    position: absolute;
+    bottom: 40px;
+    right: 72px;
+    font-size: 8pt;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 1px;
+  }
+
+  /* ── CONTENU ── */
+  .content {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px 72px;
+  }
+
+  /* ── TITRES SECTIONS ── */
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22pt;
+    color: #0D0D0D;
+    letter-spacing: 1px;
+    margin: 48px 0 4px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #C9A84C;
+    page-break-after: avoid;
+  }
+  h1:first-of-type { margin-top: 0; }
+
+  h2 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11pt;
+    font-weight: 700;
+    color: #0D0D0D;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin: 28px 0 10px;
+    page-break-after: avoid;
+  }
+
+  h3 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10pt;
+    font-weight: 600;
+    color: #555;
+    margin: 20px 0 8px;
+    page-break-after: avoid;
+  }
+
+  p { margin: 8px 0; font-size: 10.5pt; }
+
+  /* ── BLOCS CODE ── */
+  pre {
+    background: #f5f4f0;
+    border-left: 3px solid #C9A84C;
+    border-radius: 0 4px 4px 0;
+    padding: 14px 16px;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 8.5pt;
+    line-height: 1.65;
+    margin: 10px 0 16px;
+    overflow-x: auto;
+    page-break-inside: avoid;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  code {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 8.5pt;
+    background: #f0ede6;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #8B5E2A;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+  }
+
+  /* ── TABLEAUX ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 20px;
+    font-size: 9.5pt;
+    page-break-inside: avoid;
+  }
+  thead tr {
+    background: #0D0D0D;
+    color: #fff;
+  }
+  thead th {
+    padding: 9px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 9pt;
+    letter-spacing: 0.5px;
+  }
+  tbody tr:nth-child(even) { background: #f8f7f3; }
+  tbody tr:hover { background: #f2efe6; }
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e8e5dc;
+    vertical-align: top;
+  }
+  td code { font-size: 8pt; }
+
+  /* ── TEXTE SPÉCIAL ── */
+  .gold { color: #C9A84C; font-weight: 600; }
+  .warn {
+    background: #fffbec;
+    border: 1px solid #e8d48a;
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-size: 10pt;
+  }
+  .warn::before { content: '⚠ '; }
+
+  .note {
+    background: #f0f7ff;
+    border-left: 3px solid #3b82f6;
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-size: 10pt;
+    border-radius: 0 4px 4px 0;
+  }
+
+  /* ── CHECKS / LISTES ── */
+  ul, ol { padding-left: 20px; margin: 8px 0 12px; }
+  li { margin: 4px 0; font-size: 10.5pt; }
+  li code { font-size: 8pt; }
+
+  /* ── SAUT DE PAGE ── */
+  .page-break { page-break-before: always; }
+
+  /* ── BADGES STATUT ── */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 8pt;
+    font-weight: 600;
+    margin: 1px;
+  }
+  .badge-gold { background: #fef3d0; color: #92660a; border: 1px solid #e8c86a; }
+  .badge-dark { background: #1a1a1a; color: #fff; }
+  .badge-grey { background: #f0ede6; color: #555; border: 1px solid #ddd; }
+
+  /* ── FLUX OPÉRATIONNEL ── */
+  .flux {
+    background: #0D0D0D;
+    color: #e0e0e0;
+    border-radius: 6px;
+    padding: 20px 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5pt;
+    line-height: 1.75;
+    margin: 12px 0 20px;
+    page-break-inside: avoid;
+  }
+  .flux .gold-text { color: #C9A84C; }
+
+  /* ── TOC ── */
+  .toc {
+    background: #f8f7f3;
+    border: 1px solid #e8e5dc;
+    border-radius: 6px;
+    padding: 24px 28px;
+    margin-bottom: 40px;
+    page-break-inside: avoid;
+  }
+  .toc-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 14pt;
+    color: #0D0D0D;
+    margin-bottom: 16px;
+    letter-spacing: 0.5px;
+  }
+  .toc ol {
+    list-style: decimal;
+    padding-left: 20px;
+    column-count: 2;
+    column-gap: 32px;
+  }
+  .toc li {
+    font-size: 9.5pt;
+    margin: 4px 0;
+    color: #333;
+  }
+  .toc li::marker { color: #C9A84C; font-weight: 700; }
+
+  /* ── PRINT ── */
+  @media print {
+    html { font-size: 10pt; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .cover { min-height: 100vh; }
+    h1 { page-break-before: auto; }
+    .page-break { page-break-before: always; }
+    pre, table, .flux { page-break-inside: avoid; }
+    a { text-decoration: none; color: inherit; }
+    @page {
+      size: A4;
+      margin: 20mm 18mm 20mm 18mm;
+    }
+    @page :first { margin: 0; }
+  }
+
+  /* ── FOOTER PAGES ── */
+  .section-footer {
+    font-size: 8pt;
+    color: #aaa;
+    text-align: right;
+    margin-top: 40px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+  }
+
+  /* ── GRID RÔLES ── */
+  .roles-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 12px 0 20px;
+  }
+  .role-card {
+    border: 1px solid #e8e5dc;
+    border-radius: 6px;
+    padding: 12px 14px;
+    page-break-inside: avoid;
+  }
+  .role-card .role-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13pt;
+    color: #C9A84C;
+    margin-bottom: 4px;
+  }
+  .role-card .role-pages {
+    font-size: 8.5pt;
+    color: #555;
+    line-height: 1.5;
+  }
+
+  /* ── DIRECTIVES GRID ── */
+  .directive-block {
+    background: #f5f4f0;
+    border-left: 3px solid #0D0D0D;
+    padding: 12px 16px;
+    margin: 10px 0;
+    border-radius: 0 4px 4px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5pt;
+    line-height: 1.7;
+    page-break-inside: avoid;
+  }
+  .directive-block .ok { color: #1a7a3a; font-weight: 600; }
+  .directive-block .ko { color: #c0392b; font-weight: 600; }
+
+  /* ── ONGLETS ── */
+  .onglets-block {
+    border: 1px solid #e8e5dc;
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 10px 0 20px;
+    page-break-inside: avoid;
+  }
+  .onglets-header {
+    background: #0D0D0D;
+    color: #C9A84C;
+    padding: 8px 14px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 11pt;
+    letter-spacing: 0.5px;
+  }
+  .onglets-row {
+    display: flex;
+    border-bottom: 1px solid #f0ede6;
+    font-size: 9.5pt;
+  }
+  .onglets-row:last-child { border-bottom: none; }
+  .onglet-name {
+    background: #f8f7f3;
+    padding: 8px 14px;
+    font-weight: 600;
+    min-width: 130px;
+    border-right: 1px solid #e8e5dc;
+    color: #0D0D0D;
+  }
+  .onglet-desc {
+    padding: 8px 14px;
+    color: #444;
+    flex: 1;
+  }
+  .onglet-role {
+    padding: 8px 12px;
+    font-size: 8pt;
+    color: #999;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════ COUVERTURE ══════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-label">Référence de développement</div>
+  <div class="cover-title">MEDELLIN<br>LOUNGE</div>
+  <div class="cover-subtitle">CLAUDE.md v11.0</div>
+  <div class="cover-divider"></div>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Version</div>
+      <div class="cover-meta-value">v11.0 — Refondation complète</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Date</div>
+      <div class="cover-meta-value">12 juin 2026</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Stack</div>
+      <div class="cover-meta-value">HTML · CSS · JS vanilla · Supabase</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Déploiement</div>
+      <div class="cover-meta-value">Netlify Pro — manuel</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Pages</div>
+      <div class="cover-meta-value">18 pages · 7 rôles</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Base de données</div>
+      <div class="cover-meta-value">22 tables Supabase</div>
+    </div>
+  </div>
+  <div class="cover-footer">Conakry, Guinée · medellin-lounge.com</div>
+</div>
+
+<!-- ══════════════════════════════════════ CONTENU ══════════════════════════════════════ -->
+<div class="content">
+
+  <!-- TABLE DES MATIÈRES -->
+  <div class="toc">
+    <div class="toc-title">Sommaire</div>
+    <ol>
+      <li>Stack &amp; Déploiement</li>
+      <li>Acteurs — 3 catégories</li>
+      <li>Authentification</li>
+      <li>Navigation — 18 pages</li>
+      <li>Base de données — 22 tables</li>
+      <li>Flux opérationnel quotidien</li>
+      <li>Modèle des écarts caisse</li>
+      <li>Formules de calcul</li>
+      <li>shared.js — fonctions</li>
+      <li>Structure standard d'une page</li>
+      <li>Patterns Supabase</li>
+      <li>Directives de code</li>
+      <li>Pages à onglets</li>
+      <li>Realtime &amp; Design</li>
+      <li>Ordre de développement</li>
+    </ol>
+  </div>
+
+  <!-- ─────────────────────────── 1. STACK ─────────────────────────── -->
+  <h1>1 — Stack &amp; Déploiement</h1>
+
+  <table>
+    <thead><tr><th>Élément</th><th>Valeur</th></tr></thead>
+    <tbody>
+      <tr><td>Front</td><td>HTML5 / CSS3 / JavaScript vanilla (ES2020+)</td></tr>
+      <tr><td>Base de données</td><td>Supabase JS v2 via CDN</td></tr>
+      <tr><td>Hébergement</td><td>Netlify Pro</td></tr>
+      <tr><td>Domaine</td><td><code>https://medellin-lounge.com</code></td></tr>
+      <tr><td>Dépôt git</td><td><code>https://github.com/jeunesavane-ctrl/Monprojet.git</code> · branche <code>main</code></td></tr>
+      <tr><td>Serveur local</td><td><code>python -m http.server 5500</code> → http://localhost:5500</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warn">
+    <strong>git push origin main = versioning uniquement.</strong> Ne jamais dire "c'est en ligne" après un push. La mise en ligne se fait manuellement depuis le dashboard Netlify.
+  </div>
+
+  <h2>Credentials Supabase</h2>
+  <pre>URL  : https://stpmokparkaybgkabbeo.supabase.co
+Key  : sb_publishable_3L6fyV-zEZMX-EZaNHBPPQ_Hnsmee0Z
+RLS  : DÉSACTIVÉ sur toutes les tables</pre>
+
+  <!-- ─────────────────────────── 2. ACTEURS ─────────────────────────── -->
+  <h1 class="page-break">2 — Acteurs — 3 catégories</h1>
+
+  <table>
+    <thead><tr><th>Catégorie</th><th>Stocké dans</th><th>Rôle app</th><th>Caractéristiques</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Gestionnaire</strong></td>
+        <td><code>config</code> (pin_owner, owner_nom, owner_pct)</td>
+        <td><span class="badge badge-gold">owner</span></td>
+        <td>Unique, pas de table, accès total</td>
+      </tr>
+      <tr>
+        <td><strong>Associés</strong></td>
+        <td>table <code>associes</code></td>
+        <td><span class="badge badge-grey">associe</span></td>
+        <td>Co-investisseurs — <strong>PAS des salariés</strong>. Pas de pointage, pas de salaire, pas d'avance.</td>
+      </tr>
+      <tr>
+        <td><strong>Employés</strong></td>
+        <td>table <code>employes</code></td>
+        <td><span class="badge badge-dark">manager</span> <span class="badge badge-dark">caissier</span> <span class="badge badge-dark">staff</span> <span class="badge badge-dark">chicha</span> <span class="badge badge-dark">achats</span></td>
+        <td>Salariés uniquement. Soumis au pointage, avances, calcul de paie.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ─────────────────────────── 3. AUTH ─────────────────────────── -->
+  <h1>3 — Authentification</h1>
+
+  <p>Mécanisme : PIN numérique hashé en SHA-256 côté client avant comparaison. Ordre strict :</p>
+
+  <pre>1. sha256(PIN) === config.pin_owner   → role='owner',   extra={nom:config.owner_nom}
+2. sha256(PIN) === config.pin_manager → role='manager',  extra={nom:'Manager'}
+3. sha256(PIN) === employes.pin_hash  → role=employe.role, extra={nom, employe_id}
+4. sha256(PIN) === associes.pin_hash  → role='associe',  extra={nom, associe_id, pourcentage}
+5. aucune correspondance              → erreur, pas de connexion</pre>
+
+  <h2>Session &amp; Auto-lock</h2>
+  <table>
+    <thead><tr><th>Clé sessionStorage</th><th>Contenu</th></tr></thead>
+    <tbody>
+      <tr><td><code>ml_role</code></td><td>Rôle de l'utilisateur connecté</td></tr>
+      <tr><td><code>ml_hashes</code></td><td><code>{hOwner, hManager, hStaff}</code></td></tr>
+      <tr><td><code>ml_extra</code></td><td><code>{nom, employe_id}</code> ou <code>{nom, associe_id, pourcentage}</code></td></tr>
+    </tbody>
+  </table>
+  <p><strong>Auto-verrouillage :</strong> 10 minutes d'inactivité → <code>ML.lock()</code> → retour index.html</p>
+
+  <h2>Config keys</h2>
+  <table>
+    <thead><tr><th>Clé</th><th>Description</th><th>Défaut</th></tr></thead>
+    <tbody>
+      <tr><td><code>pin_owner</code></td><td>Hash SHA-256 du PIN gestionnaire</td><td>NULL</td></tr>
+      <tr><td><code>pin_manager</code></td><td>Hash SHA-256 du PIN manager (partagé)</td><td>NULL</td></tr>
+      <tr><td><code>pin_staff</code></td><td>Existe en config mais <strong>non utilisé dans le flux auth</strong> (nouveau système = PINs individuels)</td><td>NULL</td></tr>
+      <tr><td><code>owner_nom</code></td><td>Nom affiché pour le gestionnaire</td><td>'Gestionnaire'</td></tr>
+      <tr><td><code>owner_pct</code></td><td>% fixe du gestionnaire (NULL = auto : 100 − Σ associes%)</td><td>NULL</td></tr>
+      <tr><td><code>part_lounge</code></td><td>% du net réservé au lounge avant distribution</td><td>10</td></tr>
+      <tr><td><code>objectif_journalier</code></td><td>Objectif net journalier (GNF)</td><td>0</td></tr>
+      <tr><td><code>note_manager</code></td><td>Message visible sur le dashboard manager</td><td>''</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ─────────────────────────── 4. NAVIGATION ─────────────────────────── -->
+  <h1 class="page-break">4 — Navigation — 18 pages</h1>
+
+  <div class="roles-grid">
+    <div class="role-card">
+      <div class="role-name">Owner</div>
+      <div class="role-pages">Toutes les 18 pages</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Manager</div>
+      <div class="role-pages">Dashboard · Chicha · Achats · Caisse · Rapport · Pointage · Historique · RH · Avances · Charges · Finances · Bilan</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Associe</div>
+      <div class="role-pages">Dashboard · Caisse (lecture) · Historique · Finances (Mes Parts) · Bilan · Associés</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Caissier</div>
+      <div class="role-pages">Caisse · Historique · Ma Fiche · Avance</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Staff</div>
+      <div class="role-pages">Saisie · Historique · Ma Fiche · Avance</div>
+    </div>
+    <div class="role-card">
+      <div class="role-name">Chicha / Achats</div>
+      <div class="role-pages">Chicha ou Achats · Historique · Ma Fiche · Avance</div>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th>Page</th><th>Rôles autorisés</th></tr></thead>
+    <tbody>
+      <tr><td><code>dashboard.html</code></td><td>manager · owner · associe</td></tr>
+      <tr><td><code>saisie.html</code></td><td>staff</td></tr>
+      <tr><td><code>chicha.html</code></td><td>chicha · manager · owner</td></tr>
+      <tr><td><code>achats.html</code></td><td>achats · manager · owner</td></tr>
+      <tr><td><code>caisse.html</code></td><td>caissier · manager · owner · associe</td></tr>
+      <tr><td><code>rapport.html</code></td><td>manager · owner</td></tr>
+      <tr><td><code>pointage.html</code></td><td>manager · owner</td></tr>
+      <tr><td><code>historique.html</code></td><td>tous les rôles</td></tr>
+      <tr><td><code>fiche.html</code></td><td>staff · caissier · chicha · achats</td></tr>
+      <tr><td><code>avance.html</code></td><td>staff · caissier · chicha · achats</td></tr>
+      <tr><td><code>produits.html</code></td><td>manager · owner</td></tr>
+      <tr><td><code>rh.html</code></td><td>manager · owner</td></tr>
+      <tr><td><code>avances.html</code></td><td>manager · owner</td></tr>
+      <tr><td><code>charges.html</code></td><td>manager · owner</td></tr>
+      <tr><td><code>finances.html</code></td><td>owner · manager · associe</td></tr>
+      <tr><td><code>bilan.html</code></td><td>owner · manager · associe</td></tr>
+      <tr><td><code>associes.html</code></td><td>owner · associe</td></tr>
+      <tr><td><code>parametres.html</code></td><td>owner</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Badges de notification (points rouges sur la nav)</h2>
+  <table>
+    <thead><tr><th>ID badge</th><th>Source</th><th>Visible par</th></tr></thead>
+    <tbody>
+      <tr><td><code>nbadge-caisse</code></td><td><code>remboursements_ecart</code> en <code>en_attente</code></td><td>tous</td></tr>
+      <tr><td><code>nbadge-avances</code></td><td><code>avances</code> en <code>en_attente</code></td><td>manager · owner uniquement</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ─────────────────────────── 5. TABLES ─────────────────────────── -->
+  <h1 class="page-break">5 — Base de données — 22 tables</h1>
+
+  <table>
+    <thead><tr><th>#</th><th>Table</th><th>Colonnes importantes</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><code>config</code></td><td>key, value</td></tr>
+      <tr><td>2</td><td><code>associes</code></td><td>id, nom, prenom, pourcentage, pin_hash, actif</td></tr>
+      <tr><td>3</td><td><code>employes</code></td><td>id, nom, prenom, poste, role CHECK('manager','caissier','staff','chicha','achats'), salaire_base, pin_hash, actif</td></tr>
+      <tr><td>4</td><td><code>logs</code></td><td>id, role, action, timestamp</td></tr>
+      <tr><td>5</td><td><code>produits</code></td><td>id, nom, <strong>type</strong> ('chicha'/'boisson'/'autre'), stock_actuel, <strong>stock_min</strong>, <strong>prix_defaut</strong>, prix_achat, unite_vente, actif</td></tr>
+      <tr><td>6</td><td><code>tables_lounge</code></td><td>id, label (T1…T8/Bar/Terrasse), ordre, actif</td></tr>
+      <tr><td>7</td><td><code>sessions_caisse</code></td><td>id, date UNIQUE, statut, fond_caisse, total_reel, total_om_verifie, <strong>ecart_especes</strong>, <strong>ecart_om</strong>, <strong>ecart</strong>, caissier_id, note_caissier, note_manager</td></tr>
+      <tr><td>8</td><td><code>ventes_session</code></td><td>id, session_id, employe_id, produit_nom, qty, prix_unitaire, total, paiement ('especes'/'om'), <strong>table_label</strong></td></tr>
+      <tr><td>9</td><td><code>verifications_staff</code></td><td>id, session_id, employe_id, <strong>recu_especes</strong>, <strong>recu_om</strong> — UNIQUE(session_id, employe_id)</td></tr>
+      <tr><td>10</td><td><code>mouvements_caisse</code></td><td>id, session_id, type ('entree'/'sortie'), motif, montant &gt; 0, note</td></tr>
+      <tr><td>11</td><td><code>achats_session</code></td><td>id, session_id, categorie, produit_nom, montant &gt; 0, qty, prix_unitaire</td></tr>
+      <tr><td>12</td><td><code>sorties_chicha</code></td><td>id, session_id, employe_id, arome, qty, valide</td></tr>
+      <tr><td>13</td><td><code>rapports</code></td><td>id, date, num, session_id, total_chicha, total_boissons, total_achats, recettes, net, manager (TEXT), caissier (TEXT), part (JSONB), chicha_rows (JSONB), boissons_rows (JSONB), achats_rows (JSONB)</td></tr>
+      <tr><td>14</td><td><code>presences</code></td><td>id, employe_id, date, statut ('present'/'absent'/'retard'/'conge'), note — UNIQUE(employe_id, date)</td></tr>
+      <tr><td>15</td><td><code>justifications</code></td><td>id, employe_id, date, type, motif, statut ('en_attente'/'approuvee'/'rejetee')</td></tr>
+      <tr><td>16</td><td><code>avances</code></td><td>id, employe_id, montant &gt; 0, date, statut ('en_attente'/'approuvee'/'rejetee'), rembourse, obs, note_demande</td></tr>
+      <tr><td>17</td><td><code>salaires_verses</code></td><td>id, employe_id, mois ('YYYY-MM'), salaire_brut, avances_deduites, ecarts_deduits, surplus_caisse, net_verse, nb_absences_nj, sanction_type, sanction_montant, nb_retards, sanction_retard_montant, paye_le — UNIQUE(employe_id, mois)</td></tr>
+      <tr><td>18</td><td><code>charges</code></td><td>id, <strong>label</strong>, montant &gt; 0, mois ('YYYY-MM'), categorie, paye, date_paiement, recurrence</td></tr>
+      <tr><td>19</td><td><code>remboursements_ecart</code></td><td>id, session_id, employe_id, montant &gt; 0, note, statut ('en_attente'/'valide'/'rejete')</td></tr>
+      <tr><td>20</td><td><code>credits</code></td><td>id, employe_id, session_id, montant &gt; 0, rembourse</td></tr>
+      <tr><td>21</td><td><code>propositions</code></td><td>id, titre, description, auteur_nom, statut ('ouvert'/'ferme')</td></tr>
+      <tr><td>22</td><td><code>votes_prop</code></td><td>id, proposition_id, votant_key (associe.id::text ou 'owner'), votant_nom, poids, choix (bool) — UNIQUE(proposition_id, votant_key)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warn">
+    <strong>Noms de colonnes critiques :</strong> <code>charges.label</code> (pas libelle) · <code>produits.prix_defaut</code> (pas prix) · <code>produits.stock_min</code> (pas seuil_bas) · filtre actifs : <code>.not('actif','is',false)</code> uniquement
+  </div>
+
+  <!-- ─────────────────────────── 6. FLUX ─────────────────────────── -->
+  <h1 class="page-break">6 — Flux opérationnel quotidien</h1>
+
+  <div class="flux">
+<span class="gold-text">MATIN</span>
+  └─ manager ou caissière saisit le fond → session créée (statut: ouvert)
+
+<span class="gold-text">JOURNÉE</span>
+  ├─ saisie.html  (staff)   → plusieurs tours : table(s) → produits → paiement
+  │                           INSERT ventes_session
+  ├─ chicha.html  (chicha)  → sorties chicha → INSERT sorties_chicha
+  │                           ⚠ STOCK UNIQUEMENT — pas dans les calculs financiers
+  └─ achats.html  (achats)  → dépenses → INSERT achats_session
+
+<span class="gold-text">SOIR — CLÔTURE</span> (caissière)
+  └─ caisse.html
+       ├─ Pour chaque serveuse : saisit recu_especes + recu_om
+       │   → INSERT verifications_staff
+       │   → l'app affiche l'écart serveuse (déclaré − reçu)
+       ├─ Compte le tiroir → total_reel
+       ├─ Vérifie OM sur téléphone → total_om_verifie
+       ├─ L'app calcule ecart_especes + ecart_om + ecart
+       │   → stockés dans sessions_caisse
+       └─ Clôture → statut: valide_caissier
+
+<span class="gold-text">SOIR — VALIDATION</span> (manager)
+  └─ rapport.html  (ou dashboard.html → openValidation)
+       ├─ Saisit manuellement lignes chicha + boissons
+       ├─ Achats préremplis depuis achats_session
+       ├─ INSERT rapports
+       └─ statut session: valide_manager</div>
+
+  <!-- ─────────────────────────── 7. ÉCARTS ─────────────────────────── -->
+  <h1>7 — Modèle des écarts caisse</h1>
+
+  <p>La caissière reçoit <strong>physiquement tout l'argent</strong> (espèces + Orange Money du lounge). Deux niveaux d'écart totalement indépendants.</p>
+
+  <h2>Niveau 1 — Écart serveuse</h2>
+  <p>Calculé en JavaScript à partir de <code>ventes_session</code> et <code>verifications_staff</code>. Jamais stocké dans une colonne propre.</p>
+  <pre>décl_esp = SUM(ventes_session.total WHERE paiement='especes' AND employe_id=X AND session_id=Y)
+décl_om  = SUM(ventes_session.total WHERE paiement='om'      AND employe_id=X AND session_id=Y)
+recu_esp = verifications_staff.recu_especes WHERE employe_id=X AND session_id=Y
+recu_om  = verifications_staff.recu_om      WHERE employe_id=X AND session_id=Y
+
+écart_serveuse = (décl_esp + décl_om) − (recu_esp + recu_om)
+→ positif = dette serveuse (déduite de son salaire)
+→ négatif = excédent (rare)</pre>
+
+  <h2>Niveau 2 — Écart caissière</h2>
+  <p>Calculé à la clôture, stocké dans <code>sessions_caisse</code>.</p>
+  <pre>tot_recu_esp  = SUM(verifications_staff.recu_especes)  pour la session
+tot_recu_om   = SUM(verifications_staff.recu_om)       pour la session
+entrées       = SUM(mouvements_caisse.montant WHERE type='entree')
+sorties       = SUM(mouvements_caisse.montant WHERE type='sortie')
+achats        = SUM(achats_session.montant)
+
+théoriqueEsp  = fond_caisse + tot_recu_esp + entrées − sorties − achats
+ecart_especes = théoriqueEsp − total_reel            → sessions_caisse.ecart_especes
+ecart_om      = tot_recu_om  − total_om_verifie      → sessions_caisse.ecart_om
+ecart         = ecart_especes + ecart_om              → sessions_caisse.ecart
+
+Convention : + = manque d'argent (déduit du salaire)
+             − = excédent / surplus (bonus sur salaire)</pre>
+
+  <!-- ─────────────────────────── 8. FORMULES ─────────────────────────── -->
+  <h1 class="page-break">8 — Formules de calcul</h1>
+
+  <h2>Rapport journalier</h2>
+  <pre>recettes = total_chicha + total_boissons
+net      = recettes − total_achats</pre>
+
+  <h2>Distribution des parts</h2>
+  <pre>net_for_parts = Σ rapports.net − Σ charges.montant     (sur la période)
+distribPct    = (100 − part_lounge%) / 100
+owner_pct     = config.owner_pct  OU  MAX(0, 100 − Σ associes.pourcentage)
+
+part_lounge   = net_for_parts × part_lounge% / 100
+part_owner    = MAX(0, net_for_parts) × distribPct × owner_pct / 100
+part_assoc_X  = MAX(0, net_for_parts) × distribPct × assocX.pourcentage / 100</pre>
+
+  <h2>Trésorerie</h2>
+  <pre>tresorerie = net_for_parts − Σ avances(statut IN ['en_attente','approuvee'] AND rembourse=false)</pre>
+
+  <h2>Calcul de salaire net</h2>
+  <pre>absNJ        = presences(statut='absent') − justifications(statut='approuvee')  ce mois
+sanc_abs     = brut × (0 si absNJ=0 | 0.10 si absNJ=2 | 0.15 si absNJ≥3)
+sanc_ret     = brut × 0.10  si retards ≥ 5 ce mois
+
+avances_ded  = Σ avances(statut='approuvee' AND rembourse=false)  ← TOUTES DATES (pas ce mois)
+
+écart_serv   = (décl_esp + décl_om) − (recu_esp + recu_om)  par serveuse ce mois
+ecarts_ded   = Σ écarts positifs non remboursés ce mois
+                 [serveuse]   → calculé depuis verifications_staff
+                 [caissière]  → depuis sessions_caisse.ecart
+               − Σ remboursements_ecart(statut='valide') ce mois
+
+surplus_caiss = MAX(0, −sessions_caisse.ecart)  ce mois (bonus si excédent)
+
+net_verse = MAX(0, brut − sanc_abs − sanc_ret − avances_ded − ecarts_ded + surplus_caiss)</pre>
+
+  <h2>bilan.html — distinction KPI / parts</h2>
+  <pre>resultatNet (KPI affiché)  = marge − charges − salaires  ← vue comptable
+parts calculées sur        = marge − charges uniquement   ← cohérent avec finances.html</pre>
+
+  <!-- ─────────────────────────── 9. SHARED.JS ─────────────────────────── -->
+  <h1 class="page-break">9 — shared.js — fonctions disponibles</h1>
+
+  <table>
+    <thead><tr><th>Fonction</th><th>Usage</th></tr></thead>
+    <tbody>
+      <tr><td><code>ML.getRole()</code></td><td>Rôle de l'utilisateur connecté (string)</td></tr>
+      <tr><td><code>ML.getExtra()</code></td><td>Données utilisateur <code>{nom, employe_id}</code> ou <code>{nom, associe_id, pourcentage}</code></td></tr>
+      <tr><td><code>ML.guard(roles[])</code></td><td>Redirige vers index.html si rôle non dans la liste</td></tr>
+      <tr><td><code>ML.lock()</code></td><td>Déconnexion + retour index.html</td></tr>
+      <tr><td><code>ML.logAction(desc)</code></td><td>INSERT dans la table <code>logs</code></td></tr>
+      <tr><td><code>ML.initAutoLock()</code></td><td>Démarre le timer de 10 min</td></tr>
+      <tr><td><code>initPage(roles[])</code></td><td>Guard + renderNav + initAutoLock + loadNavBadges (appel unique)</td></tr>
+      <tr><td><code>renderNav()</code></td><td>Génère la navigation filtrée par rôle</td></tr>
+      <tr><td><code>loadNavBadges()</code></td><td>Charge les points rouges de notification</td></tr>
+      <tr><td><code>gnf(n)</code></td><td>Formate un nombre en GNF : "1 234 567 GNF"</td></tr>
+      <tr><td><code>frDate(d)</code></td><td>Date longue en français : "lundi 12 juin 2026"</td></tr>
+      <tr><td><code>frDateShort(d)</code></td><td>Date courte : "12 juin"</td></tr>
+      <tr><td><code>frMonth(d)</code></td><td>Mois + année : "juin 2026"</td></tr>
+      <tr><td><code>todayISO()</code></td><td>Date du jour au format "YYYY-MM-DD"</td></tr>
+      <tr><td><code>sha256(str)</code></td><td>Async → hash hex SHA-256</td></tr>
+      <tr><td><code>escHtml(s)</code></td><td>Échappe HTML — obligatoire pour tout <code>innerHTML</code></td></tr>
+      <tr><td><code>jsStr(s)</code></td><td>Échappe JS-attribut — obligatoire pour tout <code>onclick="fn('…')"</code></td></tr>
+      <tr><td><code>toast(msg, type)</code></td><td>Notification toast. type : <code>''</code> (neutre) · <code>'ok'</code> · <code>'ko'</code></td></tr>
+      <tr><td><code>$(id)</code></td><td>Raccourci <code>document.getElementById(id)</code></td></tr>
+      <tr><td><code>HEADER_HTML</code></td><td>HTML du header + nav à injecter dans chaque page</td></tr>
+      <tr><td><code>db</code></td><td>Instance Supabase (<code>supabase.createClient</code>)</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ─────────────────────────── 10. STRUCTURE ─────────────────────────── -->
+  <h1>10 — Structure standard d'une page</h1>
+
+  <pre>&lt;!DOCTYPE html&gt;
+&lt;html lang="fr"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+  &lt;title&gt;NomPage — Medellin Lounge&lt;/title&gt;
+  &lt;link rel="stylesheet" href="shared.css"&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;div id="toast"&gt;&lt;/div&gt;
+
+  &lt;script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"&gt;&lt;/script&gt;
+  &lt;script src="shared.js"&gt;&lt;/script&gt;
+  &lt;script&gt;
+    // 1. Injecter le header
+    document.body.insertAdjacentHTML('afterbegin', HEADER_HTML);
+
+    // 2. Guard + nav + badges (une seule ligne)
+    if (!initPage(['role1', 'role2'])) throw new Error();
+
+    // 3. Logique de la page
+    async function init() { ... }
+    init();
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre>
+
+  <!-- ─────────────────────────── 11. PATTERNS ─────────────────────────── -->
+  <h1 class="page-break">11 — Patterns Supabase courants</h1>
+
+  <h2>SELECT simple</h2>
+  <pre>const { data, error } = await db.from('table').select('*').eq('col', val);</pre>
+
+  <h2>Filtre produits actifs — toujours cette forme</h2>
+  <pre>.not('actif', 'is', false)   // ✓ couvre false ET null
+.eq('actif', true)           // ✗ INTERDIT — exclut les NULL</pre>
+
+  <h2>Création de session (atomique)</h2>
+  <pre>let { data, error } = await db
+  .from('sessions_caisse')
+  .insert({ date: todayISO() })
+  .select()
+  .single();
+
+if (error?.code === '23505') {                       // clé dupliquée
+  ({ data } = await db.from('sessions_caisse')
+    .select()
+    .eq('date', todayISO())
+    .single());
+}
+// Utilisé dans : saisie.html ET caisse.html</pre>
+
+  <h2>UPSERT verifications_staff</h2>
+  <pre>await db.from('verifications_staff').upsert(
+  { session_id, employe_id, recu_especes, recu_om },
+  { onConflict: 'session_id,employe_id' }
+);</pre>
+
+  <h2>Numéro de rapport (MAX + 1 numérique)</h2>
+  <pre>const { data } = await db
+  .from('rapports')
+  .select('num')
+  .order('num', { ascending: false })
+  .limit(1);
+
+const nextNum = (data?.[0]?.num ?? 0) + 1;</pre>
+
+  <h2>Realtime — écouter une table</h2>
+  <pre>const sub = db.channel('channel-name')
+  .on('postgres_changes',
+    { event: '*', schema: 'public', table: 'sessions_caisse' },
+    payload => { /* handler */ }
+  )
+  .subscribe();
+
+// Nettoyage lors du unload :
+// db.removeChannel(sub)</pre>
+
+  <h2>Abonnements Realtime par page</h2>
+  <table>
+    <thead><tr><th>Page</th><th>Table écoutée</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><code>saisie.html</code></td><td><code>sessions_caisse</code></td><td>Verrouiller si statut ≥ valide_caissier</td></tr>
+      <tr><td><code>caisse.html</code></td><td><code>ventes_session</code></td><td>Rafraîchir les cartes serveuses en temps réel</td></tr>
+      <tr><td><code>dashboard.html</code></td><td><code>sessions_caisse</code></td><td>Alerter si nouvelle session à valider</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ─────────────────────────── 12. DIRECTIVES ─────────────────────────── -->
+  <h1 class="page-break">12 — Directives de code</h1>
+
+  <h2>Sécurité XSS — obligatoire</h2>
+  <div class="directive-block">
+<span class="ok">✓</span>  Toute donnée injectée via innerHTML    → escHtml(valeur)
+<span class="ok">✓</span>  Toute donnée dans onclick="fn('…')"   → jsStr(valeur)
+<span class="ko">✗</span>  JAMAIS injecter une variable directement dans innerHTML ou onclick</div>
+
+  <h2>Noms de colonnes — pièges courants</h2>
+  <div class="directive-block">
+<span class="ok">✓</span>  charges  → colonne 'label'       (pas 'libelle')
+<span class="ok">✓</span>  produits → colonne 'prix_defaut' (pas 'prix')
+<span class="ok">✓</span>  produits → colonne 'stock_min'   (pas 'seuil_bas')
+<span class="ok">✓</span>  filtre actifs → .not('actif','is',false)
+<span class="ko">✗</span>  JAMAIS .eq('actif', true) pour filtrer les produits (exclut les NULL)</div>
+
+  <h2>Logique métier</h2>
+  <div class="directive-block">
+<span class="ok">✓</span>  avances_ded = statut='approuvee' AND rembourse=false — TOUTES DATES (pas ce mois)
+<span class="ok">✓</span>  ecart caissière → NE PAS recalculer dans openValidation → utiliser sessInfo.ecart (valeur stockée)
+<span class="ok">✓</span>  numéro rapport → MAX(num)+1 numérique (jamais tri alphabétique)
+<span class="ok">✓</span>  création session → saisie.html ET caisse.html ; INSERT puis re-SELECT si doublon (code 23505)
+<span class="ok">✓</span>  rapport.html → bloquer si un rapport existe déjà pour cette date
+<span class="ok">✓</span>  avance.html  → bloquer si une demande en_attente existe déjà
+<span class="ok">✓</span>  saisie.html  → multi-tour possible ; verrouiller si session ≥ valide_caissier
+<span class="ok">✓</span>  table_label  → trier les numéros avant concaténation : ["T4","T3"] → "T3+T4"
+<span class="ok">✓</span>  rh.html VERSER  → INSERT salaires_verses + UPDATE avances SET rembourse=true
+<span class="ok">✓</span>  rh.html ANNULER → DELETE salaires_verses (avances conservent rembourse=true)
+<span class="ok">✓</span>  associe caisse.html → lecture seule, pas de bouton de clôture
+<span class="ok">✓</span>  finances.html associe → onglet "Mes Parts" uniquement
+<span class="ok">✓</span>  sorties_chicha → stock uniquement, jamais dans les calculs financiers</div>
+
+  <h2>Suppression de rapport (owner, historique.html)</h2>
+  <div class="directive-block">rapport du jour  → UPDATE sessions_caisse SET statut='ouvert'   (tout le cycle reprend)
+rapport passé   → UPDATE sessions_caisse SET statut='valide_caissier'  (revalidation depuis dashboard)</div>
+
+  <!-- ─────────────────────────── 13. ONGLETS ─────────────────────────── -->
+  <h1 class="page-break">13 — Pages à onglets</h1>
+
+  <div class="onglets-block">
+    <div class="onglets-header">rh.html — 5 onglets</div>
+    <div class="onglets-row">
+      <div class="onglet-name">Équipe</div>
+      <div class="onglet-desc">Liste du staff actif</div>
+    </div>
+    <div class="onglets-row">
+      <div class="onglet-name">Présences</div>
+      <div class="onglet-desc">Sélecteur date · 4 statuts : présent / absent / retard / congé · Bouton "Tous présents"</div>
+    </div>
+    <div class="onglets-row">
+      <div class="onglet-name">Demandes</div>
+      <div class="onglet-desc">Avances + justifications <code>en_attente</code> → Approuver / Rejeter</div>
+    </div>
+    <div class="onglets-row">
+      <div class="onglet-name">Avances</div>
+      <div class="onglet-desc">Manager ajoute une avance directement → <code>statut=approuvee</code> immédiatement</div>
+    </div>
+    <div class="onglets-row">
+      <div class="onglet-name">Paie</div>
+      <div class="onglet-desc">Mois sélectionnable · VERSER par employé · Toutes déductions calculées automatiquement</div>
+    </div>
+  </div>
+
+  <div class="onglets-block">
+    <div class="onglets-header">finances.html — 6 onglets selon le rôle</div>
+    <div class="onglets-row">
+      <div class="onglet-name">Bilan</div>
+      <div class="onglet-desc">net_final = rapports.net − charges</div>
+      <div class="onglet-role">owner + manager</div>
+    </div>
+    <div class="onglets-row">
+      <div class="onglet-name">Dividendes</div>
+      <div class="onglet-desc">Répartition complète : Lounge + Gestionnaire + Associés</div>
+      <div class="onglet-role">owner uniquement</div>
+    </div>
+    <div class="onglets-row">
+      <div class="onglet-name">Trésorerie</div>
+      <div class="onglet-desc">net_final − avances non remboursées</div>
+      <div class="onglet-role">owner + manager</div>
+    </div>
+    <div class="onglets-row">
+      <div class="onglet-name">Charges</div>
+      <div class="onglet-desc">Liste des charges par mois</div>
+      <div class="onglet-role">owner + manager</div>
+    </div>
+    <div class="onglets-row">
+      <div class="onglet-name">Évolution</div>
+      <div class="onglet-desc">Graphique 6 à 18 mois</div>
+      <div class="onglet-role">owner + manager</div>
+    </div>
+    <div class="onglets-row">
+      <div class="onglet-name">Mes Parts</div>
+      <div class="onglet-desc">Part personnelle sur les 6 derniers mois</div>
+      <div class="onglet-role">associe UNIQUEMENT</div>
+    </div>
+  </div>
+
+  <div class="onglets-block">
+    <div class="onglets-header">bilan.html — distinction formules</div>
+    <div class="onglets-row">
+      <div class="onglet-name">KPI affiché</div>
+      <div class="onglet-desc"><code>resultatNet = marge − charges − salaires</code> — vue comptable</div>
+    </div>
+    <div class="onglets-row">
+      <div class="onglet-name">Parts calculées</div>
+      <div class="onglet-desc"><code>marge − charges</code> uniquement — cohérent avec finances.html</div>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────── 14. DESIGN ─────────────────────────── -->
+  <h1>14 — Design</h1>
+
+  <table>
+    <thead><tr><th>Élément</th><th>Valeur</th></tr></thead>
+    <tbody>
+      <tr><td>Fond</td><td><code>#0D0D0D</code> (noir profond)</td></tr>
+      <tr><td>Accent</td><td><code>#C9A84C</code> (or)</td></tr>
+      <tr><td>Titres</td><td>Bebas Neue</td></tr>
+      <tr><td>Corps</td><td>DM Sans</td></tr>
+      <tr><td>Approche</td><td>Mobile-first — le staff utilise un téléphone</td></tr>
+      <tr><td>Fichiers base</td><td><code>shared.css</code> + <code>shared.js</code> inclus dans toutes les pages</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ─────────────────────────── 15. ORDRE DEV ─────────────────────────── -->
+  <h1 class="page-break">15 — Ordre de développement</h1>
+
+  <table>
+    <thead><tr><th>Étape</th><th>Fichier(s)</th><th>Statut</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><code>SCHEMA.sql</code> → exécuter dans Supabase SQL Editor</td><td>⬜</td></tr>
+      <tr><td>2</td><td><code>shared.js</code> + <code>shared.css</code> — fondations communes</td><td>⬜</td></tr>
+      <tr><td>3</td><td><code>index.html</code> — authentification complète (4 acteurs)</td><td>⬜</td></tr>
+      <tr><td>4</td><td><code>saisie.html</code> — saisie ventes + numérotation tables</td><td>⬜</td></tr>
+      <tr><td>5</td><td><code>caisse.html</code> — clôture + vérifications staff + écarts</td><td>⬜</td></tr>
+      <tr><td>6</td><td><code>rapport.html</code> — génération rapport journalier</td><td>⬜</td></tr>
+      <tr><td>7</td><td><code>dashboard.html</code> — KPIs + validation manager</td><td>⬜</td></tr>
+      <tr><td>8</td><td><code>parametres.html</code> — PINs + comptes + config</td><td>⬜</td></tr>
+      <tr><td>9</td><td><code>rh.html</code> — équipe + pointage + paie</td><td>⬜</td></tr>
+      <tr><td>10</td><td><code>produits.html</code> · <code>pointage.html</code> · <code>avances.html</code> · <code>charges.html</code></td><td>⬜</td></tr>
+      <tr><td>11</td><td><code>finances.html</code> · <code>bilan.html</code> · <code>associes.html</code></td><td>⬜</td></tr>
+      <tr><td>12</td><td><code>historique.html</code> · <code>fiche.html</code> · <code>avance.html</code> · <code>chicha.html</code> · <code>achats.html</code></td><td>⬜</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-footer">
+    Medellin Lounge — Référence de développement v11.0 — 2026-06-12
+  </div>
+
+</div>
+
+</body>
+</html>

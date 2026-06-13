@@ -121,7 +121,7 @@ async function loadDash() {
       db.from('rapports').select('*').order('date',{ascending:false}),
       db.from('produits').select('*').not('actif','is',false),
       db.from('config').select('key,value'),
-      db.from('employes').select('pourcentage').eq('role','associe').eq('actif',true),
+      db.from('associes').select('pourcentage').not('actif','is',false),
       db.from('sessions_caisse').select('id,date,statut,note_caissier')
         .eq('statut','valide_caissier').order('date',{ascending:false}),
       db.from('remboursements_ecart').select('id,employe_id,montant').eq('statut','en_attente'),
@@ -580,10 +580,10 @@ async function openValidation(sessId, sessDate) {
 
   try {
     const [ventesRes, mouvRes, sessRes, rapRes, achatsRes] = await Promise.all([
-      db.from('ventes_session').select('*,employes(nom,prenom)')
+      db.from('ventes_session').select('*,employes(nom,prenom),produits(type)')
         .eq('session_id', sessId).order('employe_id,created_at'),
       db.from('mouvements_caisse').select('*').eq('session_id', sessId).order('created_at'),
-      db.from('sessions_caisse').select('fond_caisse,total_reel,total_om_verifie,note_caissier,ecart').eq('id', sessId).single(),
+      db.from('sessions_caisse').select('fond_caisse,total_reel,total_om_verifie,note_caissier,ecart,ecart_especes,ecart_om,caissier_id').eq('id', sessId).single(),
       db.from('rapports').select('num'),
       db.from('achats_session').select('montant,produit_nom').eq('session_id', sessId)
     ]);
@@ -598,31 +598,20 @@ async function openValidation(sessId, sessDate) {
 
     /* Totaux */
     const fond       = sessInfo.fond_caisse || 0;
-    const totC       = ventes.filter(v=>v.type==='chicha' ).reduce((s,v)=>s+v.total,0);
-    const totB       = ventes.filter(v=>v.type==='boisson').reduce((s,v)=>s+v.total,0);
-    const totA       = ventes.filter(v=>v.type==='autre'  ).reduce((s,v)=>s+v.total,0);
-    const totVentes  = totC + totB + totA;
+    const totC       = ventes.filter(v=>(v.produits?.type||'boisson')==='chicha').reduce((s,v)=>s+v.total,0);
+    const totB       = ventes.filter(v=>(v.produits?.type||'boisson')!=='chicha').reduce((s,v)=>s+v.total,0);
+    const totVentes  = totC + totB;
     const totOM      = ventes.filter(v=>v.paiement==='om').reduce((s,v)=>s+v.total,0);
-    const totEsp     = totVentes - totOM;
     const totEntrees = mouvs.filter(m=>m.type==='entree').reduce((s,m)=>s+m.montant,0);
     const totSorties = mouvs.filter(m=>m.type==='sortie').reduce((s,m)=>s+m.montant,0);
-    const theoriqueEsp = fond + totEsp + totEntrees - totSorties - totAchatsTrackes;
-    const theorique  = theoriqueEsp + totOM;
-    const reelEsp    = sessInfo.total_reel         ?? null;
-    const reelOM     = sessInfo.total_om_verifie   ?? null;
-    /* Écart total : vérité de la caissière, calculée lors de la clôture */
-    const storedEcart = sessInfo.ecart ?? null;
-    const ecartColor  = storedEcart===null
-      ? (reelEsp !== null && totOM > 0 ? 'var(--muted)' : 'var(--muted)')
-      : storedEcart===0 ? 'var(--ok)' : storedEcart>0 ? 'var(--danger)' : '#5BA3CC';
-    const ecartTxt    = storedEcart===null
-      ? (reelEsp !== null && totOM > 0 ? 'OM non vérifié' : '—')
-      : storedEcart===0 ? '✓ Caisse exacte'
-      : storedEcart>0   ? `Manque ${gnf(storedEcart)}`
-      : `Excédent ${gnf(Math.abs(storedEcart))}`;
-    /* Écarts individuels (informatif) */
-    const ecartEspVal = reelEsp != null ? theoriqueEsp - reelEsp : null;
-    const ecartOMVal  = (reelOM != null && totOM > 0) ? totOM - reelOM : null;
+    const reelEsp    = sessInfo.total_reel       ?? null;
+    const reelOM     = sessInfo.total_om_verifie ?? null;
+    /* ⚠ NE PAS recalculer l'écart — utiliser les valeurs stockées à la clôture */
+    const storedEcart    = sessInfo.ecart         ?? null;
+    const ecartEspVal    = sessInfo.ecart_especes ?? sessInfo.ecart ?? null; /* fallback pre-migration */
+    const ecartOMVal     = sessInfo.ecart_om      ?? null;
+    const ecartColor  = storedEcart===null?'var(--muted)':storedEcart===0?'var(--ok)':storedEcart>0?'var(--danger)':'#5BA3CC';
+    const ecartTxt    = storedEcart===null?'—':storedEcart===0?'✓ Caisse exacte':storedEcart>0?`Manque ${gnf(storedEcart)}`:`Excédent ${gnf(Math.abs(storedEcart))}`;
     const ecartEspCol = ecartEspVal===null?'var(--muted)':ecartEspVal===0?'var(--ok)':ecartEspVal>0?'var(--danger)':'#5BA3CC';
     const ecartEspTxt = ecartEspVal===null?'—':ecartEspVal===0?'✓ Exacte':ecartEspVal>0?`Manque ${gnf(ecartEspVal)}`:`Excédent ${gnf(Math.abs(ecartEspVal))}`;
     const ecartOMCol  = ecartOMVal===null?'var(--muted)':ecartOMVal===0?'var(--ok)':ecartOMVal>0?'var(--danger)':'#5BA3CC';
@@ -689,12 +678,12 @@ async function openValidation(sessId, sessDate) {
           <span>Fond de caisse</span><span>${gnf(fond)}</span>
         </div>
         <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0">
-          <span>Ventes espèces</span>
-          <span style="color:var(--gold)">${gnf(totEsp)}</span>
+          <span>Total ventes déclarées</span>
+          <span style="color:var(--gold)">${gnf(totVentes)}</span>
         </div>
         ${totOM > 0 ? `
         <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0">
-          <span style="color:#FF7800">+ Ventes OM</span>
+          <span style="color:#FF7800">dont OM</span>
           <span style="color:#FF7800">${gnf(totOM)}</span>
         </div>` : ''}
         ${totEntrees>0?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0">
@@ -707,8 +696,8 @@ async function openValidation(sessId, sessDate) {
         </div>`:''}
         <div style="display:flex;justify-content:space-between;align-items:baseline;
           padding-top:8px;margin-top:4px;border-top:1px solid var(--gring)">
-          <span style="font-size:12px;font-weight:600">Total théorique</span>
-          <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--gold)">${gnf(theorique)}</span>
+          <span style="font-size:12px;font-weight:600">Total session</span>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--gold)">${gnf(totVentes)}</span>
         </div>
         <!-- 💵 Espèces -->
         ${reelEsp != null ? `
@@ -861,7 +850,9 @@ async function finalizeSession(sessId, sessDate, totVentes, nextNum, totC, totB,
       db.from('sessions_caisse').update({
         statut:       'valide_manager',
         note_manager: note || null
-      }).eq('id', sessId)
+      }).eq('id', sessId),
+      /* CDC v6 : libérer toutes les tables après validation */
+      db.from('tables_lounge').update({ ouverte_par: null }).not('actif','is',false)
     ]);
 
     ML.logAction(`✅ Rapport N°${pad3(nextNum)} validé — Net ${gnf(net)}`);

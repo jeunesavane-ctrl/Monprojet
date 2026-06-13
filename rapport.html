@@ -613,8 +613,8 @@ async function doSubmit() {
     const { data: cfgR } = await db.from('config').select('key,value');
     const cfgMap = {};
     (cfgR||[]).forEach(r => cfgMap[r.key] = r.value);
-    const { data: assocR } = await db.from('employes')
-      .select('pourcentage').eq('role','associe').neq('actif',false);
+    const { data: assocR } = await db.from('associes')
+      .select('pourcentage').not('actif','is',false);
     const partLoungeR  = parseFloat(cfgMap.part_lounge ?? 10) || 10;
     const distribPctR  = Math.max(0, 100 - partLoungeR) / 100;
     const assocPctR     = (assocR||[]).reduce((s,a)=>s+(a.pourcentage||0),0);
@@ -633,6 +633,7 @@ async function doSubmit() {
       date_display:frDate(), timestamp:now.toISOString(),
       manager, caissier,
       chicha_rows:chR, boissons_rows:bR, achats_rows:aR,
+      recettes:tC+tB,
       total_chicha:tC, total_boissons:tB, total_achats:tA,
       total_qty_chicha:qC,
       ouverture:parseFloat($('f-ouverture').value)||0,
