@@ -53,9 +53,8 @@
   border-bottom:1px solid rgba(255,255,255,.04)}
 .vente-row:last-child{border-bottom:none}
 .vente-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.vente-dot.chicha{background:var(--gold)}
-.vente-dot.boisson{background:#3A7BA8}
-.vente-dot.autre{background:var(--ok)}
+.vente-dot.esp{background:var(--gold)}
+.vente-dot.om{background:#FF7800}
 .vente-lbl{flex:1;font-size:13px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vente-qty{font-size:12px;color:var(--muted);flex-shrink:0}
 .vente-pm{font-size:11px;flex-shrink:0}
@@ -241,20 +240,16 @@ function renderStaffEntry({ session, ventes }) {
   const total  = ventes.reduce((s,v) => s+v.total, 0);
   const totOM  = ventes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
   const totEsp = total - totOM;
-  const closed = ventes.every(v => v.valide_staff);
-
   const statutBadge = session.statut === 'valide_manager'
     ? `<span class="badge ok" style="font-size:10px">Rapport créé</span>`
     : session.statut === 'valide_caissier'
     ? `<span class="badge" style="font-size:10px;background:rgba(91,163,204,.1);color:#5BA3CC;border-color:rgba(91,163,204,.25)">En validation</span>`
-    : closed
-    ? `<span class="badge ok" style="font-size:10px">Clôturé</span>`
     : `<span class="badge gold" style="font-size:10px">En cours</span>`;
 
   const rows = ventes.map(v => `
     <div class="vente-row">
-      <div class="vente-dot ${v.type}"></div>
-      <div class="vente-lbl">${escHtml(v.label)}</div>
+      <div class="vente-dot ${v.paiement==='om'?'om':'esp'}"></div>
+      <div class="vente-lbl">${escHtml(v.produit_nom||'—')}${v.table_label?` <span style="font-size:11px;color:var(--muted)">(${escHtml(v.table_label)})</span>`:''}</div>
       <div class="vente-qty">×${v.qty}</div>
       <span class="vente-pm">${v.paiement==='om'?'📱':'💵'}</span>
       <div class="vente-tot">${gnf(v.total)}</div>
@@ -392,7 +387,7 @@ function renderCaissierEntry(sess, m) {
           </div>
         </div>
         <div class="hist-right">
-          <div class="hist-val">${gnf(theorique)}</div>
+          <div class="hist-val">${gnf(theoriqueEsp)}</div>
           <div class="hist-arrow">▼</div>
         </div>
       </div>
@@ -428,7 +423,7 @@ function renderCaissierEntry(sess, m) {
           </div>` : ''}
         <div class="detail-row" style="border-top:1px solid var(--b2);padding-top:8px;margin-top:4px">
           <span><strong>Théorique</strong></span>
-          <span style="font-family:'Bebas Neue',sans-serif;color:var(--gold);font-size:17px">${gnf(theorique)}</span>
+          <span style="font-family:'Bebas Neue',sans-serif;color:var(--gold);font-size:17px">${gnf(theoriqueEsp)}</span>
         </div>
         ${reel != null ? `
           <div class="detail-row">
