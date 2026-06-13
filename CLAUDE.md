@@ -16,7 +16,8 @@ Serveur local : python -m http.server 5500 → http://localhost:5500
 ```
 URL : https://stpmokparkaybgkabbeo.supabase.co
 Key : sb_publishable_3L6fyV-zEZMX-EZaNHBPPQ_Hnsmee0Z
-RLS : DÉSACTIVÉ sur toutes les tables
+RLS : ACTIVÉ sur les 22 tables (politique authenticated_only — Phase 2)
+Edge Function : login (PIN vérifié côté serveur — Phase 1)
 ```
 
 ---
@@ -41,7 +42,7 @@ RLS : DÉSACTIVÉ sur toutes les tables
 5. aucune correspondance              → erreur, pas de connexion
 ```
 
-**sessionStorage :** `ml_role` · `ml_hashes {hOwner,hManager,hStaff}` · `ml_extra`
+**sessionStorage :** `ml_role` · `ml_extra`
 **Auto-lock :** 10 min d'inactivité → `ML.lock()`
 
 **Config keys :**
@@ -409,15 +410,23 @@ Fichiers: shared.css + shared.js dans toutes les pages
 
 | Étape | Fichier(s) | Statut |
 |-------|-----------|--------|
-| 1 | `SCHEMA.sql` → exécuter dans Supabase | ⬜ |
-| 2 | `shared.js` + `shared.css` | ⬜ |
-| 3 | `index.html` | ⬜ |
-| 4 | `saisie.html` | ⬜ |
-| 5 | `caisse.html` | ⬜ |
-| 6 | `rapport.html` | ⬜ |
-| 7 | `dashboard.html` | ⬜ |
-| 8 | `parametres.html` | ⬜ |
-| 9 | `rh.html` | ⬜ |
-| 10 | `produits.html` · `pointage.html` · `avances.html` · `charges.html` | ⬜ |
-| 11 | `finances.html` · `bilan.html` · `associes.html` | ⬜ |
-| 12 | `historique.html` · `fiche.html` · `avance.html` · `chicha.html` · `achats.html` | ⬜ |
+| 1 | `SCHEMA.sql` → exécuté dans Supabase | ✅ |
+| 2 | `shared.js` + `shared.css` | ✅ |
+| 3 | `index.html` | ✅ Sécurité Phase 1+2 (Edge Function + sessions anonymes) |
+| 4 | `saisie.html` | ✅ tables_lounge · produit_id · paiement · multi-tour |
+| 5 | `caisse.html` | ✅ verifications_staff · ecart_especes/om · clôture |
+| 6 | `rapport.html` | ✅ table associes · recettes |
+| 7 | `dashboard.html` | ✅ table associes · écarts stockés · openValidation |
+| 8 | `parametres.html` | ✅ table associes · tables_lounge CRUD |
+| 9 | `rh.html` | ✅ ecart_especes ?? ecart · label (pas libelle) |
+| 10 | `produits.html` · `pointage.html` · `avances.html` · `charges.html` | ✅ |
+| 11 | `finances.html` · `bilan.html` · `associes.html` | ✅ table associes |
+| 12 | `historique.html` · `fiche.html` · `avance.html` · `chicha.html` · `achats.html` | ✅ |
+
+## SÉCURITÉ — ÉTAT AU 2026-06-13
+
+| Phase | Statut | Description |
+|-------|--------|-------------|
+| Phase 1 | ✅ Déployée | Edge Function `login` — PIN vérifié server-side, hash jamais envoyé au client |
+| Phase 2 | ✅ Déployée | RLS activé sur 22 tables · `signInAnonymously()` au login · `signOut()` au lock |
+| Phase 3 | ⬜ Optionnel | Politiques RLS par rôle (staff ne lit que ses ventes, etc.) |
