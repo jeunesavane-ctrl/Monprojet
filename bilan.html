@@ -203,7 +203,7 @@ async function loadBilan() {
       .gte('date', dateDebut).lt('date', dateFin).order('date'),
     db.from('charges').select('montant,categorie').eq('mois', mois),
     db.from('salaires_verses').select('employe_id,salaire_brut,net_verse,avances_deduites').eq('mois', mois),
-    db.from('employes').select('nom,prenom,pourcentage').eq('role','associe').eq('actif',true).order('nom'),
+    db.from('associes').select('nom,prenom,pourcentage').not('actif','is',false).order('nom'),
     db.from('config').select('key,value')
   ]);
 

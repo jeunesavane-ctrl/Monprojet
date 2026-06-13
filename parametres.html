@@ -157,6 +157,17 @@
       </div>
     </div>
 
+    <!-- Tables du lounge -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Tables du lounge</div>
+        <button class="btn-secondary" onclick="openAddTable()">+ Ajouter</button>
+      </div>
+      <div class="card-body" id="tables-list">
+        <div class="state-msg">Chargement…</div>
+      </div>
+    </div>
+
     <!-- Journal de connexion -->
     <div class="card">
       <div class="card-head">
@@ -266,6 +277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
   loadLogs();
   loadComptes();
+  loadTables();
 });
 
 /* ── Config ── */
@@ -273,7 +285,7 @@ async function loadConfig() {
   try {
     const [cfgRes, assocRes] = await Promise.all([
       db.from('config').select('key,value'),
-      db.from('employes').select('pourcentage').eq('role','associe').eq('actif',true)
+      db.from('associes').select('pourcentage').not('actif','is',false)
     ]);
     const cfg = {};
     (cfgRes.data||[]).forEach(r => cfg[r.key] = r.value);
@@ -409,80 +421,107 @@ async function loadComptes() {
   const el = $('comptes-list');
   el.innerHTML = '<div class="state-msg">Chargement…</div>';
   try {
-    const { data: emps } = await db.from('employes')
-      .select('id,nom,prenom,poste,actif,pin_hash,role,salaire_base,pourcentage')
-      .order('nom');
+    const [empRes, assocRes] = await Promise.all([
+      db.from('employes').select('id,nom,prenom,poste,actif,pin_hash,role,salaire_base').order('nom'),
+      db.from('associes').select('id,nom,prenom,pourcentage,actif,pin_hash').order('nom')
+    ]);
+    const emps   = empRes.data  || [];
+    const assocs = assocRes.data || [];
 
-    const accounts = emps || [];
-
-    if (!accounts.length) {
+    if (!emps.length && !assocs.length) {
       el.innerHTML = '<div class="state-msg">Aucun compte. Créez le premier.</div>';
       return;
     }
 
-    const ROLE_LBL = {
-      staff:'Staff', caissier:'Caissier', chicha:'Chicha',
-      achats:'Achats', manager:'Manager', associe:'Associé'
-    };
-    const ROLE_CYCLE = {
-      staff:'caissier', caissier:'chicha', chicha:'achats', achats:'manager', manager:'staff'
-    };
+    const ROLE_LBL   = { staff:'Staff', caissier:'Caissier', chicha:'Chicha', achats:'Achats', manager:'Manager' };
+    const ROLE_CYCLE = { staff:'caissier', caissier:'chicha', chicha:'achats', achats:'manager', manager:'staff' };
+
+    const empRows = emps.map(e => {
+      const hasPin     = !!e.pin_hash;
+      const nomComplet = [e.prenom, e.nom].filter(Boolean).join(' ') || e.nom;
+      const curRole    = e.role || 'staff';
+      const nextRole   = ROLE_CYCLE[curRole] || 'caissier';
+      return `<div class="compte-item">
+        <div style="display:flex;gap:10px;align-items:flex-start;flex:1;min-width:0">
+          <div class="compte-dot ${e.actif&&hasPin?'on':'off'}" style="margin-top:5px"></div>
+          <div>
+            <div class="compte-nom">${escHtml(nomComplet)}</div>
+            <div class="compte-meta">
+              ${e.poste ? `<span>${escHtml(e.poste)}</span>` : ''}
+              ${hasPin ? `<span class="role-chip ${curRole}">${ROLE_LBL[curRole]||curRole}</span>` : ''}
+              <span style="color:${hasPin&&e.actif?'var(--ok)':hasPin?'var(--danger)':'var(--muted)'}">
+                ${!hasPin?'Sans accès':e.actif?'Actif':'Inactif'}</span>
+            </div>
+          </div>
+        </div>
+        <div class="compte-actions">
+          ${hasPin ? `
+            <button class="ca-btn" style="color:${e.actif?'var(--danger)':'var(--ok)'}"
+              onclick="toggleActif('employe','${e.id}','${jsStr(nomComplet)}',${e.actif})">
+              ${e.actif?'Désactiver':'Réactiver'}
+            </button>
+            <button class="ca-btn" style="color:var(--muted)"
+              onclick="openResetPin('employe','${e.id}','${jsStr(nomComplet)}')">
+              Reset PIN
+            </button>
+            <button class="ca-btn" style="color:var(--gold)"
+              onclick="cyclerRole('${e.id}','${curRole}','${jsStr(nomComplet)}')">
+              → ${ROLE_LBL[nextRole]}
+            </button>
+          ` : `
+            <button class="ca-btn" style="color:var(--ok)"
+              onclick="openDonnerAcces('${e.id}','${jsStr(nomComplet)}')">
+              Donner accès
+            </button>
+          `}
+        </div>
+      </div>`;
+    }).join('');
+
+    const assocRows = assocs.map(a => {
+      const hasPin     = !!a.pin_hash;
+      const nomComplet = [a.prenom, a.nom].filter(Boolean).join(' ') || a.nom;
+      return `<div class="compte-item">
+        <div style="display:flex;gap:10px;align-items:flex-start;flex:1;min-width:0">
+          <div class="compte-dot ${a.actif&&hasPin?'on':'off'}" style="margin-top:5px"></div>
+          <div>
+            <div class="compte-nom">${escHtml(nomComplet)}</div>
+            <div class="compte-meta">
+              <span class="role-chip associe">Associé</span>
+              <span style="color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:14px">${a.pourcentage||0}%</span>
+              <span style="color:${hasPin&&a.actif?'var(--ok)':hasPin?'var(--danger)':'var(--muted)'}">
+                ${!hasPin?'Sans accès':a.actif?'Actif':'Inactif'}</span>
+            </div>
+          </div>
+        </div>
+        <div class="compte-actions">
+          ${hasPin ? `
+            <button class="ca-btn" style="color:${a.actif?'var(--danger)':'var(--ok)'}"
+              onclick="toggleActif('associe','${a.id}','${jsStr(nomComplet)}',${a.actif})">
+              ${a.actif?'Désactiver':'Réactiver'}
+            </button>
+            <button class="ca-btn" style="color:var(--muted)"
+              onclick="openResetPin('associe','${a.id}','${jsStr(nomComplet)}')">
+              Reset PIN
+            </button>
+            <button class="ca-btn" style="color:var(--gold)"
+              onclick="openEditPct('${a.id}','${jsStr(nomComplet)}',${a.pourcentage||0})">
+              Modifier %
+            </button>
+          ` : ''}
+        </div>
+      </div>`;
+    }).join('');
 
     el.innerHTML = `
-      <div class="section-divider">Comptes (${accounts.length})</div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${accounts.map(e => {
-          const hasPin     = !!e.pin_hash;
-          const nomComplet = [e.prenom, e.nom].filter(Boolean).join(' ') || e.nom;
-          const curRole    = e.role || 'staff';
-          const isAssoc    = curRole === 'associe';
-          const nextRole   = !isAssoc ? (ROLE_CYCLE[curRole] || 'caissier') : null;
-          const nextLbl    = nextRole ? (ROLE_LBL[nextRole] || '') : null;
-
-          return `<div class="compte-item">
-            <div style="display:flex;gap:10px;align-items:flex-start;flex:1;min-width:0">
-              <div class="compte-dot ${e.actif&&hasPin?'on':'off'}" style="margin-top:5px"></div>
-              <div>
-                <div class="compte-nom">${escHtml(nomComplet)}</div>
-                <div class="compte-meta">
-                  ${!isAssoc && e.poste ? `<span>${escHtml(e.poste)}</span>` : ''}
-                  ${hasPin ? `<span class="role-chip ${curRole}">${ROLE_LBL[curRole]||curRole}</span>` : ''}
-                  ${isAssoc ? `<span style="color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:14px">${e.pourcentage||0}%</span>` : ''}
-                  <span style="color:${hasPin&&e.actif?'var(--ok)':hasPin?'var(--danger)':'var(--muted)'}">
-                    ${!hasPin?'Sans accès':e.actif?'Actif':'Inactif'}</span>
-                </div>
-              </div>
-            </div>
-            <div class="compte-actions">
-              ${hasPin ? `
-                <button class="ca-btn" style="color:${e.actif?'var(--danger)':'var(--ok)'}"
-                  onclick="toggleEmpActif('${e.id}','${jsStr(nomComplet)}',${e.actif})">
-                  ${e.actif?'Désactiver':'Réactiver'}
-                </button>
-                <button class="ca-btn" style="color:var(--muted)"
-                  onclick="openResetPin('employe','${e.id}','${jsStr(nomComplet)}')">
-                  Reset PIN
-                </button>
-                ${!isAssoc && nextLbl ? `
-                  <button class="ca-btn" style="color:var(--gold)"
-                    onclick="cyclerRole('${e.id}','${curRole}','${jsStr(nomComplet)}')">
-                    → ${nextLbl}
-                  </button>` : ''}
-                ${isAssoc ? `
-                  <button class="ca-btn" style="color:var(--gold)"
-                    onclick="openEditPct('${e.id}','${jsStr(nomComplet)}',${e.pourcentage||0})">
-                    Modifier %
-                  </button>` : ''}
-              ` : `
-                <button class="ca-btn" style="color:var(--ok)"
-                  onclick="openDonnerAcces('${e.id}','${jsStr(nomComplet)}')">
-                  Donner accès
-                </button>
-              `}
-            </div>
-          </div>`;
-        }).join('')}
-      </div>`;
+      ${emps.length ? `
+        <div class="section-divider">Équipe (${emps.length})</div>
+        <div style="display:flex;flex-direction:column;gap:8px">${empRows}</div>
+      ` : ''}
+      ${assocs.length ? `
+        <div class="section-divider" style="margin-top:${emps.length?12:0}px">Associés (${assocs.length})</div>
+        <div style="display:flex;flex-direction:column;gap:8px">${assocRows}</div>
+      ` : ''}`;
   } catch(e) {
     el.innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
   }
@@ -579,7 +618,7 @@ async function saveCompte() {
       $('nc-err').textContent = 'Pourcentage invalide (0–100)'; return;
     }
     try {
-      const { error } = await db.from('employes')
+      const { error } = await db.from('associes')
         .update({ pourcentage: pct }).eq('id', _ncId);
       if (error) throw error;
       ML.logAction(`📊 Part modifiée → ${_ncNom} : ${pct}%`);
@@ -606,15 +645,20 @@ async function saveCompte() {
   if (hNew === hOwner || hNew === hManager) {
     $('nc-err').textContent = 'Ce PIN est déjà utilisé par le gestionnaire ou manager'; return;
   }
-  const eQuery = db.from('employes').select('id').eq('pin_hash', hNew);
-  if (_ncId) eQuery.neq('id', _ncId);
-  const { data: eConf } = await eQuery;
-  if (eConf?.length) { $('nc-err').textContent = 'Ce PIN est déjà utilisé par un autre compte'; return; }
+  const [eCheck, aCheck] = await Promise.all([
+    db.from('employes').select('id').eq('pin_hash', hNew),
+    db.from('associes').select('id').eq('pin_hash', hNew)
+  ]);
+  let eConf = eCheck.data || [], aConf = aCheck.data || [];
+  if (_ncType === 'employe' && _ncId) eConf = eConf.filter(r => r.id !== _ncId);
+  if (_ncType === 'associe' && _ncId) aConf = aConf.filter(r => r.id !== _ncId);
+  if (eConf.length || aConf.length) { $('nc-err').textContent = 'Ce PIN est déjà utilisé'; return; }
 
   try {
     /* ── Mode reset PIN ── */
     if (_ncMode === 'reset') {
-      const { error } = await db.from('employes').update({ pin_hash: hNew }).eq('id', _ncId);
+      const tbl = _ncType === 'associe' ? 'associes' : 'employes';
+      const { error } = await db.from(tbl).update({ pin_hash: hNew }).eq('id', _ncId);
       if (error) throw error;
       toast('PIN réinitialisé ✓','ok');
       closeCompteModal(); loadComptes(); return;
@@ -636,19 +680,16 @@ async function saveCompte() {
     const prenom = ($('nc-prenom')?.value || '').trim();
     if (!nom) { $('nc-err').textContent = 'Le nom est requis'; return; }
 
-    /* → Tous les comptes dans employes (rôle détermine les droits) */
+    /* → Associé → table associes | Employé → table employes */
     if (role === 'associe') {
       const pct = parseFloat($('nc-pct')?.value);
       if (isNaN(pct) || pct < 0 || pct > 100) {
         $('nc-err').textContent = 'Pourcentage invalide (0 à 100)'; return;
       }
       const nomComplet = [prenom, nom].filter(Boolean).join(' ');
-      const { error } = await db.from('employes').insert({
+      const { error } = await db.from('associes').insert({
         nom, prenom: prenom || null,
-        poste: 'Associé',
-        role: 'associe',
         pourcentage: pct,
-        salaire_base: 0,
         pin_hash: hNew,
         actif: true
       });
@@ -679,9 +720,10 @@ async function saveCompte() {
 }
 
 /* ── Actions sur comptes existants ── */
-async function toggleEmpActif(id, nom, actuel) {
+async function toggleActif(type, id, nom, actuel) {
   try {
-    await db.from('employes').update({ actif: !actuel }).eq('id', id);
+    const tbl = type === 'associe' ? 'associes' : 'employes';
+    await db.from(tbl).update({ actif: !actuel }).eq('id', id);
     toast(`${nom} ${!actuel?'réactivé':'désactivé'} ✓`,'ok');
     loadComptes();
   } catch { toast('Erreur','ko'); }
@@ -698,6 +740,112 @@ async function cyclerRole(id, curRole, nom) {
     toast(`${nom} → ${lbl[newRole]} ✓`,'ok');
     loadComptes();
   } catch { toast('Erreur','ko'); }
+}
+
+/* ── Tables du lounge ── */
+async function loadTables() {
+  const el = $('tables-list');
+  if (!el) return;
+  el.innerHTML = '<div class="state-msg">Chargement…</div>';
+  try {
+    const { data } = await db.from('tables_lounge')
+      .select('id,label,ordre,actif,ouverte_par').order('ordre');
+    const tables = data || [];
+    if (!tables.length) {
+      el.innerHTML = '<div class="state-msg">Aucune table. Ajoutez-en une.</div>'; return;
+    }
+    el.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px">${
+      tables.map(t => `
+        <div class="compte-item">
+          <div style="display:flex;gap:10px;align-items:center;flex:1;min-width:0">
+            <div class="compte-dot ${t.actif?'on':'off'}"></div>
+            <div>
+              <div class="compte-nom">${escHtml(t.label)}</div>
+              <div class="compte-meta">
+                #${t.ordre||'—'}
+                ${t.ouverte_par
+                  ? `<span style="color:var(--gold)">Occupée</span>`
+                  : `<span style="color:var(--ok)">Libre</span>`}
+                ${!t.actif ? `<span style="color:var(--danger)">Inactive</span>` : ''}
+              </div>
+            </div>
+          </div>
+          <div class="compte-actions">
+            <button class="ca-btn" style="color:${t.actif?'var(--danger)':'var(--ok)'}"
+              onclick="toggleTable('${t.id}',${t.actif})">
+              ${t.actif?'Désactiver':'Réactiver'}
+            </button>
+            <button class="ca-btn" style="color:var(--danger)"
+              onclick="deleteTable('${t.id}','${jsStr(t.label)}')">
+              Supprimer
+            </button>
+          </div>
+        </div>`).join('')
+    }</div>`;
+  } catch(e) {
+    el.innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
+  }
+}
+
+let _addTableVisible = false;
+function openAddTable() {
+  if (_addTableVisible) return;
+  _addTableVisible = true;
+  const el = $('tables-list');
+  const existing = el.querySelector('#add-table-form');
+  if (existing) return;
+  const form = document.createElement('div');
+  form.id = 'add-table-form';
+  form.style.cssText = 'display:flex;gap:8px;margin-bottom:8px';
+  form.innerHTML = `
+    <input id="new-table-label" type="text" placeholder="Ex: Table 1, VIP, Terrasse…"
+      style="flex:1;height:42px;background:var(--bg3);border:1px solid var(--b1);
+      border-radius:var(--rs);padding:0 12px;color:var(--fg);font-size:14px"
+      onkeydown="if(event.key==='Enter')saveNewTable()">
+    <button class="btn-ok" style="height:42px;padding:0 14px" onclick="saveNewTable()">OK</button>
+    <button class="btn-cancel" style="height:42px;padding:0 12px" onclick="cancelAddTable()">✕</button>`;
+  el.prepend(form);
+  setTimeout(() => $('new-table-label')?.focus(), 80);
+}
+
+function cancelAddTable() {
+  _addTableVisible = false;
+  $('add-table-form')?.remove();
+}
+
+async function saveNewTable() {
+  const label = ($('new-table-label')?.value || '').trim();
+  if (!label) { toast('Nom de table requis','ko'); return; }
+  try {
+    const { data: existing } = await db.from('tables_lounge')
+      .select('ordre').order('ordre',{ascending:false}).limit(1);
+    const nextOrdre = (existing?.[0]?.ordre || 0) + 1;
+    const { error } = await db.from('tables_lounge').insert({ label, ordre: nextOrdre, actif: true });
+    if (error) throw error;
+    cancelAddTable();
+    ML.logAction(`🪑 Table ajoutée : ${label}`);
+    toast(`Table "${label}" ajoutée ✓`, 'ok');
+    loadTables();
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
+}
+
+async function toggleTable(id, actuel) {
+  try {
+    await db.from('tables_lounge').update({ actif: !actuel }).eq('id', id);
+    toast(!actuel ? 'Table réactivée ✓' : 'Table désactivée ✓', 'ok');
+    loadTables();
+  } catch { toast('Erreur','ko'); }
+}
+
+async function deleteTable(id, label) {
+  if (!confirm(`Supprimer la table "${label}" ? Cette action est irréversible.`)) return;
+  try {
+    const { error } = await db.from('tables_lounge').delete().eq('id', id);
+    if (error) throw error;
+    ML.logAction(`🗑 Table supprimée : ${label}`);
+    toast(`Table "${label}" supprimée ✓`, 'ok');
+    loadTables();
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
 }
 
 /* ── Logs ── */

@@ -300,7 +300,7 @@ function switchRhTab(tab) {
 async function loadStaff() {
   try {
     const { data, error } = await db.from('employes').select('*')
-      .eq('actif',true).order('nom');
+      .not('actif','is',false).order('nom');
     if (error) throw error;
     employes = data || [];
     renderStaffList();
@@ -826,7 +826,8 @@ async function marquerRembourse(id) {
    FORMULE (invariante) :
      avances_ded = SUM(avances WHERE statut='approuvee' AND rembourse=false)
                    ← toutes dates confondues
-     ecarts_ded  = SUM(sessions_caisse.ecart WHERE caissier_id=X AND mois=M AND ecart>0)
+     ecarts_ded  = SUM(ecart_especes??ecart WHERE caissier_id=X AND mois=M AND valeur>0)
+                   ← ecart_especes seul (OM non déduit) ; repli sur ecart avant migration
      net_verse   = MAX(0, salaire_base − avances_ded − ecarts_ded)
 
    PAYER un employé :

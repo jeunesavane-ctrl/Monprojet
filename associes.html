@@ -213,7 +213,7 @@ async function loadOwnerView() {
     const months = buildMonths(n);
 
     const [assocRes, rapRes, chargesRes, cfgResA] = await Promise.all([
-      db.from('employes').select('id,nom,prenom,pourcentage').eq('role','associe').eq('actif',true).order('nom'),
+      db.from('associes').select('id,nom,prenom,pourcentage').not('actif','is',false).order('nom'),
       db.from('rapports').select('date,net,total_chicha,total_boissons,total_achats')
         .gte('date',months[0].debut).lte('date',months[months.length-1].fin),
       db.from('charges').select('mois,montant')
@@ -304,7 +304,7 @@ async function getMyVoteInfo() {
   const role  = ML.getRole();
   const extra = ML.getExtra();
   const [assocRes2, cfgRes2] = await Promise.all([
-    db.from('employes').select('id,nom,prenom,pourcentage').eq('role','associe').eq('actif',true),
+    db.from('associes').select('id,nom,prenom,pourcentage').not('actif','is',false),
     db.from('config').select('key,value')
   ]);
   const assocs = assocRes2.data || [];

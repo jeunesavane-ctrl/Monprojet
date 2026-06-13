@@ -118,7 +118,7 @@ ALTER TABLE presences DISABLE ROW LEVEL SECURITY;`);
 
   const { data: emps } = await db.from('employes')
     .select('id,nom,prenom,poste,role')
-    .eq('actif', true)
+    .not('actif','is',false)
     .order('nom');
   _employes = emps || [];
 

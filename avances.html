@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   /* Charge les employés (pour noms + salaires) */
   const { data: emps } = await db.from('employes')
-    .select('id,nom,prenom,salaire_base').eq('actif', true);
+    .select('id,nom,prenom,salaire_base').not('actif','is',false);
   (emps || []).forEach(e => { _employes[e.id] = e; });
 
   await reload();

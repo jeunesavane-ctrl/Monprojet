@@ -4,12 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <title>Caisse — Medellin Lounge</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="shared.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-  <script src="shared.js" defer></script>
   <style>
 /* ── Lecture seule ── */
 .ro-banner{
@@ -25,12 +20,10 @@
   box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 2px 10px rgba(0,0,0,.4);
   display:flex;justify-content:space-between;align-items:center}
 .sess-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px}
-.sess-meta{margin-top:2px}
-.sess-count{text-align:right;flex-shrink:0}
 .sess-count-num{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--gold);line-height:1}
 .sess-count-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
 .live-badge{display:flex;align-items:center;gap:6px;font-size:10px;
-  color:var(--muted);text-transform:uppercase;letter-spacing:1.2px}
+  color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-top:3px}
 .live-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);
   box-shadow:0 0 6px rgba(61,184,115,.6);
   animation:pulse 1.8s ease-in-out infinite;flex-shrink:0}
@@ -52,12 +45,12 @@
 .btn-entree{
   padding:7px 14px;font-size:12px;font-weight:600;border-radius:var(--rs);cursor:pointer;
   background:rgba(61,184,115,.1);border:1px solid rgba(61,184,115,.3);
-  color:var(--ok);letter-spacing:.5px;-webkit-tap-highlight-color:transparent}
+  color:var(--ok);letter-spacing:.5px;-webkit-tap-highlight-color:transparent;font-family:inherit}
 .btn-entree:active{background:rgba(61,184,115,.18)}
 .btn-sortie{
   padding:7px 14px;font-size:12px;font-weight:600;border-radius:var(--rs);cursor:pointer;
   background:rgba(201,73,74,.1);border:1px solid rgba(201,73,74,.3);
-  color:var(--danger);letter-spacing:.5px;-webkit-tap-highlight-color:transparent}
+  color:var(--danger);letter-spacing:.5px;-webkit-tap-highlight-color:transparent;font-family:inherit}
 .btn-sortie:active{background:rgba(201,73,74,.18)}
 .mvt-list{display:flex;flex-direction:column}
 .mvt-item{
@@ -72,8 +65,7 @@
 .mvt-badge.sortie{background:rgba(201,73,74,.12);color:var(--danger);border:1px solid rgba(201,73,74,.25)}
 .mvt-info{flex:1;min-width:0}
 .mvt-motif{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mvt-note{font-size:11px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mvt-time{font-size:11px;color:var(--muted)}
+.mvt-note{font-size:11px;color:var(--muted);margin-top:1px}
 .mvt-montant{font-family:'Bebas Neue',sans-serif;font-size:15px;flex-shrink:0;white-space:nowrap}
 .mvt-montant.entree{color:var(--ok)}
 .mvt-montant.sortie{color:var(--danger)}
@@ -126,25 +118,43 @@
 .staff-total{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--gold);flex-shrink:0}
 .staff-arrow{color:var(--muted);font-size:11px;transition:transform .2s;margin-left:8px}
 .staff-card.open .staff-arrow{transform:rotate(180deg)}
-.staff-body{display:none;padding:10px 14px;flex-direction:column;gap:4px}
+.staff-body{display:none;padding:12px 14px;flex-direction:column;gap:0}
 .staff-card.open .staff-body{display:flex}
+
+/* Table group dans staff card */
+.tbl-group{margin-bottom:10px}
+.tbl-group-head{
+  font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--gold);margin-bottom:4px;opacity:.8}
 .cv-row{
   display:flex;align-items:center;gap:8px;
-  padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04)}
-.cv-row:last-of-type{border-bottom:none}
-.cv-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.cv-dot.chicha{background:var(--gold)}
-.cv-dot.boisson{background:#3A7BA8}
-.cv-dot.autre{background:var(--ok)}
-.cv-label{font-size:13px;font-weight:500;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cv-qty{font-size:12px;color:var(--muted);text-align:right;flex-shrink:0}
-.cv-pm{font-size:10px;flex-shrink:0}
-.cv-total{font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--gold);white-space:nowrap;flex-shrink:0}
-.tag-chip{
-  font-size:11px;padding:2px 8px;border-radius:10px;white-space:nowrap}
-.tag-chip.chicha{background:rgba(201,168,76,.12);color:var(--gold);border:1px solid rgba(201,168,76,.2)}
-.tag-chip.boisson{background:rgba(58,123,168,.12);color:#5BA3CC;border:1px solid rgba(58,123,168,.2)}
-.tag-chip.autre{background:rgba(61,184,115,.1);color:var(--ok);border:1px solid rgba(61,184,115,.2)}
+  padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.cv-row:last-child{border-bottom:none}
+.cv-label{font-size:13px;font-weight:500;flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cv-qty{font-size:12px;color:var(--muted);flex-shrink:0}
+.cv-pm{font-size:11px;flex-shrink:0}
+.cv-total{font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--gold);
+  white-space:nowrap;flex-shrink:0}
+
+/* Vérification argent reçu */
+.verif-wrap{
+  margin-top:10px;padding:10px 12px;
+  background:rgba(255,255,255,.02);border:1px solid var(--b1);
+  border-radius:var(--rs)}
+.verif-title{font-size:11px;text-transform:uppercase;letter-spacing:1px;
+  color:var(--muted);margin-bottom:8px;font-weight:600}
+.verif-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.verif-row:last-of-type{margin-bottom:0}
+.verif-lbl{font-size:12px;color:var(--muted);min-width:80px;flex-shrink:0}
+.verif-input{
+  flex:1;background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rs);
+  padding:8px 10px;font-family:'Bebas Neue',sans-serif;font-size:16px;
+  color:var(--text);text-align:right;outline:none;transition:border-color var(--t)}
+.verif-input:focus{border-color:var(--gold)}
+.ecart-serv{
+  font-size:12px;font-weight:600;text-align:right;margin-top:6px;min-height:16px;
+  padding-top:6px;border-top:1px solid var(--b1)}
 
 /* ── Recap ── */
 .recap-card{
@@ -155,12 +165,7 @@
   display:flex;justify-content:space-between;align-items:center;
   font-size:13px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)}
 .recap-row:last-of-type{border-bottom:none}
-.recap-row span:last-child{
-  font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--gold)}
-.recap-sub-row{
-  display:flex;justify-content:space-between;align-items:center;
-  font-size:12px;padding:3px 0 3px 12px;color:var(--muted);
-  border-bottom:1px solid rgba(255,255,255,.03)}
+.recap-row span:last-child{font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--gold)}
 .recap-total{
   display:flex;justify-content:space-between;align-items:baseline;
   padding:12px 0 8px;margin-top:4px;border-top:1px solid var(--gring)}
@@ -173,8 +178,6 @@
   color:var(--text);text-align:right;letter-spacing:1px;outline:none;
   transition:border-color var(--t)}
 .reel-input:focus{border-color:var(--gring)}
-.ecart-display{
-  font-size:13px;margin-top:7px;text-align:right;min-height:18px;font-weight:600}
 
 /* ── Validation ── */
 .btn-validate{
@@ -191,10 +194,8 @@
 .validated-card{
   background:var(--okbg);border:1px solid var(--okb);
   border-radius:var(--r);padding:22px;text-align:center}
-.validated-icon{font-size:32px;margin-bottom:8px}
 .validated-title{font-family:'Bebas Neue',sans-serif;font-size:20px;
   letter-spacing:2px;color:var(--ok);margin-bottom:6px}
-.validated-sub{font-size:13px;color:var(--muted);line-height:1.7}
 .alert-warn{
   background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.2);
   border-radius:var(--rs);padding:10px 14px;font-size:13px;
@@ -203,8 +204,7 @@
 /* ── Notes caissier ── */
 .notes-card{
   background:var(--bg2);border:1px solid var(--b1);border-radius:var(--r);
-  padding:14px;
-  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 2px 8px rgba(0,0,0,.3)}
+  padding:14px}
 .notes-area{
   width:100%;background:transparent;border:none;resize:none;
   color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;
@@ -214,197 +214,131 @@
   </style>
 </head>
 <body>
-  <div id="__header__"></div>
-  <div class="body-wrap" id="main-body">
-    <div class="state-msg">Chargement…</div>
-  </div>
-  <div id="remb-wrap" class="body-wrap" style="padding-top:0"></div>
-  <div id="overlay"><div class="sheet" id="overlay-sheet"></div></div>
-  <div id="toast"></div>
-
+<div id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="shared.js"></script>
 <script>
-let sessionData   = null;
-let allVentes     = [];
-let allMouvements = [];
-let allCredits    = [];
-let allAchats     = [];
-let employes      = [];
-let _realtimeSub  = false;
+/* ══════════════════════════════════════════════
+   ÉTAT
+══════════════════════════════════════════════ */
+let sessionData    = null;
+let allVentes      = [];   // ventes_session de la session
+let allMouvements  = [];   // mouvements_caisse
+let allCredits     = [];   // credits
+let allAchats      = [];   // achats_session
+let allVerifs      = [];   // verifications_staff  ← CDC v6
+let employes       = [];
+
+let _finalizing  = false;
+let _savingOp    = false;
+let _clotureCtx  = null;
 let _noteSave;
-let _savingOp     = false;
-let _clotureCtx   = null;   /* contexte de clôture (évite de passer la note via onclick) */
-let _finalizing   = false;  /* garde anti double-clôture */
+let _omSave;
+let _verifSave   = {};     // debounce par empId
 
-const isReadOnly  = () => ML.getRole() !== 'caissier';
-const caisseNoteKey = () => `ml_caisse_note_${todayISO()}`;
+const isReadOnly  = () => !['caissier','manager','owner'].includes(ML.getRole());
+const caisseKey   = () => `ml_caisse_note_${todayISO()}`;
 
-document.addEventListener('DOMContentLoaded', async () => {
-  document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['caissier','manager','owner','associe'])) return;
-  await loadCaisse();
-  loadRemboursementsEnAttente();
-});
+/* ── Bootstrap ── */
+document.body.insertAdjacentHTML('afterbegin', HEADER_HTML);
+if (!initPage(['caissier','manager','owner','associe'])) throw new Error('accès refusé');
 
-/* ════════════════════════════════════════════
+/* ── Squelette ── */
+document.body.insertAdjacentHTML('beforeend', `
+<div class="container" id="main-body">
+  <div class="state-msg">Chargement…</div>
+</div>
+<div class="container" id="remb-wrap" style="padding-top:0"></div>
+<div id="overlay"><div class="sheet" id="overlay-sheet"></div></div>
+`);
+
+/* ══════════════════════════════════════════════
    CHARGEMENT
-════════════════════════════════════════════ */
-async function loadCaisse() {
+══════════════════════════════════════════════ */
+async function init() {
   const today = todayISO();
   try {
-    /* ── Vérifier que les tables existent ── */
-    const { error: tableErr } = await db.from('sessions_caisse').select('id').limit(0);
-    if (tableErr) {
-      $('main-body').innerHTML = `
-        <div class="card">
-          <div class="card-head"><div class="card-title" style="color:var(--gold)">⚙ Configuration requise</div></div>
-          <div class="card-body" style="gap:10px">
-            <div style="font-size:13px;color:var(--muted);line-height:1.6">
-              Les tables de caisse n'ont pas encore été créées dans Supabase.<br>
-              Exécutez le SQL ci-dessous dans l'éditeur SQL de Supabase.
-            </div>
-            <div style="background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rs);
-              padding:12px;font-size:11px;font-family:monospace;line-height:1.8;
-              color:rgba(255,255,255,.6);white-space:pre-wrap;overflow-x:auto">CREATE TABLE sessions_caisse (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  date DATE UNIQUE NOT NULL,
-  statut TEXT DEFAULT 'ouvert',
-  fond_caisse INTEGER DEFAULT 0,
-  total_reel INTEGER,
-  total_om_verifie INTEGER,
-  note_caissier TEXT,
-  note_manager TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+    /* Créer session si absente (atomique) */
+    let { data: sess, error: sErr } = await db.from('sessions_caisse')
+      .insert({ date: today, statut: 'ouvert' })
+      .select('*').single();
 
-CREATE TABLE mouvements_caisse (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  session_id UUID REFERENCES sessions_caisse(id) ON DELETE CASCADE,
-  type TEXT NOT NULL,
-  motif TEXT NOT NULL,
-  montant INTEGER NOT NULL DEFAULT 0,
-  note TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE ventes_session (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  session_id UUID REFERENCES sessions_caisse(id) ON DELETE CASCADE,
-  employe_id UUID REFERENCES employes(id),
-  label TEXT NOT NULL,
-  type TEXT NOT NULL DEFAULT 'chicha',
-  qty INTEGER NOT NULL DEFAULT 1,
-  prix_unit INTEGER NOT NULL DEFAULT 0,
-  total INTEGER NOT NULL DEFAULT 0,
-  paiement TEXT DEFAULT 'especes',
-  valide_staff BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE credits (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  session_id UUID REFERENCES sessions_caisse(id) ON DELETE CASCADE,
-  client_nom TEXT NOT NULL,
-  montant INTEGER NOT NULL DEFAULT 0,
-  note TEXT,
-  rembourse BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
-ALTER TABLE sessions_caisse DISABLE ROW LEVEL SECURITY;
-ALTER TABLE mouvements_caisse DISABLE ROW LEVEL SECURITY;
-ALTER TABLE ventes_session DISABLE ROW LEVEL SECURITY;
-ALTER TABLE credits DISABLE ROW LEVEL SECURITY;</div>
-          </div>
-        </div>`;
-      return;
-    }
-
-    /* ── Session du jour ── */
-    let { data: sess } = await db
-      .from('sessions_caisse').select('*').eq('date', today).maybeSingle();
-
-    if (!sess) {
-      if (isReadOnly()) {
+    if (sErr?.code === '23505') {
+      ({ data: sess } = await db.from('sessions_caisse')
+        .select('*').eq('date', today).single());
+    } else if (sErr) {
+      /* Associé en lecture seule → pas de création */
+      ({ data: sess } = await db.from('sessions_caisse')
+        .select('*').eq('date', today).maybeSingle());
+      if (!sess) {
         $('main-body').innerHTML = `
           <div class="state-msg" style="padding:44px 0;text-align:center">
-            <div style="font-size:38px;margin-bottom:12px;opacity:.35">📋</div>
+            <div style="font-size:36px;opacity:.3;margin-bottom:10px">📋</div>
             <div style="font-size:15px;font-weight:500;margin-bottom:6px">Aucune session ce soir</div>
-            <div style="font-size:13px;color:var(--muted)">
-              Le caissier n'a pas encore ouvert de session pour aujourd'hui.
-            </div>
+            <div style="font-size:13px;color:var(--muted)">La caisse n'a pas encore été ouverte.</div>
           </div>`;
         return;
-      }
-      const { data: created, error: cErr } = await db
-        .from('sessions_caisse')
-        .insert({ date: today, statut:'ouvert' })
-        .select().single();
-      if (cErr) {
-        /* Session créée en parallèle par un autre rôle (date UNIQUE) → on relit */
-        const { data: again } = await db
-          .from('sessions_caisse').select('*').eq('date', today).maybeSingle();
-        if (!again) throw cErr;
-        sess = again;
-      } else {
-        sess = created;
       }
     }
     sessionData = sess;
 
-    /* ── Charger données en parallèle ── */
-    const [ventesRes, mouvRes, empRes, credRes, achatsRes] = await Promise.all([
+    /* Chargement parallèle */
+    const [vR, mR, eR, cR, aR, vfR] = await Promise.all([
       db.from('ventes_session').select('*').eq('session_id', sess.id).order('created_at'),
       db.from('mouvements_caisse').select('*').eq('session_id', sess.id).order('created_at'),
-      db.from('employes').select('id,nom,prenom').eq('actif', true),
+      db.from('employes').select('id,nom,prenom').not('actif','is',false),
       db.from('credits').select('*').eq('session_id', sess.id).order('created_at'),
-      db.from('achats_session').select('*').eq('session_id', sess.id).order('created_at')
+      db.from('achats_session').select('*').eq('session_id', sess.id).order('created_at'),
+      db.from('verifications_staff').select('*').eq('session_id', sess.id)
     ]);
 
-    allVentes     = ventesRes.data  || [];
-    allMouvements = mouvRes.data    || [];
-    employes      = empRes.data     || [];
-    allCredits    = credRes.data    || [];
-    allAchats     = achatsRes.data  || [];
+    allVentes     = vR.data  || [];
+    allMouvements = mR.data  || [];
+    employes      = eR.data  || [];
+    allCredits    = cR.data  || [];
+    allAchats     = aR.data  || [];
+    allVerifs     = vfR.data || [];
 
     renderCaisse();
     subscribeRealtime(sess.id);
+    loadRemboursements();
 
   } catch(e) {
     $('main-body').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
   }
 }
 
+/* ══════════════════════════════════════════════
+   REALTIME
+══════════════════════════════════════════════ */
 function subscribeRealtime(sessId) {
-  if (_realtimeSub) return;
-  _realtimeSub = true;
-
   const refresh = async () => {
-    const [v, m, c, a] = await Promise.all([
+    const [v, m, c, a, vf] = await Promise.all([
       db.from('ventes_session').select('*').eq('session_id', sessId).order('created_at'),
       db.from('mouvements_caisse').select('*').eq('session_id', sessId).order('created_at'),
       db.from('credits').select('*').eq('session_id', sessId).order('created_at'),
-      db.from('achats_session').select('*').eq('session_id', sessId).order('created_at')
+      db.from('achats_session').select('*').eq('session_id', sessId).order('created_at'),
+      db.from('verifications_staff').select('*').eq('session_id', sessId)
     ]);
-    allVentes     = v.data || [];
-    allMouvements = m.data || [];
-    allCredits    = c.data || [];
-    allAchats     = a.data || [];
+    allVentes     = v.data  || [];
+    allMouvements = m.data  || [];
+    allCredits    = c.data  || [];
+    allAchats     = a.data  || [];
+    allVerifs     = vf.data || [];
     renderCaisse();
   };
 
-  db.channel('ml-caisse-v3')
-    .on('postgres_changes',{ event:'*',schema:'public',table:'ventes_session',
-      filter:`session_id=eq.${sessId}` }, refresh)
-    .on('postgres_changes',{ event:'*',schema:'public',table:'mouvements_caisse',
-      filter:`session_id=eq.${sessId}` }, refresh)
-    .on('postgres_changes',{ event:'*',schema:'public',table:'credits',
-      filter:`session_id=eq.${sessId}` }, refresh)
-    .on('postgres_changes',{ event:'*',schema:'public',table:'achats_session',
-      filter:`session_id=eq.${sessId}` }, refresh)
-    .on('postgres_changes',{ event:'UPDATE',schema:'public',table:'sessions_caisse',
-      filter:`id=eq.${sessId}` }, payload => {
-      /* Session modifiée ailleurs (ex. rapport supprimé → session rouverte).
-         On resynchronise l'état et on libère le verrou de clôture. */
+  db.channel('caisse-rt')
+    .on('postgres_changes',{event:'*',schema:'public',table:'ventes_session',
+      filter:`session_id=eq.${sessId}`}, refresh)
+    .on('postgres_changes',{event:'*',schema:'public',table:'mouvements_caisse',
+      filter:`session_id=eq.${sessId}`}, refresh)
+    .on('postgres_changes',{event:'*',schema:'public',table:'credits',
+      filter:`session_id=eq.${sessId}`}, refresh)
+    .on('postgres_changes',{event:'*',schema:'public',table:'verifications_staff',
+      filter:`session_id=eq.${sessId}`}, refresh)
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'sessions_caisse',
+      filter:`id=eq.${sessId}`}, payload => {
       if (payload.new) {
         sessionData = { ...sessionData, ...payload.new };
         if (sessionData.statut === 'ouvert') { _finalizing = false; _clotureCtx = null; }
@@ -414,65 +348,62 @@ function subscribeRealtime(sessId) {
     .subscribe();
 }
 
-/* ════════════════════════════════════════════
-   RENDER
-════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════
+   RENDER PRINCIPAL
+══════════════════════════════════════════════ */
 function renderCaisse() {
   if (!sessionData) return;
   const ro    = isReadOnly();
-  const isVal = sessionData.statut === 'valide_caissier'
-             || sessionData.statut === 'valide_manager';
+  const isVal = ['valide_caissier','valide_manager'].includes(sessionData.statut);
 
-  /* ── Totaux ── */
-  const fond       = sessionData.fond_caisse || 0;
-  const totVentes  = allVentes.reduce((s,v) => s+v.total, 0);
-  const totOM      = allVentes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
-  const totEsp     = totVentes - totOM;
-  const totEntrees = allMouvements.filter(m => m.type==='entree').reduce((s,m) => s+m.montant, 0);
-  const totSorties = allMouvements.filter(m => m.type==='sortie').reduce((s,m) => s+m.montant, 0);
-  const totAchats  = allAchats.reduce((s,a) => s+a.montant, 0);
+  /* ── Totaux base ventes ── */
+  const fond        = sessionData.fond_caisse || 0;
+  const totEntrees  = allMouvements.filter(m=>m.type==='entree').reduce((s,m)=>s+m.montant,0);
+  const totSorties  = allMouvements.filter(m=>m.type==='sortie').reduce((s,m)=>s+m.montant,0);
+  const totAchats   = allAchats.reduce((s,a)=>s+a.montant,0);
 
-  /* Théorique total = espèces + OM + fond + entrées - sorties - achats */
-  const theorique    = fond + totVentes + totEntrees - totSorties - totAchats;
-  const theoriqueEsp = fond + totEsp    + totEntrees - totSorties - totAchats;
-  const reelEsp      = sessionData.total_reel;
-  const reelOM       = sessionData.total_om_verifie;
-  /* Écart espèces + écart OM = écart total */
-  const ecartEsp  = reelEsp != null ? theoriqueEsp - reelEsp : null;
-  const ecartOM   = (totOM > 0 && reelOM != null) ? totOM - reelOM : null;
-  const ecart     = ecartEsp != null
-    ? (totOM === 0 ? ecartEsp : (ecartOM != null ? ecartEsp + ecartOM : null))
+  /* Totaux déclarés (ventes) */
+  const totDecl     = allVentes.reduce((s,v)=>s+(v.total||0),0);
+  const totDeclOM   = allVentes.filter(v=>v.paiement==='om').reduce((s,v)=>s+(v.total||0),0);
+  const totDeclEsp  = totDecl - totDeclOM;
+
+  /* CDC v6 — theoriqueEsp = fond + SUM(verif.recu_especes) + entrées - sorties - achats */
+  const totRecuEsp  = allVerifs.reduce((s,v)=>s+(v.recu_especes||0),0);
+  const totRecuOM   = allVerifs.reduce((s,v)=>s+(v.recu_om||0),0);
+  const theoriqueEsp = fond + totRecuEsp + totEntrees - totSorties - totAchats;
+
+  const reelEsp  = sessionData.total_reel;
+  const reelOM   = sessionData.total_om_verifie;
+  const ecartEsp = reelEsp != null ? theoriqueEsp - reelEsp : null;
+  const ecartOM  = (totDeclOM > 0 && reelOM != null) ? totRecuOM - reelOM : null;
+  const ecart    = ecartEsp != null
+    ? (totDeclOM === 0 ? ecartEsp : ecartOM != null ? ecartEsp + ecartOM : null)
     : null;
 
-  /* ── Par staff ── */
+  /* ── Grouper par staff ── */
   const byEmp = {};
   allVentes.forEach(v => {
     if (!byEmp[v.employe_id]) byEmp[v.employe_id] = [];
     byEmp[v.employe_id].push(v);
   });
-  const staffIds    = Object.keys(byEmp);
-  const closedCount = staffIds.filter(id => byEmp[id].every(v => v.valide_staff)).length;
-  const totalCount  = staffIds.length;
-  const allClosed   = totalCount > 0 && closedCount === totalCount;
+  const staffIds = Object.keys(byEmp);
 
   /* ── 1. Header ── */
   const header = `
     <div class="sess-header">
       <div>
         <div class="sess-title">${frDate(sessionData.date)}</div>
-        <div class="sess-meta">
-          <span class="live-badge">
-            <span class="${isVal ? 'live-dot-off' : 'live-dot'}"></span>
-            ${isVal ? 'Session clôturée' : ro ? 'Consultation en direct' : 'Session ouverte'}
-          </span>
+        <div class="live-badge">
+          <span class="${isVal?'live-dot-off':'live-dot'}"></span>
+          ${isVal ? 'Session clôturée' : ro ? 'Consultation' : 'Session ouverte'}
         </div>
       </div>
-      <div class="sess-count">
-        <div class="sess-count-num">${closedCount}/${totalCount}</div>
-        <div class="sess-count-lbl">staff clôturés</div>
+      <div style="text-align:right">
+        <div class="sess-count-num">${staffIds.length}</div>
+        <div class="sess-count-lbl">serveuse${staffIds.length!==1?'s':''}</div>
       </div>
     </div>
-    ${ro ? `<div class="ro-banner"><span style="opacity:.5">👁</span>&nbsp; Lecture seule — seul le caissier peut modifier</div>` : ''}`;
+    ${ro ? `<div class="ro-banner">👁 Lecture seule — seul le caissier peut modifier</div>` : ''}`;
 
   /* ── 2. Fond de caisse ── */
   const fondBlock = `
@@ -483,39 +414,34 @@ function renderCaisse() {
         <div class="fond-val">${gnf(fond)}</div>
       </div>
       ${!ro && !isVal
-        ? `<button class="btn-secondary" onclick="openFondModal()" style="flex-shrink:0">
-             ${fond ? 'Modifier' : '+ Définir'}
-           </button>`
-        : ''}
+        ? `<button class="btn btn-secondary" onclick="openFondModal()" style="flex-shrink:0">
+             ${fond?'Modifier':'+ Définir'}
+           </button>` : ''}
     </div>`;
 
   /* ── 3. Mouvements de caisse ── */
-  const LOCK_MIN = 10; /* minutes après création → verrouillé */
   const now = Date.now();
-  const mvtRows = allMouvements.length ? allMouvements.map(m => {
-    const d       = new Date(m.created_at);
-    const hm      = d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-    const agoMin  = Math.floor((now - d.getTime()) / 60000);
-    const locked  = agoMin > LOCK_MIN;
-    const agoTxt  = agoMin < 1 ? 'à l\'instant' : agoMin < 60 ? `il y a ${agoMin} min` : hm;
-    return `
-      <div class="mvt-item">
-        <div class="mvt-badge ${m.type}">${m.type==='entree'?'↑':'↓'}</div>
-        <div class="mvt-info">
-          <div class="mvt-motif">${escHtml(m.motif)}</div>
-          <div class="mvt-note">${escHtml(m.note||'')} <span style="opacity:.4;font-size:10px">${agoTxt}</span></div>
-        </div>
-        <div class="mvt-montant ${m.type}">
-          ${m.type==='entree'?'+':'−'} ${gnf(m.montant)}
-        </div>
-        ${!ro && !isVal
-          ? locked
-            ? `<button class="mvt-del" title="Verrouillé après ${LOCK_MIN}min — contactez le manager"
-                 style="opacity:.25;cursor:not-allowed" disabled>🔒</button>`
-            : `<button class="mvt-del" onclick="deleteMouvement('${m.id}')" title="Supprimer (avant ${LOCK_MIN}min)">✕</button>`
-          : ''}
-      </div>`;
-  }).join('') : `<div class="state-msg" style="padding:14px 0">Aucun mouvement.</div>`;
+  const mvtRows = allMouvements.length
+    ? allMouvements.map(m => {
+        const ago = Math.floor((now - new Date(m.created_at).getTime()) / 60000);
+        const hm  = new Date(m.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+        const locked = ago > 10;
+        return `
+          <div class="mvt-item">
+            <div class="mvt-badge ${m.type}">${m.type==='entree'?'↑':'↓'}</div>
+            <div class="mvt-info">
+              <div class="mvt-motif">${escHtml(m.motif)}</div>
+              <div class="mvt-note">${escHtml(m.note||'')} <span style="opacity:.4;font-size:10px">${ago<1?'à l\'instant':ago<60?`il y a ${ago} min`:hm}</span></div>
+            </div>
+            <div class="mvt-montant ${m.type}">${m.type==='entree'?'+':'−'} ${gnf(m.montant)}</div>
+            ${!ro && !isVal
+              ? locked
+                ? `<button class="mvt-del" disabled style="opacity:.25;cursor:not-allowed">🔒</button>`
+                : `<button class="mvt-del" onclick="deleteMouvement('${m.id}')">✕</button>`
+              : ''}
+          </div>`;
+      }).join('')
+    : `<div class="state-msg" style="padding:14px 0">Aucun mouvement.</div>`;
 
   const mouvBlock = `
     <div class="mvt-header">
@@ -531,30 +457,29 @@ function renderCaisse() {
     </div>`;
 
   /* ── 4. Crédits / Ardoises ── */
-  const totalCredits    = allCredits.filter(c => !c.rembourse).reduce((s,c)=>s+c.montant, 0);
-  const creditRows = allCredits.length ? allCredits.map(c => `
-    <div class="credit-item${c.rembourse?' done':''}">
-      <div class="credit-info">
-        <div class="credit-nom">${escHtml(c.client_nom)}</div>
-        ${c.note ? `<div class="credit-note">${escHtml(c.note)}</div>` : ''}
-      </div>
-      <div class="credit-montant">${gnf(c.montant)}</div>
-      ${!ro && !isVal
-        ? `<button class="credit-toggle${c.rembourse?' undo':''}"
-             onclick="toggleCredit('${c.id}',${!c.rembourse})"
-             title="${c.rembourse?'Marquer non remboursé':'Marquer remboursé'}">
-             ${c.rembourse?'↩':'✓'}
-           </button>
-           <button class="mvt-del" onclick="deleteCredit('${c.id}')">✕</button>`
-        : `<span class="credit-badge ${c.rembourse?'rembourse':'doit'}">${c.rembourse?'Remb.':'Dû'}</span>`}
-    </div>`).join('')
+  const totalCredits = allCredits.filter(c=>!c.rembourse).reduce((s,c)=>s+c.montant,0);
+  const creditRows = allCredits.length
+    ? allCredits.map(c => `
+        <div class="credit-item${c.rembourse?' done':''}">
+          <div class="credit-info">
+            <div class="credit-nom">${escHtml(c.client_nom)}</div>
+            ${c.note ? `<div class="credit-note">${escHtml(c.note)}</div>` : ''}
+          </div>
+          <div class="credit-montant">${gnf(c.montant)}</div>
+          ${!ro && !isVal
+            ? `<button class="credit-toggle${c.rembourse?' undo':''}"
+                 onclick="toggleCredit('${c.id}',${!c.rembourse})">
+                 ${c.rembourse?'↩':'✓'}
+               </button>
+               <button class="mvt-del" onclick="deleteCredit('${c.id}')">✕</button>`
+            : `<span class="credit-badge ${c.rembourse?'rembourse':'doit'}">${c.rembourse?'Remb.':'Dû'}</span>`}
+        </div>`).join('')
     : `<div class="state-msg" style="padding:14px 0">Aucun crédit noté.</div>`;
 
   const creditsBlock = `
     <div class="mvt-header">
-      <div class="s-head" style="margin:0">
-        Crédits / Ardoises
-        ${totalCredits > 0 ? `<span style="font-size:12px;color:var(--gold);font-family:'DM Sans',sans-serif;margin-left:8px">· ${gnf(totalCredits)} dus</span>` : ''}
+      <div class="s-head" style="margin:0">Crédits / Ardoises
+        ${totalCredits>0?`<span style="font-size:12px;color:var(--gold);font-family:'DM Sans',sans-serif;margin-left:8px">· ${gnf(totalCredits)} dus</span>`:''}
       </div>
       ${!ro && !isVal
         ? `<button class="btn-entree" onclick="openCreditModal()"
@@ -566,185 +491,179 @@ function renderCaisse() {
       <div class="credit-list">${creditRows}</div>
     </div>`;
 
-  /* ── 5. Rapports staff ── */
+  /* ── 5. Cartes serveuses ── */
   const staffCards = staffIds.length === 0
     ? `<div class="state-msg" style="padding:20px">Aucune vente enregistrée ce soir.</div>`
-    : staffIds.map(empId => {
-        const emp   = employes.find(e => e.id === empId);
+    : staffIds.map(eid => {
+        const emp   = employes.find(e => e.id === eid);
         const nom   = emp ? [emp.prenom,emp.nom].filter(Boolean).join(' ') : 'Inconnu';
         const init  = nom.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-        const vs    = byEmp[empId];
-        const close = vs.every(v => v.valide_staff);
-        const tot   = vs.reduce((s,v) => s+v.total, 0);
-        const totOM_s = vs.filter(v=>v.paiement==='om').reduce((s,v)=>s+v.total,0);
-        const totC  = vs.filter(v=>v.type==='chicha' ).reduce((s,v)=>s+v.total,0);
-        const totB  = vs.filter(v=>v.type==='boisson').reduce((s,v)=>s+v.total,0);
-        const totA  = vs.filter(v=>v.type==='autre'  ).reduce((s,v)=>s+v.total,0);
-        const rows  = vs.map(v => `
-          <div class="cv-row">
-            <div class="cv-dot ${v.type}"></div>
-            <div class="cv-label">${escHtml(v.label)}</div>
-            <div class="cv-qty">×${v.qty}</div>
-            <span class="cv-pm">${v.paiement==='om'?'📱':'💵'}</span>
-            <div class="cv-total">${gnf(v.total)}</div>
-          </div>`).join('');
+        const vs    = byEmp[eid];
+        const tot   = vs.reduce((s,v)=>s+(v.total||0),0);
+        const verif = allVerifs.find(f=>f.employe_id===eid) || null;
+
+        /* Déclaré par la serveuse */
+        const declEsp = vs.filter(v=>v.paiement==='especes').reduce((s,v)=>s+(v.total||0),0);
+        const declOM  = vs.filter(v=>v.paiement==='om').reduce((s,v)=>s+(v.total||0),0);
+
+        /* Reçu par la caissière (depuis verif ou vide) */
+        const recuEsp = verif?.recu_especes ?? null;
+        const recuOM  = verif?.recu_om      ?? null;
+
+        /* Écart serveuse = total déclaré - total reçu (calculé en JS) */
+        const ecartServ = (recuEsp !== null || recuOM !== null)
+          ? (declEsp + declOM) - ((recuEsp||0) + (recuOM||0))
+          : null;
+        const ecartServColor = ecartServ === null ? 'var(--muted)'
+          : ecartServ === 0 ? 'var(--ok)' : ecartServ > 0 ? 'var(--danger)' : '#5BA3CC';
+        const ecartServTxt = ecartServ === null ? '—'
+          : ecartServ === 0 ? '✓ Comptes bons'
+          : ecartServ > 0   ? `Manque ${gnf(ecartServ)}`
+          : `Excédent ${gnf(Math.abs(ecartServ))}`;
+
+        /* Ventes groupées par table_label */
+        const byTable = {};
+        vs.forEach(v => {
+          const tl = v.table_label || '—';
+          if (!byTable[tl]) byTable[tl] = [];
+          byTable[tl].push(v);
+        });
+        const tableKeys = Object.keys(byTable).sort();
+
+        const tableRows = tableKeys.map(tl => {
+          const rows = byTable[tl].map(v => `
+            <div class="cv-row">
+              <div class="cv-label">${escHtml(v.produit_nom || '—')}</div>
+              <div class="cv-qty">×${v.qty||1}</div>
+              <span class="cv-pm">${v.paiement==='om'?'📱':'💵'}</span>
+              <div class="cv-total">${gnf(v.total||0)}</div>
+            </div>`).join('');
+          const tblTot = byTable[tl].reduce((s,v)=>s+(v.total||0),0);
+          return `
+            <div class="tbl-group">
+              <div class="tbl-group-head">Table ${escHtml(tl)} — ${gnf(tblTot)}</div>
+              ${rows}
+            </div>`;
+        }).join('');
+
+        /* Inputs vérification (uniquement si session pas clôturée + rôle caissier) */
+        const verifBlock = (!isVal && !ro) ? `
+          <div class="verif-wrap">
+            <div class="verif-title">Argent reçu de ${escHtml(nom)}</div>
+            <div class="verif-row">
+              <span class="verif-lbl">💵 Espèces</span>
+              <input class="verif-input" type="number" inputmode="numeric"
+                id="verif-esp-${jsStr(eid)}" placeholder="${declEsp}"
+                value="${recuEsp ?? ''}"
+                onchange="saveVerif('${jsStr(eid)}','${jsStr(nom)}',${declEsp},${declOM})">
+            </div>
+            ${declOM > 0 ? `
+            <div class="verif-row">
+              <span class="verif-lbl" style="color:#FF7800">📱 OM</span>
+              <input class="verif-input" type="number" inputmode="numeric"
+                style="color:#FF7800"
+                id="verif-om-${jsStr(eid)}" placeholder="${declOM}"
+                value="${recuOM ?? ''}"
+                onchange="saveVerif('${jsStr(eid)}','${jsStr(nom)}',${declEsp},${declOM})">
+            </div>` : ''}
+            <div class="ecart-serv" id="ecart-serv-${jsStr(eid)}"
+              style="color:${ecartServColor}">
+              ${ecartServTxt}
+            </div>
+          </div>` : '';
+
+        /* Affichage écart en lecture seule */
+        const verifRO = (isVal || ro) && verif ? `
+          <div style="padding:8px 0 4px;border-top:1px solid var(--b1);margin-top:8px;
+            display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:var(--muted)">Reçu : 💵 ${gnf(verif.recu_especes||0)}${verif.recu_om?` · 📱 ${gnf(verif.recu_om)}`:''}
+            </span>
+            <span style="color:${ecartServColor};font-weight:600">${ecartServTxt}</span>
+          </div>` : '';
+
         return `
-          <div class="staff-card" id="sc-${empId}">
-            <div class="staff-head" onclick="toggleStaff('${empId}')">
+          <div class="staff-card" id="sc-${eid}">
+            <div class="staff-head" onclick="toggleStaff('${eid}')">
               <div class="staff-avatar">${init}</div>
               <div class="staff-info">
                 <div class="staff-nom">${escHtml(nom)}</div>
-                <div class="staff-sub">${vs.length} vente${vs.length>1?'s':''} ·
-                  <span style="color:${close?'var(--ok)':'var(--gold)'}">
-                    ${close?'Clôturée':'En cours'}
-                  </span>
-                  ${totOM_s > 0 ? `<span style="color:#FF7800;font-size:10px"> · 📱 ${gnf(totOM_s)}</span>` : ''}
+                <div class="staff-sub">${vs.length} vente${vs.length>1?'s':''}
+                  ${declOM>0?`<span style="color:#FF7800;font-size:10px"> · 📱 ${gnf(declOM)}</span>`:''}
                 </div>
               </div>
               <div class="staff-total">${gnf(tot)}</div>
               <span class="staff-arrow">▼</span>
             </div>
             <div class="staff-body">
-              ${rows}
-              <div style="display:flex;flex-wrap:wrap;gap:6px;padding-top:8px;
-                border-top:1px solid rgba(255,255,255,.05);margin-top:4px">
-                ${totC?`<span class="tag-chip chicha">Chicha ${gnf(totC)}</span>`:''}
-                ${totB?`<span class="tag-chip boisson">Boissons ${gnf(totB)}</span>`:''}
-                ${totA?`<span class="tag-chip autre">Autres ${gnf(totA)}</span>`:''}
-              </div>
+              ${tableRows}
+              ${verifBlock}
+              ${verifRO}
             </div>
           </div>`;
       }).join('');
 
   /* ── 6. Récapitulatif ── */
-  /* Couleurs / textes pour chaque écart */
-  const ecartEspColor = ecartEsp === null ? 'var(--muted)'
-    : ecartEsp === 0 ? 'var(--ok)' : ecartEsp > 0 ? 'var(--danger)' : '#5BA3CC';
-  const ecartEspTxt = ecartEsp === null ? '—'
-    : ecartEsp === 0 ? '✓ Exacte'
-    : ecartEsp > 0   ? `Manque ${gnf(ecartEsp)}`
-    : `Excédent ${gnf(Math.abs(ecartEsp))}`;
-
-  const ecartOMColor = ecartOM === null ? 'var(--muted)'
-    : ecartOM === 0 ? 'var(--ok)' : ecartOM > 0 ? 'var(--danger)' : '#5BA3CC';
-  const ecartOMTxt = ecartOM === null ? '—'
-    : ecartOM === 0 ? '✓ Conforme'
-    : ecartOM > 0   ? `Manque ${gnf(ecartOM)}`
-    : `Surplus ${gnf(Math.abs(ecartOM))}`;
-
-  const ecartColor = ecart === null ? 'var(--muted)'
-    : ecart === 0 ? 'var(--ok)' : ecart > 0 ? 'var(--danger)' : '#5BA3CC';
-  const ecartTxt = ecart === null
-    ? (ecartEsp !== null && totOM > 0 ? 'OM à vérifier' : '—')
-    : ecart === 0 ? '✓ Caisse exacte'
-    : ecart > 0   ? `Manque ${gnf(ecart)}`
-    : `Excédent de ${gnf(Math.abs(ecart))}`;
+  const fmtEcart = (e, label) => {
+    if (e === null) return '';
+    const col = e===0?'var(--ok)':e>0?'var(--danger)':'#5BA3CC';
+    const txt = e===0?'✓ Exacte':e>0?`Manque ${gnf(e)}`:`Excédent ${gnf(Math.abs(e))}`;
+    return `<div class="recap-row"><span style="color:${col}">${label}</span>
+      <span style="color:${col} !important;font-size:13px !important">${txt}</span></div>`;
+  };
 
   const reelSection = isVal
     ? `<div class="recap-sep"></div>
        <div class="recap-row">
-         <span>💵 Espèces comptées</span>
-         <span>${reelEsp != null ? gnf(reelEsp) : '—'}</span>
+         <span>💵 Espèces comptées</span><span>${reelEsp!=null?gnf(reelEsp):'—'}</span>
        </div>
-       ${ecartEsp !== null ? `<div class="recap-row">
-         <span style="color:${ecartEspColor}">Écart espèces</span>
-         <span style="color:${ecartEspColor};font-weight:600">${ecartEspTxt}</span>
-       </div>` : ''}
-       ${totOM > 0 ? `<div class="recap-row" style="color:#FF7800">
-         <span>📱 OM reçu</span>
-         <span>${reelOM != null ? gnf(reelOM) : '—'}</span>
-       </div>
-       ${ecartOM !== null ? `<div class="recap-row">
-         <span style="color:${ecartOMColor}">Écart OM</span>
-         <span style="color:${ecartOMColor};font-weight:600">${ecartOMTxt}</span>
-       </div>` : ''}` : ''}
-       ${ecart !== null ? `<div class="recap-row" style="border-top:1px solid var(--b1);padding-top:6px;margin-top:2px">
-         <span style="font-weight:600">Écart total</span>
-         <span style="color:${ecartColor};font-weight:600">${ecartTxt}</span>
-       </div>` : ''}`
+       ${fmtEcart(ecartEsp,'Écart espèces')}
+       ${totDeclOM>0?`<div class="recap-row" style="color:#FF7800">
+         <span>📱 OM reçu caissière</span><span>${reelOM!=null?gnf(reelOM):'—'}</span>
+       </div>${fmtEcart(ecartOM,'Écart OM')}` : ''}
+       ${fmtEcart(ecart,'Écart total')}`
     : ro
     ? `<div class="recap-sep"></div>
-       <div class="recap-row">
-         <span style="color:var(--muted)">Réel non encore renseigné</span>
-         <span>—</span>
-       </div>`
+       <div class="recap-row"><span style="color:var(--muted)">Réel non encore renseigné</span><span>—</span></div>`
     : `<div class="recap-sep"></div>
-       <div style="margin-bottom:6px">
-         <div class="kpi-label" style="margin-bottom:8px">💵 Espèces comptées en caisse</div>
-         <input class="reel-input" id="reel-input" type="number" inputmode="numeric"
-           placeholder="0" value="${reelEsp ?? ''}"
-           oninput="updateEcart(${theoriqueEsp},${totOM})">
-         <div id="ecart-esp-display" style="font-size:12px;font-weight:500;
-           margin:4px 0 2px;min-height:16px">
-           ${ecartEsp !== null ? `<span style="color:${ecartEspColor}">${ecartEspTxt}</span>` : ''}
-         </div>
-         ${totOM > 0 ? `
-         <div class="kpi-label" style="margin:10px 0 8px;color:rgba(255,120,0,.7)">
-           📱 OM reçu sur le téléphone</div>
-         <input class="reel-input" id="om-verifie" type="number" inputmode="numeric"
-           placeholder="${totOM}" value="${reelOM ?? ''}"
-           style="color:#FF7800;border-color:rgba(255,120,0,.3);background:rgba(255,120,0,.05)"
-           oninput="updateEcart(${theoriqueEsp},${totOM})">
-         <div id="ecart-om-display" style="font-size:12px;font-weight:500;
-           margin:4px 0 2px;min-height:16px">
-           ${ecartOM !== null ? `<span style="color:${ecartOMColor}">${ecartOMTxt}</span>` : ''}
-         </div>` : ''}
-         <div class="ecart-display" id="ecart-display" style="color:${ecartColor}">
-           ${ecart != null ? ecartTxt : (ecartEsp !== null && totOM > 0 ? 'Entrez le montant OM pour voir l\'écart total' : '')}
-         </div>
-       </div>`;
-
-  /* omBlock supprimé — OM maintenant intégré dans le bloc recap ci-dessous */
+       <div class="kpi-label" style="margin-bottom:8px">💵 Espèces comptées en caisse</div>
+       <input class="reel-input" id="reel-input" type="number" inputmode="numeric"
+         placeholder="0" value="${reelEsp??''}"
+         oninput="updateEcartDisplay(${theoriqueEsp},${totDeclOM},${totRecuOM})">
+       <div id="ecart-esp-disp" style="font-size:12px;font-weight:500;min-height:16px;margin:4px 0 10px;text-align:right">
+         ${ecartEsp!==null?`<span style="color:${ecartEsp===0?'var(--ok)':ecartEsp>0?'var(--danger)':'#5BA3CC'}">${ecartEsp===0?'✓ Exacte':ecartEsp>0?`Manque ${gnf(ecartEsp)}`:`Excédent ${gnf(Math.abs(ecartEsp))}`}</span>`:''}
+       </div>
+       ${totDeclOM>0?`
+       <div class="kpi-label" style="margin-bottom:8px;color:rgba(255,120,0,.7)">📱 OM reçu sur le téléphone</div>
+       <input class="reel-input" id="om-input" type="number" inputmode="numeric"
+         placeholder="${totRecuOM}" value="${reelOM??''}"
+         style="color:#FF7800;border-color:rgba(255,120,0,.3)"
+         oninput="updateEcartDisplay(${theoriqueEsp},${totDeclOM},${totRecuOM})">
+       <div id="ecart-om-disp" style="font-size:12px;font-weight:500;min-height:16px;margin:4px 0 10px;text-align:right"></div>`:''}
+       <div id="ecart-total-disp" style="font-size:13px;font-weight:600;text-align:right;min-height:18px"></div>`;
 
   const recap = `
     <div class="s-head">Récapitulatif</div>
     <div class="recap-card">
-
-      ${/* ── Total ventes global ── */'' }
       <div style="display:flex;justify-content:space-between;align-items:center;
         padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--b1)">
         <div>
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;
-            color:var(--muted);margin-bottom:3px">Total ventes du soir</div>
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;
-            color:var(--gold);line-height:1">${gnf(totVentes)}</div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:3px">Total ventes déclarées</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--gold);line-height:1">${gnf(totDecl)}</div>
         </div>
         <div style="text-align:right;font-size:12px;line-height:1.8">
-          <div>💵 Espèces&nbsp;&nbsp;<strong>${gnf(totEsp)}</strong></div>
-          ${totOM > 0 ? `<div style="color:#FF7800">📱 OM&nbsp;&nbsp;<strong>${gnf(totOM)}</strong></div>` : ''}
+          <div>💵 Espèces <strong>${gnf(totDeclEsp)}</strong></div>
+          ${totDeclOM?`<div style="color:#FF7800">📱 OM <strong>${gnf(totDeclOM)}</strong></div>`:''}
         </div>
       </div>
-
-      ${/* ── Détail formation du théorique ── */'' }
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;
-        color:var(--muted);margin-bottom:8px">Détail</div>
-      <div class="recap-row">
-        <span>Fond de caisse</span><span>${gnf(fond)}</span>
-      </div>
-      <div class="recap-row">
-        <span>+ Ventes espèces</span><span>${gnf(totEsp)}</span>
-      </div>
-      ${totOM > 0 ? `<div class="recap-row" style="color:#FF7800">
-        <span>+ Ventes OM</span><span>${gnf(totOM)}</span>
-      </div>` : ''}
-      ${totEntrees > 0
-        ? `<div class="recap-row">
-             <span style="color:var(--ok)">+ Entrées</span>
-             <span style="color:var(--ok) !important">${gnf(totEntrees)}</span>
-           </div>` : ''}
-      ${totSorties > 0
-        ? `<div class="recap-row">
-             <span style="color:var(--danger)">− Sorties</span>
-             <span style="color:var(--danger) !important">${gnf(totSorties)}</span>
-           </div>` : ''}
-      ${totAchats > 0
-        ? `<div class="recap-row">
-             <span style="color:var(--danger)">− Achats</span>
-             <span style="color:var(--danger) !important">${gnf(totAchats)}</span>
-           </div>` : ''}
+      <div class="recap-row"><span>Fond de caisse</span><span>${gnf(fond)}</span></div>
+      <div class="recap-row"><span>+ Reçu espèces (serveuses)</span><span>${gnf(totRecuEsp)}</span></div>
+      ${totDeclOM?`<div class="recap-row" style="color:#FF7800"><span>+ Reçu OM (serveuses)</span><span>${gnf(totRecuOM)}</span></div>`:''}
+      ${totEntrees?`<div class="recap-row"><span style="color:var(--ok)">+ Entrées</span><span style="color:var(--ok) !important">${gnf(totEntrees)}</span></div>`:''}
+      ${totSorties?`<div class="recap-row"><span style="color:var(--danger)">− Sorties</span><span style="color:var(--danger) !important">${gnf(totSorties)}</span></div>`:''}
+      ${totAchats?`<div class="recap-row"><span style="color:var(--danger)">− Achats</span><span style="color:var(--danger) !important">${gnf(totAchats)}</span></div>`:''}
       <div class="recap-total">
-        <span class="recap-total-lbl">Théorique total</span>
-        <span class="recap-total-val">${gnf(theorique)}</span>
+        <span class="recap-total-lbl">Théorique espèces</span>
+        <span class="recap-total-val">${gnf(theoriqueEsp)}</span>
       </div>
       ${reelSection}
     </div>`;
@@ -754,186 +673,202 @@ function renderCaisse() {
   if (isVal) {
     clotureBlock = `
       <div class="validated-card">
-        <div class="validated-icon">✓</div>
+        <div style="font-size:28px;margin-bottom:8px">✓</div>
         <div class="validated-title">
-          ${sessionData.statut==='valide_manager' ? 'Rapport créé' : 'Clôturée — en attente gestionnaire'}
+          ${sessionData.statut==='valide_manager'?'Rapport créé':'Clôturée — en attente manager'}
         </div>
-
-        <div style="width:100%;margin:12px 0 0;border-top:1px solid rgba(255,255,255,.07);
-          padding-top:12px;text-align:left">
-
-          <!-- Total global -->
-          <div style="display:flex;justify-content:space-between;align-items:center;
-            margin-bottom:10px">
-            <span style="font-size:12px;color:var(--muted)">Total ventes</span>
-            <span style="font-family:'Bebas Neue',sans-serif;font-size:22px;
-              color:var(--gold)">${gnf(totVentes)}</span>
-          </div>
-
-          <!-- 💵 Espèces -->
-          <div style="margin-bottom:8px">
-            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
-              color:var(--muted);margin-bottom:5px">💵 Espèces</div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
-              <span style="color:var(--muted)">Théorique</span>
-              <span>${gnf(theoriqueEsp)}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-              <span style="color:var(--muted)">Compté</span>
-              <span>${reelEsp != null ? gnf(reelEsp) : '—'}</span>
-            </div>
-            ${ecartEsp !== null ? `
-            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600">
-              <span style="color:${ecartEspColor}">Écart espèces</span>
-              <span style="color:${ecartEspColor}">${ecartEspTxt}</span>
-            </div>` : ''}
-          </div>
-
-          <!-- 📱 OM -->
-          ${totOM > 0 ? `
-          <div style="border-top:1.5px solid rgba(255,120,0,.2);padding-top:8px;
-            margin-top:4px;margin-bottom:8px">
-            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
-              color:rgba(255,120,0,.6);margin-bottom:5px">📱 Orange Money</div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
-              <span style="color:var(--muted)">Déclaré staff</span>
-              <strong style="color:#FF7800">${gnf(totOM)}</strong>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-              <span style="color:var(--muted)">Reçu caissière</span>
-              <strong style="color:#FF7800">${reelOM != null ? gnf(reelOM) : '—'}</strong>
-            </div>
-            ${ecartOM !== null ? `
-            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600">
-              <span style="color:${ecartOMColor}">Écart OM</span>
-              <span style="color:${ecartOMColor}">${ecartOMTxt}</span>
-            </div>` : ''}
-          </div>` : ''}
-
-          <!-- Écart total = espèces + OM -->
-          ${ecart !== null ? `
-          <div style="border-top:1px solid var(--b1);padding-top:8px;margin-top:4px">
-            <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700">
-              <span style="color:${ecartColor}">Écart total</span>
-              <span style="color:${ecartColor}">${ecartTxt}</span>
-            </div>
-          </div>` : ''}
-
-        </div>
-
         ${sessionData.note_caissier
-          ? `<div style="margin-top:10px;font-size:12px;color:var(--muted);
-               font-style:italic;text-align:center;opacity:.7">
+          ? `<div style="margin-top:8px;font-size:12px;color:var(--muted);font-style:italic">
                "${escHtml(sessionData.note_caissier)}"</div>` : ''}
       </div>`;
   } else if (ro) {
     clotureBlock = `
       <div class="validated-card" style="background:rgba(255,255,255,.03);border-color:var(--b1)">
         <div style="font-size:26px;opacity:.3;margin-bottom:8px">⏳</div>
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;
-          color:var(--muted);margin-bottom:4px">En attente du caissier</div>
-        <div style="font-size:13px;color:var(--muted)">
-          ${totalCount===0 ? 'Aucun rapport staff.'
-            : allClosed   ? 'Tous les staff ont clôturé.'
-            : `${totalCount-closedCount} staff encore en cours.`}
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:var(--muted)">
+          En attente du caissier
         </div>
       </div>`;
   } else {
+    const nbVerif = staffIds.filter(eid => allVerifs.find(f=>f.employe_id===eid)).length;
     clotureBlock = `
       <div class="field">
         <label>Note de clôture (optionnel)</label>
         <textarea id="f-note" placeholder="Observations, écarts, remarques…" rows="2">${sessionData.note_caissier||''}</textarea>
       </div>
-      ${!allClosed && totalCount > 0
+      ${staffIds.length>0 && nbVerif<staffIds.length
         ? `<div class="alert-warn">
-             ⏳ ${totalCount-closedCount} staff encore en cours — vous pouvez clôturer quand même
+             ⏳ ${staffIds.length-nbVerif} serveuse${staffIds.length-nbVerif>1?'s':''} sans vérification — vous pouvez clôturer quand même
            </div>` : ''}
-      <button class="btn-validate" onclick="confirmValidate(${theoriqueEsp},${totOM})"
-        ${totalCount===0?'disabled':''}>
+      <button class="btn-validate" onclick="confirmValidate(${theoriqueEsp},${totDeclOM},${totRecuOM})"
+        ${staffIds.length===0?'disabled':''}>
         CLÔTURER LA CAISSE
       </button>`;
   }
 
-  /* ── 8. Notes de service (caissier seulement) ── */
+  /* ── 8. Notes de service ── */
   const notesBlock = !ro ? `
     <div class="s-head">Notes de service</div>
     <div class="notes-card">
       <textarea class="notes-area" id="caisse-note-area"
-        placeholder="Notes de travail : observations, produits manquants, rappels…"
-        rows="4" oninput="onCaisseNoteInput()"></textarea>
+        placeholder="Notes de travail, rappels, produits manquants…"
+        rows="3" oninput="onCaisseNoteInput()"></textarea>
       <div class="notes-status" id="caisse-note-status"></div>
     </div>` : '';
 
   $('main-body').innerHTML =
     header + fondBlock + mouvBlock + creditsBlock +
-    `<div class="s-head">Rapports staff</div>` +
+    `<div class="s-head">Serveuses</div>` +
     staffCards + recap +
-    `<div class="s-head">${ro ? 'État' : 'Clôture'}</div>` +
+    `<div class="s-head">${ro?'État':'Clôture'}</div>` +
     clotureBlock + notesBlock;
 
-  /* Init notes */
-  const noteArea = document.getElementById('caisse-note-area');
-  if (noteArea) noteArea.value = localStorage.getItem(caisseNoteKey()) || '';
+  const na = document.getElementById('caisse-note-area');
+  if (na) na.value = localStorage.getItem(caisseKey()) || '';
 }
 
+/* ── Accordéon staff ── */
 function toggleStaff(id) {
-  document.getElementById('sc-' + id)?.classList.toggle('open');
+  document.getElementById('sc-'+id)?.classList.toggle('open');
 }
 
-/* ════════════════════════════════════════════
+/* ══════════════════════════════════════════════
+   VÉRIFICATION STAFF → verifications_staff UPSERT
+══════════════════════════════════════════════ */
+async function saveVerif(empId, empNom, declEsp, declOM) {
+  clearTimeout(_verifSave[empId]);
+  _verifSave[empId] = setTimeout(async () => {
+    const espEl = document.getElementById('verif-esp-' + empId);
+    const omEl  = document.getElementById('verif-om-'  + empId);
+    const dispEl = document.getElementById('ecart-serv-' + empId);
+
+    const recuEsp = espEl?.value !== '' ? (parseInt(espEl.value)||0) : null;
+    const recuOM  = omEl?.value  !== '' ? (parseInt(omEl.value) ||0) : null;
+
+    if (recuEsp === null && recuOM === null) return;
+
+    try {
+      await db.from('verifications_staff').upsert({
+        session_id:   sessionData.id,
+        employe_id:   empId,
+        recu_especes: recuEsp ?? 0,
+        recu_om:      recuOM  ?? 0
+      }, { onConflict: 'session_id,employe_id' });
+
+      /* Mettre à jour l'écart en temps réel sans reload complet */
+      const tot = (declEsp + declOM);
+      const recu = (recuEsp??0) + (recuOM??0);
+      const ecartServ = tot - recu;
+      if (dispEl) {
+        const col = ecartServ===0?'var(--ok)':ecartServ>0?'var(--danger)':'#5BA3CC';
+        const txt = ecartServ===0?'✓ Comptes bons':ecartServ>0?`Manque ${gnf(ecartServ)}`:`Excédent ${gnf(Math.abs(ecartServ))}`;
+        dispEl.style.color   = col;
+        dispEl.textContent   = txt;
+      }
+
+      /* Mettre à jour allVerifs local */
+      const idx = allVerifs.findIndex(f=>f.employe_id===empId);
+      if (idx>=0) { allVerifs[idx].recu_especes=recuEsp??0; allVerifs[idx].recu_om=recuOM??0; }
+      else allVerifs.push({ employe_id:empId, recu_especes:recuEsp??0, recu_om:recuOM??0 });
+
+    } catch(e) { toast('Erreur sauvegarde : '+e.message, 'ko'); }
+  }, 700);
+}
+
+/* ══════════════════════════════════════════════
+   AFFICHAGE ÉCART (inputs recap)
+══════════════════════════════════════════════ */
+function updateEcartDisplay(theoriqueEsp, totDeclOM, totRecuOM) {
+  const espEl  = document.getElementById('reel-input');
+  const omEl   = document.getElementById('om-input');
+  const dispE  = document.getElementById('ecart-esp-disp');
+  const dispOM = document.getElementById('ecart-om-disp');
+  const dispT  = document.getElementById('ecart-total-disp');
+  if (!espEl || !dispE) return;
+
+  const reelEsp  = espEl.value !== '' ? (parseInt(espEl.value)||0) : null;
+  if (reelEsp === null) { dispE.innerHTML=''; if(dispOM)dispOM.innerHTML=''; if(dispT)dispT.textContent=''; return; }
+
+  const ecartEsp = theoriqueEsp - reelEsp;
+  const colE = ecartEsp===0?'var(--ok)':ecartEsp>0?'var(--danger)':'#5BA3CC';
+  const txtE = ecartEsp===0?'✓ Exacte':ecartEsp>0?`Manque ${gnf(ecartEsp)}`:`Excédent ${gnf(Math.abs(ecartEsp))}`;
+  dispE.innerHTML = `<span style="color:${colE}">${txtE}</span>`;
+
+  /* Autosave OM */
+  if (omEl?.value) {
+    const reelOM = parseInt(omEl.value)||0;
+    const ecartOM = totRecuOM - reelOM;
+    const colOM = ecartOM===0?'var(--ok)':ecartOM>0?'var(--danger)':'#5BA3CC';
+    const txtOM = ecartOM===0?'✓ Conforme':ecartOM>0?`Manque ${gnf(ecartOM)}`:`Surplus ${gnf(Math.abs(ecartOM))}`;
+    if (dispOM) dispOM.innerHTML = `<span style="color:${colOM}">${txtOM}</span>`;
+
+    clearTimeout(_omSave);
+    _omSave = setTimeout(async () => {
+      await db.from('sessions_caisse')
+        .update({ total_om_verifie: reelOM })
+        .eq('id', sessionData.id).catch(()=>{});
+      sessionData.total_om_verifie = reelOM;
+    }, 800);
+
+    if (dispT) {
+      const ecartT = ecartEsp + ecartOM;
+      const colT = ecartT===0?'var(--ok)':ecartT>0?'var(--danger)':'#5BA3CC';
+      const txtT = ecartT===0?'✓ Caisse exacte':ecartT>0?`Manque ${gnf(ecartT)}`:`Excédent de ${gnf(Math.abs(ecartT))}`;
+      dispT.style.color = colT; dispT.textContent = txtT;
+    }
+  } else {
+    if (dispOM) dispOM.innerHTML = '';
+    if (dispT && totDeclOM>0) { dispT.style.color='var(--muted)'; dispT.textContent='Entrez le montant OM pour voir l\'écart total'; }
+    else if (dispT) { const c=ecartEsp===0?'var(--ok)':ecartEsp>0?'var(--danger)':'#5BA3CC'; dispT.style.color=c; dispT.textContent=txtE; }
+  }
+}
+
+/* ══════════════════════════════════════════════
    FOND DE CAISSE
-════════════════════════════════════════════ */
+══════════════════════════════════════════════ */
 function openFondModal() {
   $('overlay-sheet').innerHTML = `
     <div class="sheet-title">Fond de caisse</div>
-    <div class="sheet-text" style="margin-bottom:14px">
-      Montant présent en caisse à l'ouverture de la session.
-    </div>
     <div class="field" style="margin-bottom:16px">
       <label>Montant (GNF)</label>
       <input id="fond-input" type="number" inputmode="numeric" placeholder="0"
-        value="${sessionData.fond_caisse || ''}"
-        style="font-size:22px;font-family:'Bebas Neue',sans-serif;
-               text-align:right;letter-spacing:1px;padding:13px">
+        value="${sessionData.fond_caisse||''}"
+        style="font-size:22px;font-family:'Bebas Neue',sans-serif;text-align:right;padding:13px">
     </div>
     <div class="sheet-btns">
       <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
       <button class="btn-ok" onclick="saveFond()">ENREGISTRER</button>
     </div>`;
   $('overlay').classList.add('on');
-  setTimeout(() => document.getElementById('fond-input')?.focus(), 80);
+  setTimeout(()=>document.getElementById('fond-input')?.focus(),80);
 }
-
 async function saveFond() {
-  const val = parseInt(document.getElementById('fond-input')?.value) || 0;
-  if (val < 0) { toast('Le fond de caisse ne peut pas être négatif', 'ko'); return; }
+  const val = parseInt(document.getElementById('fond-input')?.value)||0;
+  if (val<0) { toast('Montant invalide','ko'); return; }
   try {
-    await db.from('sessions_caisse').update({ fond_caisse:val }).eq('id', sessionData.id);
+    await db.from('sessions_caisse').update({fond_caisse:val}).eq('id',sessionData.id);
     sessionData.fond_caisse = val;
     $('overlay').classList.remove('on');
-    toast('Fond de caisse enregistré ✓', 'ok');
+    toast('Fond de caisse enregistré ✓','ok');
     renderCaisse();
-  } catch(e) { toast('Erreur : '+e.message, 'ko'); }
+  } catch(e) { toast('Erreur : '+e.message,'ko'); }
 }
 
-/* ════════════════════════════════════════════
+/* ══════════════════════════════════════════════
    MOUVEMENTS
-════════════════════════════════════════════ */
-const MOTIFS_ENTREE = ['Versement espèces','Remise en caisse','Remboursement reçu',
-                       'Correction','Prêt rendu','Autre'];
-const MOTIFS_SORTIE = ['Achat / Dépense','Retrait','Remboursement client',
-                       'Avance employé','Frais divers','Autre'];
+══════════════════════════════════════════════ */
+const MOTIFS_E = ['Versement espèces','Remise en caisse','Remboursement reçu','Correction','Autre'];
+const MOTIFS_S = ['Achat / Dépense','Retrait','Remboursement client','Avance employé','Frais divers','Autre'];
 
 function openMouvModal(type) {
-  const motifs = type === 'entree' ? MOTIFS_ENTREE : MOTIFS_SORTIE;
-  const color  = type === 'entree' ? 'var(--ok)' : 'var(--danger)';
-  const titre  = type === 'entree' ? '↑ ENTRÉE DE CAISSE' : '↓ SORTIE DE CAISSE';
+  const motifs = type==='entree'?MOTIFS_E:MOTIFS_S;
+  const color  = type==='entree'?'var(--ok)':'var(--danger)';
   $('overlay-sheet').innerHTML = `
-    <div class="sheet-title" style="color:${color}">${titre}</div>
+    <div class="sheet-title" style="color:${color}">${type==='entree'?'↑ ENTRÉE':'↓ SORTIE'}</div>
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
       <div class="field">
         <label>Motif</label>
-        <select id="mv-sel" onchange="onMotifSel()">
+        <select id="mv-sel" onchange="$('mv-custom-wrap').style.display=this.value==='Autre'?'':'none'">
           ${motifs.map(m=>`<option>${m}</option>`).join('')}
         </select>
       </div>
@@ -944,8 +879,7 @@ function openMouvModal(type) {
       <div class="field">
         <label>Montant (GNF)</label>
         <input id="mv-montant" type="number" inputmode="numeric" placeholder="0"
-          style="font-size:20px;font-family:'Bebas Neue',sans-serif;
-                 text-align:right;letter-spacing:1px">
+          style="font-size:20px;font-family:'Bebas Neue',sans-serif;text-align:right">
       </div>
       <div class="field">
         <label>Note (optionnel)</label>
@@ -957,424 +891,218 @@ function openMouvModal(type) {
       <button class="btn-ok" onclick="saveMouvement('${type}')">ENREGISTRER</button>
     </div>`;
   $('overlay').classList.add('on');
-  setTimeout(() => document.getElementById('mv-montant')?.focus(), 80);
+  setTimeout(()=>document.getElementById('mv-montant')?.focus(),80);
 }
-
-function onMotifSel() {
-  const sel  = document.getElementById('mv-sel');
-  const wrap = document.getElementById('mv-custom-wrap');
-  if (wrap) wrap.style.display = sel?.value === 'Autre' ? '' : 'none';
-}
-
 async function saveMouvement(type) {
   if (_savingOp) return;
-  const sel     = document.getElementById('mv-sel');
-  const custom  = document.getElementById('mv-custom');
-  const motif   = (sel?.value === 'Autre' && custom?.value.trim())
-    ? custom.value.trim() : sel?.value;
-  const montant = parseInt(document.getElementById('mv-montant')?.value) || 0;
-  const note    = document.getElementById('mv-note')?.value.trim() || null;
-
-  if (!motif)         { toast('Motif requis', 'ko'); return; }
-  if (!(montant > 0)) { toast('Montant invalide (doit être positif)', 'ko'); return; }
-
-  /* Protection grosse sortie > 500K GNF */
-  if (type === 'sortie' && montant >= 500000) {
-    const ok = confirm(
-      `⚠ Grosse sortie de ${gnf(montant)}\n\nMotif : ${motif}\n\nConfirmez-vous cette opération ?`
-    );
-    if (!ok) return;
-  }
-
+  const sel    = document.getElementById('mv-sel');
+  const custom = document.getElementById('mv-custom');
+  const motif  = (sel?.value==='Autre'&&custom?.value.trim()) ? custom.value.trim() : sel?.value;
+  const montant = parseInt(document.getElementById('mv-montant')?.value)||0;
+  const note    = document.getElementById('mv-note')?.value.trim()||null;
+  if (!motif)         { toast('Motif requis','ko'); return; }
+  if (!(montant>0))   { toast('Montant invalide (doit être positif)','ko'); return; }
   _savingOp = true;
   try {
-    const { data, error } = await db.from('mouvements_caisse').insert({
-      session_id: sessionData.id, type, motif, montant, note
-    }).select().single();
+    const {data,error} = await db.from('mouvements_caisse')
+      .insert({session_id:sessionData.id,type,motif,montant,note}).select().single();
     if (error) throw error;
     $('overlay').classList.remove('on');
-    toast(`${type==='entree'?'Entrée':'Sortie'} enregistrée ✓`, 'ok');
-    ML.logAction(`${type==='entree'?'↑ Entrée caisse':'↓ Sortie caisse'} · ${motif} · ${gnf(montant)}`);
+    toast(`${type==='entree'?'Entrée':'Sortie'} enregistrée ✓`,'ok');
+    ML.logAction(`${type==='entree'?'↑ Entrée':'↓ Sortie'} caisse · ${motif} · ${gnf(montant)}`);
     allMouvements.push(data);
     renderCaisse();
-  } catch(e) { toast('Erreur : '+e.message, 'ko'); }
-  finally { _savingOp = false; }
+  } catch(e){ toast('Erreur : '+e.message,'ko'); } finally{ _savingOp=false; }
 }
-
 async function deleteMouvement(id) {
   try {
-    await db.from('mouvements_caisse').delete().eq('id', id);
-    allMouvements = allMouvements.filter(m => m.id !== id);
-    renderCaisse();
-    toast('Mouvement supprimé', 'ok');
-  } catch { toast('Erreur', 'ko'); }
+    await db.from('mouvements_caisse').delete().eq('id',id);
+    allMouvements = allMouvements.filter(m=>m.id!==id);
+    renderCaisse(); toast('Mouvement supprimé','ok');
+  } catch{ toast('Erreur','ko'); }
 }
 
-/* ════════════════════════════════════════════
-   CRÉDITS / ARDOISES
-════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════
+   CRÉDITS
+══════════════════════════════════════════════ */
 function openCreditModal() {
   $('overlay-sheet').innerHTML = `
     <div class="sheet-title" style="color:var(--gold)">💳 NOUVEAU CRÉDIT</div>
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
-      <div class="field">
-        <label>Nom du client</label>
-        <input id="cr-nom" type="text" placeholder="Nom ou description…">
-      </div>
+      <div class="field"><label>Nom du client</label><input id="cr-nom" type="text" placeholder="Nom…"></div>
       <div class="field">
         <label>Montant (GNF)</label>
         <input id="cr-montant" type="number" inputmode="numeric" placeholder="0"
-          style="font-size:20px;font-family:'Bebas Neue',sans-serif;
-                 text-align:right;letter-spacing:1px">
+          style="font-size:20px;font-family:'Bebas Neue',sans-serif;text-align:right">
       </div>
-      <div class="field">
-        <label>Note (optionnel)</label>
-        <input id="cr-note" type="text" placeholder="Commande, détails…">
-      </div>
+      <div class="field"><label>Note (optionnel)</label><input id="cr-note" type="text" placeholder="Commande…"></div>
     </div>
     <div class="sheet-btns">
       <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
       <button class="btn-ok" onclick="saveCredit()">ENREGISTRER</button>
     </div>`;
   $('overlay').classList.add('on');
-  setTimeout(() => document.getElementById('cr-nom')?.focus(), 80);
+  setTimeout(()=>document.getElementById('cr-nom')?.focus(),80);
 }
-
 async function saveCredit() {
   if (_savingOp) return;
-  const client_nom = document.getElementById('cr-nom')?.value.trim() || '';
-  const montant    = parseInt(document.getElementById('cr-montant')?.value) || 0;
-  const note       = document.getElementById('cr-note')?.value.trim() || null;
-
-  if (!client_nom)    { toast('Nom du client requis', 'ko'); return; }
-  if (!(montant > 0)) { toast('Montant invalide (doit être positif)', 'ko'); return; }
-
+  const client_nom = document.getElementById('cr-nom')?.value.trim()||'';
+  const montant    = parseInt(document.getElementById('cr-montant')?.value)||0;
+  const note       = document.getElementById('cr-note')?.value.trim()||null;
+  if (!client_nom)  { toast('Nom requis','ko'); return; }
+  if (!(montant>0)) { toast('Montant invalide','ko'); return; }
   _savingOp = true;
   try {
-    const { data, error } = await db.from('credits').insert({
-      session_id: sessionData.id, client_nom, montant, note, rembourse: false
-    }).select().single();
+    const {data,error} = await db.from('credits')
+      .insert({session_id:sessionData.id,client_nom,montant,note,rembourse:false}).select().single();
     if (error) throw error;
     $('overlay').classList.remove('on');
-    toast(`Crédit noté : ${client_nom} · ${gnf(montant)} ✓`, 'ok');
-    ML.logAction(`💳 Crédit · ${client_nom} · ${gnf(montant)}`);
+    toast(`Crédit noté : ${client_nom} · ${gnf(montant)} ✓`,'ok');
     allCredits.push(data);
     renderCaisse();
-  } catch(e) { toast('Erreur : '+e.message, 'ko'); }
-  finally { _savingOp = false; }
+  } catch(e){ toast('Erreur : '+e.message,'ko'); } finally{ _savingOp=false; }
 }
-
 async function toggleCredit(id, rembourse) {
   try {
-    await db.from('credits').update({ rembourse }).eq('id', id);
-    allCredits = allCredits.map(c => c.id===id ? {...c, rembourse} : c);
-    renderCaisse();
-    toast(rembourse ? 'Marqué remboursé ✓' : 'Remise en ardoise', 'ok');
-    if (rembourse) ML.logAction(`✅ Crédit remboursé · ${allCredits.find(c=>c.id===id)?.client_nom}`);
-  } catch { toast('Erreur', 'ko'); }
+    await db.from('credits').update({rembourse}).eq('id',id);
+    allCredits = allCredits.map(c=>c.id===id?{...c,rembourse}:c);
+    renderCaisse(); toast(rembourse?'Remboursé ✓':'Remise en ardoise','ok');
+  } catch{ toast('Erreur','ko'); }
 }
-
 async function deleteCredit(id) {
   try {
-    await db.from('credits').delete().eq('id', id);
-    allCredits = allCredits.filter(c => c.id !== id);
-    renderCaisse();
-    toast('Crédit supprimé', 'ok');
-  } catch { toast('Erreur', 'ko'); }
+    await db.from('credits').delete().eq('id',id);
+    allCredits = allCredits.filter(c=>c.id!==id);
+    renderCaisse(); toast('Crédit supprimé','ok');
+  } catch{ toast('Erreur','ko'); }
 }
 
-/* ════════════════════════════════════════════
-   NOTES DE SERVICE
-════════════════════════════════════════════ */
-function onCaisseNoteInput() {
-  clearTimeout(_noteSave);
-  const status = document.getElementById('caisse-note-status');
-  if (status) status.textContent = '…';
-  _noteSave = setTimeout(() => {
-    const val = document.getElementById('caisse-note-area')?.value || '';
-    localStorage.setItem(caisseNoteKey(), val);
-    if (status) { status.textContent = 'Sauvegardé ✓'; setTimeout(() => { status.textContent=''; }, 1500); }
-  }, 600);
-}
+/* ══════════════════════════════════════════════
+   CLÔTURE
+══════════════════════════════════════════════ */
+function confirmValidate(theoriqueEsp, totDeclOM, totRecuOM) {
+  const espEl = document.getElementById('reel-input');
+  const omEl  = document.getElementById('om-input');
+  const reelEsp = espEl?.value !== '' ? (parseInt(espEl.value)||null) : null;
+  const reelOM  = omEl?.value  !== '' ? (parseInt(omEl.value) ||null)
+                  : (sessionData.total_om_verifie ?? null);
+  const note    = ($('f-note')?.value||'').trim();
 
-/* ════════════════════════════════════════════
-   OM VERIFICATION
-════════════════════════════════════════════ */
-let _omSave;
-function checkOmEcart(attendu) {
-  const el    = document.getElementById('om-verifie');
-  const disp  = document.getElementById('om-ecart');
-  if (!el || !disp) return;
-  const val   = parseInt(el.value) || 0;
-  if (!el.value) { disp.textContent=''; return; }
-  const diff  = val - attendu;
-  if (diff === 0) {
-    disp.style.color = 'var(--ok)'; disp.textContent = '✓ OM conforme';
-  } else if (diff < 0) {
-    /* Différence OM : informatif, pas un manquant caissier */
-    disp.style.color = '#FF7800';
-    disp.textContent = `Différence : ${gnf(Math.abs(diff))} — à signaler au gestionnaire`;
-  } else {
-    disp.style.color = '#5BA3CC'; disp.textContent = `Surplus OM : ${gnf(diff)}`;
-  }
-  /* Sauvegarde après 800ms */
-  clearTimeout(_omSave);
-  _omSave = setTimeout(async () => {
-    await db.from('sessions_caisse')
-      .update({ total_om_verifie: val })
-      .eq('id', sessionData.id).catch(()=>{});
-    sessionData.total_om_verifie = val;
-  }, 800);
-}
+  _clotureCtx = { theoriqueEsp, reelEsp, reelOM, totDeclOM, totRecuOM, note };
 
-/* ════════════════════════════════════════════
-   ÉCART TOTAL = écart espèces + écart OM
-════════════════════════════════════════════ */
-function updateEcart(theoriqueEsp, totOM) {
-  const espInput  = document.getElementById('reel-input');
-  const omInput   = document.getElementById('om-verifie');
-  const dispTotal = document.getElementById('ecart-display');
-  const dispEsp   = document.getElementById('ecart-esp-display');
-  const dispOM    = document.getElementById('ecart-om-display');
-  if (!espInput || !dispTotal) return;
-  if (!espInput.value) {
-    dispTotal.textContent = '';
-    if (dispEsp) dispEsp.innerHTML = '';
-    if (dispOM)  dispOM.innerHTML  = '';
-    return;
-  }
+  const ecartEsp = reelEsp!=null ? theoriqueEsp-reelEsp : null;
+  const ecartOM  = (totDeclOM>0&&reelOM!=null) ? totRecuOM-reelOM : null;
+  const ecartT   = ecartEsp!=null ? (totDeclOM===0?ecartEsp:ecartOM!=null?ecartEsp+ecartOM:null) : null;
 
-  const reelEsp  = parseInt(espInput.value) || 0;
-  const ecartEsp = theoriqueEsp - reelEsp;
-
-  /* Affichage écart espèces */
-  if (dispEsp) {
-    const col = ecartEsp === 0 ? 'var(--ok)' : ecartEsp > 0 ? 'var(--danger)' : '#5BA3CC';
-    const txt = ecartEsp === 0 ? '✓ Exacte'
-      : ecartEsp > 0 ? `Manque ${gnf(ecartEsp)}` : `Excédent ${gnf(Math.abs(ecartEsp))}`;
-    dispEsp.innerHTML = `<span style="color:${col}">${txt}</span>`;
-  }
-
-  /* Écart OM */
-  let ecartOM = null;
-  if (totOM > 0 && omInput?.value) {
-    const reelOM = parseInt(omInput.value) || 0;
-    ecartOM = totOM - reelOM;
-
-    /* Auto-save OM */
-    clearTimeout(_omSave);
-    _omSave = setTimeout(async () => {
-      await db.from('sessions_caisse')
-        .update({ total_om_verifie: reelOM })
-        .eq('id', sessionData.id).catch(() => {});
-      sessionData.total_om_verifie = reelOM;
-    }, 800);
-
-    if (dispOM) {
-      const col = ecartOM === 0 ? 'var(--ok)' : ecartOM > 0 ? 'var(--danger)' : '#5BA3CC';
-      const txt = ecartOM === 0 ? '✓ Conforme'
-        : ecartOM > 0 ? `Manque ${gnf(ecartOM)}` : `Surplus ${gnf(Math.abs(ecartOM))}`;
-      dispOM.innerHTML = `<span style="color:${col}">${txt}</span>`;
-    }
-  } else if (dispOM) {
-    dispOM.innerHTML = '';
-  }
-
-  /* Total — attendre OM si transactions OM existent */
-  if (totOM > 0 && !omInput?.value) {
-    dispTotal.style.color = 'var(--muted)';
-    dispTotal.textContent = 'Entrez le montant OM pour voir l\'écart total';
-    return;
-  }
-
-  const ecartTotal = ecartEsp + (ecartOM ?? 0);
-  if (ecartTotal === 0) {
-    dispTotal.style.color = 'var(--ok)';
-    dispTotal.textContent = '✓ Caisse exacte';
-  } else if (ecartTotal > 0) {
-    dispTotal.style.color = 'var(--danger)';
-    dispTotal.textContent = `Manque ${gnf(ecartTotal)}`;
-  } else {
-    dispTotal.style.color = '#5BA3CC';
-    dispTotal.textContent = `Excédent de ${gnf(Math.abs(ecartTotal))}`;
-  }
-}
-
-/* ════════════════════════════════════════════
-   CLÔTURE / VALIDATION
-════════════════════════════════════════════ */
-function confirmValidate(theoriqueEsp, totOM) {
-  const espInput = document.getElementById('reel-input');
-  const omInput  = document.getElementById('om-verifie');
-  const reelEsp  = espInput?.value ? parseInt(espInput.value) : null;
-  const reelOM   = omInput?.value  ? parseInt(omInput.value)
-                   : (sessionData.total_om_verifie ?? null);
-  const note     = ($('f-note')?.value || '').trim();
-
-  /* Mémorise le contexte : la note n'est plus injectée dans un onclick
-     (une apostrophe / guillemet / retour-ligne cassait la validation). */
-  _clotureCtx = { theoriqueEsp, reelEsp, reelOM, totOM, note };
-
-  /* Écart espèces */
-  const ecartEsp = reelEsp != null ? theoriqueEsp - reelEsp : null;
-  const ecartEspColor = ecartEsp === null ? 'var(--muted)'
-    : ecartEsp === 0 ? 'var(--ok)' : ecartEsp > 0 ? 'var(--danger)' : '#5BA3CC';
-  const ecartEspTxt = ecartEsp === null ? '—'
-    : ecartEsp === 0 ? '✓ Exacte'
-    : ecartEsp > 0   ? `Manque ${gnf(ecartEsp)}`
-    : `Excédent ${gnf(Math.abs(ecartEsp))}`;
-
-  /* Écart OM */
-  const ecartOM = (totOM > 0 && reelOM != null) ? totOM - reelOM : null;
-  const ecartOMColor = ecartOM === null ? 'var(--muted)'
-    : ecartOM === 0 ? 'var(--ok)' : ecartOM > 0 ? 'var(--danger)' : '#5BA3CC';
-  const ecartOMTxt = ecartOM === null ? '—'
-    : ecartOM === 0 ? '✓ Conforme'
-    : ecartOM > 0   ? `Manque ${gnf(ecartOM)}`
-    : `Surplus ${gnf(Math.abs(ecartOM))}`;
-
-  /* Écart total = espèces + OM */
-  const ecartTotal = ecartEsp != null
-    ? (totOM === 0 ? ecartEsp : (ecartOM != null ? ecartEsp + ecartOM : null))
-    : null;
-  const ecartColor = ecartTotal === null ? 'var(--muted)'
-    : ecartTotal === 0 ? 'var(--ok)' : ecartTotal > 0 ? 'var(--danger)' : '#5BA3CC';
-  const ecartTxt = ecartTotal === null ? '—'
-    : ecartTotal === 0 ? '±0 ✓ Caisse exacte'
-    : ecartTotal > 0   ? `Manque ${gnf(ecartTotal)}`
-    : `Excédent ${gnf(Math.abs(ecartTotal))}`;
+  const colT = ecartT==null?'var(--muted)':ecartT===0?'var(--ok)':ecartT>0?'var(--danger)':'#5BA3CC';
+  const txtT = ecartT==null?'—':ecartT===0?'±0 ✓ Caisse exacte':ecartT>0?`Manque ${gnf(ecartT)}`:`Excédent ${gnf(Math.abs(ecartT))}`;
 
   $('overlay-sheet').innerHTML = `
     <div class="sheet-title">Clôturer la caisse ?</div>
-    <div style="padding:0 4px">
-
-      <!-- 💵 Espèces -->
-      <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--b1)">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
-          color:var(--muted);margin-bottom:6px">💵 Espèces</div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
-          <span style="color:var(--muted)">Théorique</span>
-          <span>${gnf(theoriqueEsp)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-          <span style="color:var(--muted)">Compté</span>
-          <span>${reelEsp != null ? gnf(reelEsp) : '—'}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600">
-          <span style="color:${ecartEspColor}">Écart espèces</span>
-          <span style="color:${ecartEspColor}">${ecartEspTxt}</span>
-        </div>
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--b1)">
+        <span style="color:var(--muted)">Théorique espèces</span><span>${gnf(theoriqueEsp)}</span>
       </div>
-
-      ${totOM > 0 ? `
-      <!-- 📱 OM -->
-      <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--b1)">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;
-          color:rgba(255,120,0,.6);margin-bottom:6px">📱 Orange Money</div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
-          <span style="color:var(--muted)">Déclaré staff</span>
-          <span style="color:#FF7800">${gnf(totOM)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-          <span style="color:var(--muted)">Reçu caissière</span>
-          <span style="color:#FF7800">${reelOM != null ? gnf(reelOM) : '—'}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600">
-          <span style="color:${ecartOMColor}">Écart OM</span>
-          <span style="color:${ecartOMColor}">${ecartOMTxt}</span>
-        </div>
-      </div>` : ''}
-
-      <!-- Écart total = espèces + OM -->
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--b1)">
+        <span style="color:var(--muted)">Espèces comptées</span><span>${reelEsp!=null?gnf(reelEsp):'—'}</span>
+      </div>
+      ${ecartEsp!=null?`<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;padding:6px 0;border-bottom:1px solid var(--b1)">
+        <span style="color:${ecartEsp===0?'var(--ok)':ecartEsp>0?'var(--danger)':'#5BA3CC'}">Écart espèces</span>
+        <span style="color:${ecartEsp===0?'var(--ok)':ecartEsp>0?'var(--danger)':'#5BA3CC'}">${ecartEsp===0?'✓ Exacte':ecartEsp>0?`Manque ${gnf(ecartEsp)}`:`Excédent ${gnf(Math.abs(ecartEsp))}`}</span>
+      </div>`:''}
+      ${totDeclOM>0?`<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;padding:6px 0;border-bottom:1px solid var(--b1)">
+        <span style="color:${ecartOM==null?'var(--muted)':ecartOM===0?'var(--ok)':ecartOM>0?'var(--danger)':'#5BA3CC'}">Écart OM</span>
+        <span style="color:${ecartOM==null?'var(--muted)':ecartOM===0?'var(--ok)':ecartOM>0?'var(--danger)':'#5BA3CC'}">${ecartOM==null?'—':ecartOM===0?'✓ Conforme':ecartOM>0?`Manque ${gnf(ecartOM)}`:`Surplus ${gnf(Math.abs(ecartOM))}`}</span>
+      </div>`:''}
       <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;
-        padding:8px 10px;border-radius:8px;
-        background:${ecartTotal===0?'rgba(0,200,100,.08)':ecartTotal!=null&&ecartTotal>0?'rgba(220,50,50,.08)':'rgba(255,255,255,.03)'}">
-        <span style="color:${ecartColor}">Écart total</span>
-        <span style="color:${ecartColor}">${ecartTxt}</span>
+        padding:10px;margin-top:6px;border-radius:8px;
+        background:${ecartT===0?'rgba(61,184,115,.08)':ecartT!=null&&ecartT>0?'rgba(201,73,74,.08)':'rgba(255,255,255,.03)'}">
+        <span style="color:${colT}">Écart total</span>
+        <span style="color:${colT}">${txtT}</span>
       </div>
-
       <div style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5">
-        Cette action envoie les données au gestionnaire. Vous ne pourrez plus modifier.
+        Cette action envoie les données au gestionnaire. Impossible de modifier après.
       </div>
     </div>
     <div class="sheet-btns">
       <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
-      <button class="btn-ok" onclick="validateSession()">
-        CONFIRMER
-      </button>
+      <button class="btn-ok" onclick="validateSession()">CONFIRMER</button>
     </div>`;
   $('overlay').classList.add('on');
 }
 
 async function validateSession() {
   if (_finalizing) return;
-  if (!_clotureCtx) { toast('Contexte de clôture introuvable — réessayez', 'ko'); return; }
-  const { theoriqueEsp, reelEsp, reelOM, totOM, note } = _clotureCtx;
+  if (!_clotureCtx) { toast('Contexte introuvable — réessayez','ko'); return; }
+  const { theoriqueEsp, reelEsp, reelOM, totDeclOM, totRecuOM, note } = _clotureCtx;
   _finalizing = true;
   $('overlay').classList.remove('on');
   try {
     const empId    = ML.getExtra()?.employe_id || null;
-    /* Écart total = écart espèces + écart OM */
-    const ecartEsp = reelEsp != null ? theoriqueEsp - reelEsp : null;
-    const ecartOM  = (totOM > 0 && reelOM != null) ? totOM - reelOM : null;
-    const ecartVal = ecartEsp != null
-      ? (totOM === 0 ? ecartEsp : (ecartOM != null ? ecartEsp + ecartOM : null))
+    const ecartEsp = reelEsp!=null ? theoriqueEsp-reelEsp : null;
+    const ecartOM  = (totDeclOM>0&&reelOM!=null) ? totRecuOM-reelOM : null;
+    const ecartVal = ecartEsp!=null
+      ? (totDeclOM===0 ? ecartEsp : ecartOM!=null ? ecartEsp+ecartOM : null)
       : null;
 
     const payload = {
       statut:           'valide_caissier',
-      note_caissier:    note || null,
-      total_reel:       reelEsp ?? null,       /* espèces comptées */
-      total_om_verifie: reelOM  ?? null,       /* OM reçu caissière */
+      note_caissier:    note||null,
+      total_reel:       reelEsp??null,
+      total_om_verifie: reelOM??null,
       caissier_id:      empId,
-      ecart:            ecartVal,              /* écart total (espèces + OM) — affichage */
-      ecart_especes:    ecartEsp ?? null       /* écart ESPÈCES seul — seul déduit de la paie */
+      ecart_especes:    ecartEsp??null,   /* seul déduit de la paie caissière */
+      ecart_om:         ecartOM??null,    /* informatif uniquement */
+      ecart:            ecartVal??null    /* écart total affiché */
     };
-    let { error } = await db.from('sessions_caisse').update(payload).eq('id', sessionData.id);
-    if (error && /ecart_especes/.test(error.message||'')) {
-      /* Colonne pas encore migrée → on clôture sans elle (repli) */
-      delete payload.ecart_especes;
-      ({ error } = await db.from('sessions_caisse').update(payload).eq('id', sessionData.id));
+
+    let {error} = await db.from('sessions_caisse').update(payload).eq('id',sessionData.id);
+    if (error && /ecart_om|ecart_especes/.test(error.message||'')) {
+      /* Colonnes pas encore migrées — repli sans ecart_om */
+      delete payload.ecart_om; delete payload.ecart_especes;
+      payload.ecart = ecartEsp ?? null;
+      ({error} = await db.from('sessions_caisse').update(payload).eq('id',sessionData.id));
     }
     if (error) throw error;
 
-    sessionData.statut           = 'valide_caissier';
-    sessionData.note_caissier    = note;
-    sessionData.total_reel       = reelEsp;
-    sessionData.total_om_verifie = reelOM;
-    sessionData.ecart            = ecartVal;
-    sessionData.ecart_especes    = ecartEsp ?? null;
-
-    ML.logAction(`💰 Caisse clôturée · Total ${gnf(allVentes.reduce((s,v)=>s+v.total,0))} · Théorique esp. ${gnf(theoriqueEsp)}${ecartVal?` · Écart ${gnf(ecartVal)}`:''}`);
-    toast('Caisse clôturée — gestionnaire notifié ✓', 'ok');
+    Object.assign(sessionData, payload);
+    ML.logAction(`💰 Caisse clôturée · ${gnf(allVentes.reduce((s,v)=>s+(v.total||0),0))}`);
+    toast('Caisse clôturée ✓','ok');
     _clotureCtx = null;
     renderCaisse();
-  } catch(e) { _finalizing = false; toast('Erreur : '+e.message, 'ko'); }
+  } catch(e) { _finalizing=false; toast('Erreur : '+e.message,'ko'); }
 }
 
-document.addEventListener('click', e => {
-  if (e.target === $('overlay')) $('overlay').classList.remove('on');
-});
+/* ══════════════════════════════════════════════
+   NOTES
+══════════════════════════════════════════════ */
+function onCaisseNoteInput() {
+  clearTimeout(_noteSave);
+  const st = document.getElementById('caisse-note-status');
+  if (st) st.textContent = '…';
+  _noteSave = setTimeout(() => {
+    const v = document.getElementById('caisse-note-area')?.value||'';
+    localStorage.setItem(caisseKey(), v);
+    if (st) { st.textContent='Sauvegardé ✓'; setTimeout(()=>{st.textContent='';},1500); }
+  }, 600);
+}
 
-/* ════════════════════════════════════════════
-   REMBOURSEMENTS ÉCART — validation caissier
-════════════════════════════════════════════ */
-async function loadRemboursementsEnAttente() {
+/* ══════════════════════════════════════════════
+   REMBOURSEMENTS ÉCART
+══════════════════════════════════════════════ */
+async function loadRemboursements() {
   const wrap = $('remb-wrap');
-  if (!wrap || ML.getRole() !== 'caissier') return;
-
+  if (!wrap || ML.getRole()!=='caissier') return;
   try {
-    const { data: rembs } = await db.from('remboursements_ecart')
-      .select('id,session_id,employe_id,montant,note,created_at')
-      .eq('statut', 'en_attente')
-      .order('created_at', { ascending: false });
+    const {data:rembs} = await db.from('remboursements_ecart')
+      .select('id,employe_id,montant,note,created_at')
+      .eq('statut','en_attente').order('created_at',{ascending:false});
+    if (!rembs?.length) { wrap.innerHTML=''; return; }
 
-    if (!rembs?.length) { wrap.innerHTML = ''; return; }
-
-    const empIds = [...new Set(rembs.map(r => r.employe_id))];
-    const { data: emps } = await db.from('employes').select('id,nom,prenom').in('id', empIds);
+    const ids = [...new Set(rembs.map(r=>r.employe_id))];
+    const {data:emps} = await db.from('employes').select('id,nom,prenom').in('id',ids);
     const nomMap = {};
-    (emps||[]).forEach(e => nomMap[e.id] = [e.prenom, e.nom].filter(Boolean).join(' '));
+    (emps||[]).forEach(e=>nomMap[e.id]=[e.prenom,e.nom].filter(Boolean).join(' '));
 
     wrap.innerHTML = `
       <div class="card" style="border-left:3px solid var(--gold)">
@@ -1384,56 +1112,46 @@ async function loadRemboursementsEnAttente() {
             padding:2px 8px;border-radius:20px;font-weight:600">${rembs.length}</span>
         </div>
         <div class="card-body" style="gap:10px">
-          ${rembs.map(r => `
-            <div class="avance-item" id="rrow-${r.id}">
+          ${rembs.map(r=>`
+            <div style="display:flex;align-items:center;gap:10px" id="rrow-${r.id}">
               <div style="flex:1">
-                <div style="font-size:14px;font-weight:500">${escHtml(nomMap[r.employe_id] || '?')}</div>
-                <div class="avance-info">
-                  ${gnf(r.montant)}${r.note ? ` · ${escHtml(r.note)}` : ''}
-                </div>
-                <div style="font-size:11px;color:var(--muted);margin-top:2px">
-                  ${frDateShort(r.created_at?.slice(0,10))}
-                </div>
+                <div style="font-size:14px;font-weight:500">${escHtml(nomMap[r.employe_id]||'?')}</div>
+                <div style="font-size:12px;color:var(--muted)">${gnf(r.montant)}${r.note?` · ${escHtml(r.note)}`:''}</div>
               </div>
-              <div style="display:flex;gap:6px;flex-shrink:0">
-                <button onclick="validerRemboursement('${r.id}')"
-                  style="padding:6px 12px;background:rgba(61,184,115,.1);
-                  border:1px solid rgba(61,184,115,.3);border-radius:6px;
-                  color:var(--ok);font-size:11px;font-weight:600;cursor:pointer">
-                  ✓ Confirmer
-                </button>
-                <button onclick="rejeterRemboursement('${r.id}')"
-                  style="padding:6px 10px;background:var(--bg2);border:1px solid var(--bg3);
-                  border-radius:6px;color:var(--muted);font-size:12px;cursor:pointer">
-                  ✕
-                </button>
-              </div>
+              <button onclick="validerRemb('${r.id}')"
+                style="padding:6px 12px;background:rgba(61,184,115,.1);border:1px solid rgba(61,184,115,.3);
+                border-radius:6px;color:var(--ok);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">
+                ✓ Confirmer
+              </button>
+              <button onclick="rejeterRemb('${r.id}')"
+                style="padding:6px 10px;background:var(--bg2);border:1px solid var(--b1);
+                border-radius:6px;color:var(--muted);font-size:12px;cursor:pointer;font-family:inherit">
+                ✕
+              </button>
             </div>`).join('')}
         </div>
       </div>`;
-  } catch(e) { console.warn('loadRemboursementsEnAttente', e.message); }
+  } catch(e){ console.warn('remb:',e.message); }
+}
+async function validerRemb(id) {
+  try {
+    await db.from('remboursements_ecart').update({statut:'valide'}).eq('id',id);
+    toast('Remboursement confirmé ✓','ok'); loadRemboursements();
+  } catch(e){ toast('Erreur : '+e.message,'ko'); }
+}
+async function rejeterRemb(id) {
+  try {
+    await db.from('remboursements_ecart').update({statut:'rejete'}).eq('id',id);
+    toast('Rejeté','ok'); loadRemboursements();
+  } catch(e){ toast('Erreur : '+e.message,'ko'); }
 }
 
-async function validerRemboursement(id) {
-  try {
-    const { error } = await db.from('remboursements_ecart')
-      .update({ statut: 'valide' }).eq('id', id);
-    if (error) throw error;
-    ML.logAction('✅ Remboursement écart confirmé');
-    toast('Remboursement confirmé ✓', 'ok');
-    loadRemboursementsEnAttente();
-  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
-}
+/* ── Fermeture overlay au clic fond ── */
+document.addEventListener('click', e => {
+  if (e.target?.id === 'overlay') $('overlay').classList.remove('on');
+});
 
-async function rejeterRemboursement(id) {
-  try {
-    const { error } = await db.from('remboursements_ecart')
-      .update({ statut: 'rejete' }).eq('id', id);
-    if (error) throw error;
-    toast('Remboursement rejeté', 'ok');
-    loadRemboursementsEnAttente();
-  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
-}
+init();
 </script>
 </body>
 </html>

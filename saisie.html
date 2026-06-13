@@ -4,684 +4,664 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <title>Saisie — Medellin Lounge</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="shared.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-  <script src="shared.js" defer></script>
   <style>
 
-/* ── Type tabs ── */
-.type-tabs{display:flex;gap:6px;margin-bottom:12px}
-.type-btn{
-  flex:1;padding:11px 4px;border-radius:var(--rs);border:1px solid var(--b1);
-  background:transparent;color:var(--muted);font-size:12px;font-weight:600;
-  letter-spacing:.8px;text-transform:uppercase;cursor:pointer;transition:all var(--t);
-  -webkit-tap-highlight-color:transparent}
-.type-btn.active{color:#060606;border-color:transparent}
-.type-btn[data-t="chicha"].active{background:var(--gold)}
-.type-btn[data-t="boisson"].active{background:#3A7BA8;color:#fff}
-.type-btn[data-t="autre"].active{background:var(--ok);color:#060606}
+/* ── Grille tables ── */
+.tables-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+  margin-bottom:24px}
+.tbl-btn{
+  position:relative;background:var(--bg2);
+  border:1.5px solid var(--b1);border-radius:var(--r);
+  padding:16px 8px 12px;text-align:center;cursor:pointer;
+  transition:all var(--t);-webkit-tap-highlight-color:transparent;
+  -webkit-appearance:none;appearance:none;width:100%}
+.tbl-btn:active:not(.locked){transform:scale(.95)}
+.tbl-label{
+  font-family:'Bebas Neue',sans-serif;font-size:24px;
+  color:var(--text);letter-spacing:1px;line-height:1;display:block}
+.tbl-sub{
+  font-size:10px;color:var(--muted);margin-top:5px;
+  min-height:13px;line-height:1.2;display:block}
+/* active-moi */
+.tbl-btn.active-moi{
+  border-color:var(--gold);background:rgba(201,168,76,.09);
+  box-shadow:0 0 0 1px rgba(201,168,76,.22)}
+.tbl-btn.active-moi .tbl-label{color:var(--gold)}
+.tbl-btn.active-moi .tbl-sub{color:var(--gold);opacity:.8}
+/* active-autre */
+.tbl-btn.active-autre{border-color:rgba(201,168,76,.28)}
+.tbl-btn.active-autre .tbl-label{color:rgba(201,168,76,.75)}
+.tbl-btn.active-autre .tbl-sub{color:rgba(201,168,76,.5)}
+/* sélectionnée */
+.tbl-btn.sel{
+  border-color:var(--gold);background:rgba(201,168,76,.15);
+  box-shadow:0 0 0 2px rgba(201,168,76,.35);transform:scale(.97)}
+/* verrouillée */
+.tbl-btn.locked{opacity:.35;cursor:not-allowed;pointer-events:none}
 
-/* ── Product grid ── */
+/* ── Form vente (inline) ── */
+.form-vente{
+  background:var(--bg2);border:1px solid var(--b1);
+  border-radius:var(--r);padding:16px;margin-bottom:16px}
+.form-head{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px}
+.form-table-lbl{
+  font-family:'Bebas Neue',sans-serif;font-size:20px;
+  color:var(--gold);letter-spacing:1px}
+.form-close{
+  width:32px;height:32px;border-radius:8px;border:1px solid var(--b1);
+  background:transparent;color:var(--muted);font-size:18px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent}
+
+/* Type tabs */
+.type-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.type-btn{
+  padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;
+  border:1px solid var(--b1);background:transparent;
+  color:var(--muted);cursor:pointer;transition:all var(--t);
+  -webkit-tap-highlight-color:transparent;letter-spacing:.4px}
+.type-btn.active{background:rgba(201,168,76,.14);border-color:rgba(201,168,76,.5);color:var(--gold)}
+
+/* Grille produits */
 .prod-grid{
   display:grid;grid-template-columns:1fr 1fr;gap:8px;
-  margin-bottom:4px}
-@media(min-width:480px){.prod-grid{grid-template-columns:1fr 1fr 1fr}}
+  margin-bottom:16px;max-height:240px;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--b1) transparent}
 .prod-card{
-  appearance:none;-webkit-appearance:none;
-  font-family:inherit;font-size:inherit;text-align:left;width:100%;
-  background:var(--bg2);border:1.5px solid var(--b1);border-radius:var(--r);
-  padding:14px 12px;cursor:pointer;transition:all var(--t);
-  -webkit-tap-highlight-color:transparent;
-  display:flex;flex-direction:column;gap:4px;
-  min-height:72px;justify-content:center;
-  position:relative;overflow:hidden}
-.prod-card:active{transform:scale(.97);opacity:.85}
-.prod-card.selected{border-color:var(--gold);background:rgba(201,168,76,.10)}
-.prod-card-nom{font-size:14px;font-weight:600;line-height:1.3;color:var(--text)}
-.prod-card-prix{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--gold)}
-.prod-card.chicha .prod-card-prix{color:var(--gold)}
-.prod-card.boisson .prod-card-prix{color:#3A7BA8}
-.prod-card.autre   .prod-card-prix{color:var(--ok)}
-.prod-card.no-prix .prod-card-prix{color:var(--muted);font-size:13px}
-.prod-card-badge{
+  background:var(--bg3);border:1.5px solid var(--b1);border-radius:var(--rs);
+  padding:12px 10px;cursor:pointer;transition:all var(--t);
+  -webkit-tap-highlight-color:transparent;-webkit-appearance:none;
+  appearance:none;text-align:left;width:100%;font-family:inherit;
+  position:relative}
+.prod-card:active{transform:scale(.96)}
+.prod-card.in-cart{border-color:var(--gold);background:rgba(201,168,76,.08)}
+.prod-nom{font-size:13px;font-weight:600;color:var(--text);line-height:1.3;margin-bottom:3px}
+.prod-prix{font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--gold)}
+.prod-qty-dot{
   position:absolute;top:6px;right:6px;
-  font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;letter-spacing:.3px}
-.prod-card-badge.chicha{background:rgba(201,168,76,.15);color:var(--gold)}
-.prod-card-badge.boisson{background:rgba(58,123,168,.15);color:#3A7BA8}
-.prod-card-badge.autre{background:rgba(61,184,115,.15);color:var(--ok)}
+  background:var(--gold);color:#09090B;
+  font-size:10px;font-weight:700;border-radius:50%;
+  width:18px;height:18px;display:flex;align-items:center;justify-content:center}
 
-/* ── Bottom sheet confirm ── */
-.confirm-sheet{
-  background:var(--bg2);border-radius:20px 20px 0 0;
-  padding:20px 16px 32px;border-top:1px solid var(--b1)}
-.confirm-title{font-family:'Bebas Neue',sans-serif;font-size:22px;
-  letter-spacing:2px;color:var(--text);margin-bottom:2px}
-.confirm-prix-unit{font-size:12px;color:var(--muted);margin-bottom:20px}
-
-/* Stepper quantité */
-.qty-stepper{
-  display:flex;align-items:center;justify-content:center;
-  gap:0;background:var(--bg3);border-radius:var(--r);
-  border:1px solid var(--b1);overflow:hidden;margin-bottom:16px}
+/* Panier */
+.cart-wrap{
+  background:var(--bg3);border:1px solid var(--b1);
+  border-radius:var(--rs);padding:12px;margin-bottom:14px}
+.cart-item{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 0;border-bottom:1px solid var(--b1)}
+.cart-item:last-child{border-bottom:none}
+.cart-nom{flex:1;font-size:13px;color:var(--text)}
+.qty-ctrl{display:flex;align-items:center;gap:5px}
 .qty-btn{
-  width:56px;height:56px;background:transparent;border:none;
-  font-size:26px;color:var(--text);cursor:pointer;
+  width:28px;height:28px;border-radius:8px;background:var(--b1);
+  border:none;color:var(--text);font-size:17px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  -webkit-tap-highlight-color:transparent;transition:background var(--t)}
-.qty-btn:active{background:var(--b1)}
-.qty-val{
-  flex:1;text-align:center;font-family:'Bebas Neue',sans-serif;
-  font-size:36px;color:var(--gold);
-  background:transparent;border:none;border-left:1px solid var(--b1);
-  border-right:1px solid var(--b1);outline:none;
-  min-width:0;height:56px;line-height:56px;padding:0}
-.qty-val::-webkit-inner-spin-button,
-.qty-val::-webkit-outer-spin-button{-webkit-appearance:none}
-
-/* Total preview */
-.confirm-total{
+  -webkit-tap-highlight-color:transparent;font-family:inherit}
+.qty-btn:active{background:rgba(201,168,76,.25)}
+.qty-num{font-size:13px;font-weight:700;min-width:18px;text-align:center;color:var(--text)}
+.cart-line{font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--gold);min-width:80px;text-align:right}
+.cart-empty{text-align:center;font-size:12px;color:var(--muted);padding:10px 0}
+.cart-total-row{
   display:flex;justify-content:space-between;align-items:center;
-  background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);
-  border-radius:var(--rs);padding:12px 14px;margin-bottom:14px}
-.confirm-total-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
-.confirm-total-val{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--gold)}
+  padding-top:10px;margin-top:6px;border-top:1px solid var(--b1)}
+.cart-total-label{font-size:12px;color:var(--muted)}
+.cart-total-val{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold)}
 
-/* Paiement toggle */
-.pay-tabs{display:flex;gap:8px;margin-bottom:16px}
+/* Paiement */
+.pay-tabs{display:flex;gap:8px;margin-bottom:14px}
 .pay-btn{
-  flex:1;padding:12px 6px;border-radius:var(--rs);border:1px solid var(--b1);
+  flex:1;padding:13px 6px;border-radius:var(--rs);border:1.5px solid var(--b1);
   background:transparent;color:var(--muted);font-size:13px;font-weight:600;
   cursor:pointer;transition:all var(--t);-webkit-tap-highlight-color:transparent;
-  display:flex;align-items:center;justify-content:center;gap:5px}
-.pay-btn.active.especes{background:rgba(61,184,115,.15);border-color:rgba(61,184,115,.4);color:var(--ok)}
-.pay-btn.active.om{background:rgba(255,120,0,.15);border-color:rgba(255,120,0,.4);color:#FF7800}
+  text-align:center;font-family:inherit}
+.pay-btn.sel-esp{border-color:var(--ok);background:rgba(61,184,115,.12);color:var(--ok)}
+.pay-btn.sel-om{border-color:#FF7800;background:rgba(255,120,0,.12);color:#FF7800}
 
-/* Prix custom */
-.prix-custom-wrap{margin-bottom:16px}
-.prix-custom-label{font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.7px}
-.prix-custom-input{
-  width:100%;background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rs);
-  padding:12px 14px;font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold);
-  text-align:right;outline:none;box-sizing:border-box}
-.prix-custom-input:focus{border-color:var(--gold)}
+/* ── Écran done ── */
+.done-wrap{text-align:center;padding:40px 0 20px}
+.done-icon{font-size:52px;margin-bottom:14px}
+.done-title{
+  font-family:'Bebas Neue',sans-serif;font-size:34px;
+  letter-spacing:2px;color:var(--gold);margin-bottom:6px}
+.done-detail{font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:20px}
+.done-total{
+  font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--text);
+  margin-bottom:28px;line-height:1}
+.btn-add-more{
+  width:100%;padding:16px;border-radius:var(--r);
+  background:rgba(201,168,76,.09);border:1.5px solid rgba(201,168,76,.38);
+  color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:18px;
+  letter-spacing:2px;cursor:pointer;-webkit-tap-highlight-color:transparent;
+  transition:background var(--t)}
+.btn-add-more:active{background:rgba(201,168,76,.2)}
 
-/* ── Ventes list ── */
-.vente-item{
-  display:flex;align-items:center;gap:10px;
-  padding:12px 14px;
-  background:var(--bg2);border-radius:var(--r);
-  border:1px solid var(--b1)}
-.vente-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
-.vente-dot.chicha{background:var(--gold)}
-.vente-dot.boisson{background:#3A7BA8}
-.vente-dot.autre{background:var(--ok)}
-.vente-info{flex:1;min-width:0}
-.vente-label{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vente-meta{font-size:11px;color:var(--muted);margin-top:1px}
-.pay-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;flex-shrink:0;letter-spacing:.5px}
-.pay-badge.especes{background:rgba(61,184,115,.12);color:var(--ok);border:1px solid rgba(61,184,115,.2)}
-.pay-badge.om{background:rgba(255,120,0,.12);color:#FF7800;border:1px solid rgba(255,120,0,.2)}
-.vente-total{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--gold);white-space:nowrap;flex-shrink:0}
-.vente-del{
-  width:36px;height:36px;flex-shrink:0;border-radius:8px;
-  background:var(--bg3);border:1px solid var(--b1);
-  color:var(--muted);font-size:16px;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  -webkit-tap-highlight-color:transparent;transition:all var(--t)}
-.vente-del:active{background:rgba(217,84,84,.2);color:var(--danger);border-color:var(--danger)}
+/* ── Écran verrouillé ── */
+.locked-wrap{text-align:center;padding:60px 0}
+.locked-icon{font-size:48px;margin-bottom:14px}
+.locked-title{
+  font-family:'Bebas Neue',sans-serif;font-size:26px;
+  letter-spacing:2px;color:var(--muted);margin-bottom:8px}
+.locked-sub{font-size:13px;color:var(--muted);line-height:1.7}
 
-/* ── Total bar ── */
-.total-bar{
-  background:var(--glow);border:1px solid var(--gring);border-radius:var(--r);
-  padding:14px 16px}
-.total-bar-row{display:flex;justify-content:space-between;align-items:center;
-  font-size:12px;color:var(--muted);margin-bottom:6px}
-.total-bar-row:last-child{margin-bottom:0}
-.total-bar-main{display:flex;justify-content:space-between;align-items:baseline;
-  padding-top:10px;margin-top:6px;border-top:1px solid var(--gring)}
-.total-bar-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px}
-.total-bar-val{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--gold);line-height:1}
-
-/* ── Close CTA ── */
-.close-cta{
-  background:linear-gradient(180deg,var(--goldl) 0%,var(--gold) 100%);
-  border:none;border-radius:var(--r);padding:18px;width:100%;
-  font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;
-  color:#060606;cursor:pointer;
-  box-shadow:0 4px 24px rgba(201,168,76,.28),0 1px 0 rgba(255,255,255,.15) inset;
-  transition:opacity var(--t),transform var(--t);
-  -webkit-tap-highlight-color:transparent}
-.close-cta:active{opacity:.85;transform:scale(.99)}
-.close-cta:disabled{opacity:.25;cursor:not-allowed;box-shadow:none}
-
-/* ── Closed state ── */
-.session-done{
-  background:var(--okbg);border:1px solid var(--okb);
-  border-radius:var(--r);padding:24px;text-align:center}
-.session-done-icon{font-size:36px;margin-bottom:10px}
-.session-done-title{font-family:'Bebas Neue',sans-serif;font-size:22px;
-  letter-spacing:2px;color:var(--ok);margin-bottom:6px}
-.session-done-sub{font-size:13px;color:var(--muted);line-height:1.6}
-
-/* ── Session banner ── */
-.sess-banner{
-  display:flex;align-items:center;gap:10px;
-  background:var(--bg2);border:1px solid var(--b1);
-  border-radius:var(--r);padding:12px 16px}
-.sess-date{font-size:15px;font-weight:600}
-.sess-meta{font-size:12px;color:var(--muted);margin-top:1px}
-
-/* ── Empty hint ── */
-.grid-empty{
-  grid-column:1/-1;text-align:center;
-  padding:28px 16px;color:var(--muted);font-size:13px}
-
-/* ── Notes ── */
-.notes-card{background:var(--bg2);border:1px solid var(--b1);border-radius:var(--r);padding:14px}
-.notes-area{
-  width:100%;background:transparent;border:none;resize:none;
-  color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;
-  line-height:1.6;outline:none;min-height:80px}
-.notes-area::placeholder{color:var(--muted)}
-.notes-status{font-size:11px;color:var(--muted);margin-top:6px;text-align:right;min-height:14px}
-
+/* ── Section title ── */
+.s-sep{height:1px;background:var(--b1);margin:20px 0}
   </style>
 </head>
 <body>
-  <div id="__header__"></div>
-  <div class="body-wrap" id="main-body">
-    <div class="state-msg">Chargement…</div>
-  </div>
-  <div id="overlay"><div class="sheet" id="overlay-sheet"></div></div>
-  <div id="toast"></div>
-
+<div id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="shared.js"></script>
 <script>
-let sessionId     = null;
-let sessionStatut = 'ouvert';
-let empId         = null;
-let empNom        = '';
-let produits      = [];
-let ventes        = [];
-let closed        = false;
-let activeType    = 'chicha';
-let paiement      = 'especes';
-let selectedProd  = null;
-let _savingVente  = false;
-let _noteSave;
+/* ── Constantes rôle ── */
+const extra  = (() => {
+  try { return JSON.parse(sessionStorage.getItem('ml_extra') || '{}'); } catch { return {}; }
+})();
 
-const noteKey = () => `ml_note_${empId}_${todayISO()}`;
+/* ──────────────────────────────────────────────
+   ÉTAT GLOBAL
+────────────────────────────────────────────── */
+let session   = null;   // row sessions_caisse
+let tables    = [];     // rows tables_lounge (actives)
+let produits  = [];     // rows produits actifs
+let cart      = [];     // [{ prod, qty }]
+let tableLabel = null;  // label table sélectionnée
+let paiement  = null;   // 'especes' | 'om'
+let catActive = null;   // type actif dans le filtre
+let empId     = null;
+let empNom    = '';
+let realtimeSub = null;
+let _submitting = false;
 
-document.addEventListener('DOMContentLoaded', async () => {
-  document.getElementById('__header__').outerHTML = HEADER_HTML;
-  if (!initPage(['staff'])) return;
+/* ── Bootstrap ── */
+document.body.insertAdjacentHTML('afterbegin', HEADER_HTML);
+if (!initPage(['staff'])) throw new Error('accès refusé');
 
-  const extra = ML.getExtra();
-  empId  = extra.employe_id || null;
-  empNom = extra.nom || 'Staff';
+empId  = extra.employe_id || null;
+empNom = extra.nom || 'Staff';
+
+/* ── Squelette principal ── */
+document.body.insertAdjacentHTML('beforeend', `
+<div id="screen-main" class="container">
+  <div class="page-header">
+    <h1 class="page-title">Saisie des ventes</h1>
+    <p class="page-sub" id="lbl-date"></p>
+  </div>
+
+  <div class="s-head" id="tables-head">Tables</div>
+  <div class="tables-grid" id="tables-grid"></div>
+
+  <div id="form-vente" style="display:none">
+    <div class="form-vente">
+      <div class="form-head">
+        <span class="form-table-lbl" id="form-tbl-lbl"></span>
+        <button class="form-close" onclick="resetForm()">✕</button>
+      </div>
+
+      <div class="s-head" style="margin-bottom:8px">Produits</div>
+      <div class="type-tabs" id="type-tabs"></div>
+      <div class="prod-grid" id="prod-grid"></div>
+
+      <div class="s-head" style="margin-bottom:8px">Panier</div>
+      <div class="cart-wrap" id="cart-wrap">
+        <div class="cart-empty" id="cart-empty">Aucun produit ajouté</div>
+        <div id="cart-items"></div>
+        <div class="cart-total-row" id="cart-total-row" style="display:none">
+          <span class="cart-total-label">Total</span>
+          <span class="cart-total-val" id="cart-total-val">0 GNF</span>
+        </div>
+      </div>
+
+      <div class="s-head" style="margin-bottom:8px">Paiement</div>
+      <div class="pay-tabs">
+        <button class="pay-btn" id="pay-esp" onclick="setPay('especes')">💵 Espèces</button>
+        <button class="pay-btn" id="pay-om"  onclick="setPay('om')">📱 Orange Money</button>
+      </div>
+
+      <button class="btn btn-primary" style="width:100%" onclick="openConfirm()">
+        Valider la commande
+      </button>
+      <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="resetForm()">
+        Annuler
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="screen-confirm" class="container" style="display:none">
+  <div class="page-header">
+    <h1 class="page-title">Confirmation</h1>
+  </div>
+  <div id="confirm-body"></div>
+  <div style="display:flex;gap:10px;margin-top:6px">
+    <button class="btn btn-ghost" style="flex:1" onclick="backToForm()">Modifier</button>
+    <button class="btn btn-primary" style="flex:1" id="btn-submit" onclick="submitVente()">Confirmer</button>
+  </div>
+</div>
+
+<div id="screen-done" class="container" style="display:none">
+  <div class="done-wrap">
+    <div class="done-icon">✓</div>
+    <div class="done-title">Saisie envoyée</div>
+    <div class="done-detail" id="done-detail"></div>
+    <div class="done-total" id="done-total"></div>
+    <button class="btn-add-more" onclick="nouvellesSaisies()">+ AJOUTER DES VENTES</button>
+  </div>
+</div>
+
+<div id="screen-locked" class="container" style="display:none">
+  <div class="locked-wrap">
+    <div class="locked-icon">🔒</div>
+    <div class="locked-title">Session clôturée</div>
+    <div class="locked-sub" id="locked-sub">
+      La caissière a clôturé la session.<br>
+      Les ventes d'aujourd'hui ne peuvent plus être modifiées.
+    </div>
+  </div>
+</div>
+`);
+
+/* ══════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════ */
+async function init() {
+  $('lbl-date').textContent = frDate();
 
   if (!empId) {
-    $('main-body').innerHTML = '<div class="state-msg err">Compte employé non configuré.</div>';
+    toast('Compte employé non configuré', 'ko');
     return;
   }
 
-  const [, sessionOk] = await Promise.all([loadProduits(), initSession()]);
-  if (sessionOk !== false) {
-    renderPage();
-    subscribeRealtime();
+  await Promise.all([loadSession(), loadTables(), loadProduits()]);
+
+  /* Définir catégorie par défaut */
+  const types = [...new Set(produits.map(p => p.type).filter(Boolean))];
+  const ordre = ['chicha','boisson','autre'];
+  catActive = ordre.find(t => types.includes(t)) || types[0] || 'chicha';
+
+  applySessionStatut();
+  renderTables();
+  startRealtime();
+}
+
+async function loadSession() {
+  /* Créer si absente (atomique — UNIQUE date) */
+  let { data, error } = await db.from('sessions_caisse')
+    .insert({ date: todayISO(), statut: 'ouvert' })
+    .select('id,statut,fond_caisse')
+    .single();
+
+  if (error?.code === '23505') {
+    ({ data } = await db.from('sessions_caisse')
+      .select('id,statut,fond_caisse')
+      .eq('date', todayISO())
+      .single());
+  } else if (error) {
+    console.error('session:', error.message);
   }
-});
+  session = data;
+}
+
+async function loadTables() {
+  const { data } = await db.from('tables_lounge')
+    .select('id,label,ordre,ouverte_par')
+    .not('actif','is',false)
+    .order('ordre');
+  tables = data || [];
+}
 
 async function loadProduits() {
-  try {
-    const { data, error } = await db.from('produits')
-      .select('nom,type,prix_defaut')
-      .not('actif', 'is', false)
-      .order('nom');
-    if (error) {
-      console.error('produits:', error.message);
-      toast('Erreur chargement produits : ' + error.message, 'ko');
-    }
-    produits = (data || []).map(p => ({
-      ...p,
-      prix: p.prix_defaut || 0
-    }));
-    /* Par défaut on s'aligne sur le premier type disponible */
-    const types = [...new Set(produits.map(p => p.type||'autre'))];
-    if (types.includes('chicha'))       activeType = 'chicha';
-    else if (types.includes('boisson')) activeType = 'boisson';
-    else if (types.length)              activeType = types[0];
-  } catch {}
+  const { data } = await db.from('produits')
+    .select('id,nom,type,prix_defaut,stock_actuel')
+    .not('actif', 'is', false)
+    .order('nom');
+  produits = data || [];
 }
 
-async function initSession() {
-  const today = todayISO();
-  try {
-    let { data: existing } = await db
-      .from('sessions_caisse').select('id,statut').eq('date', today).maybeSingle();
+/* ══════════════════════════════════════════════
+   SESSION STATUT
+══════════════════════════════════════════════ */
+function isLocked() {
+  return session && ['valide_caissier','valide_manager'].includes(session.statut);
+}
 
-    if (!existing) {
-      const { data: created, error } = await db
-        .from('sessions_caisse').insert({ date: today, statut:'ouvert' }).select().single();
-      if (error) {
-        /* Session créée en parallèle par un autre rôle (date UNIQUE) → on relit */
-        const { data: again } = await db
-          .from('sessions_caisse').select('id,statut').eq('date', today).maybeSingle();
-        if (!again) throw error;
-        existing = again;
-      } else {
-        existing = created;
-      }
-    }
-    sessionId     = existing.id;
-    sessionStatut = existing.statut || 'ouvert';
-
-    const { data: myVentes } = await db
-      .from('ventes_session').select('*')
-      .eq('session_id', sessionId).eq('employe_id', empId).order('created_at');
-
-    ventes = myVentes || [];
-    closed = ventes.length > 0 && ventes.every(v => v.valide_staff);
-    return true;
-
-  } catch(e) {
-    $('main-body').innerHTML = `<div class="state-msg err">Erreur : ${e.message}</div>`;
-    return false;
+function applySessionStatut() {
+  if (isLocked()) {
+    showScreen('locked');
   }
 }
 
-function subscribeRealtime() {
-  if (!sessionId) return;
-  const ch = db.channel('ml-saisie-' + empId);
-  ch.on('postgres_changes', {
-    event: '*', schema: 'public', table: 'ventes_session',
-    filter: `session_id=eq.${sessionId}`
-  }, async () => {
-    const { data } = await db.from('ventes_session').select('*')
-      .eq('session_id', sessionId).eq('employe_id', empId).order('created_at');
-    ventes = data || [];
-    closed = ventes.length > 0 && ventes.every(v => v.valide_staff);
-    renderPage();
-  });
-  ch.on('postgres_changes', {
-    event: 'UPDATE', schema: 'public', table: 'sessions_caisse',
-    filter: `id=eq.${sessionId}`
-  }, payload => {
-    sessionStatut = payload.new?.statut || sessionStatut;
-    renderPage();
-  });
-  ch.subscribe();
-}
-
-/* ════════════════════════════════════════════
-   RENDER
-════════════════════════════════════════════ */
-function renderPage() {
-  const today     = todayISO();
-  const total     = ventes.reduce((s, v) => s + (v.total || 0), 0);
-  const totOM     = ventes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
-  const totEsp    = total - totOM;
-  const sessLocked = sessionStatut === 'valide_caissier' || sessionStatut === 'valide_manager';
-
-  const banner = `
-    <div class="sess-banner">
-      <div style="flex:1">
-        <div class="sess-date">${frDate(today)}</div>
-        <div class="sess-meta">${escHtml(empNom)}</div>
-      </div>
-      <span class="badge ${sessLocked ? 'ko' : closed ? 'ok' : 'gold'}">
-        ${sessLocked ? 'Validée caisse' : closed ? 'Envoyée' : 'En service'}
-      </span>
-    </div>`;
-
-  /* Session clôturée par la caissière — lecture seule */
-  if (sessLocked) {
-    $('main-body').innerHTML = banner + `
-      <div class="session-done" style="border-color:rgba(217,84,84,.3);background:rgba(217,84,84,.06)">
-        <div class="session-done-icon">🔒</div>
-        <div class="session-done-title" style="color:var(--danger)">Session clôturée</div>
-        <div class="session-done-sub">
-          La caissière a validé la session — aucune modification possible.<br>
-          ${ventes.length ? `Tes ventes : <strong style="color:var(--gold)">${gnf(total)}</strong>` : 'Aucune vente enregistrée.'}
-        </div>
-      </div>
-      ${renderVentesList(false)}
-      ${renderNotes()}`;
-    initNotes();
-    return;
-  }
-
-  if (closed) {
-    $('main-body').innerHTML = banner + `
-      <div class="session-done">
-        <div class="session-done-icon">✓</div>
-        <div class="session-done-title">Saisie envoyée</div>
-        <div class="session-done-sub">
-          ${ventes.length} vente${ventes.length>1?'s':''} · <strong style="color:var(--gold)">${gnf(total)}</strong>
-          ${totOM ? `<br>OM : <strong style="color:#FF7800">${gnf(totOM)}</strong> · Espèces : <strong>${gnf(totEsp)}</strong>` : ''}
-        </div>
-      </div>
-      <button onclick="nouvellesSaisies()"
-        style="width:100%;margin-top:10px;padding:16px;border-radius:var(--r);
-          border:1px solid rgba(201,168,76,.35);background:rgba(201,168,76,.06);
-          color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:18px;
-          letter-spacing:2px;cursor:pointer;-webkit-tap-highlight-color:transparent">
-        + AJOUTER DES VENTES
-      </button>
-      ${renderVentesList(false)}
-      ${renderNotes()}`;
-    initNotes();
-    return;
-  }
-
-  /* Types disponibles */
-  const allTypes  = [...new Set(produits.map(p => p.type||'autre').filter(Boolean))];
-  const typeOrder = ['chicha','boisson','autre'];
-  const types     = typeOrder.filter(t => allTypes.includes(t)).concat(
-    allTypes.filter(t => !typeOrder.includes(t))
+function showScreen(name) {
+  ['main','confirm','done','locked'].forEach(s =>
+    $('screen-' + s).style.display = s === name ? 'block' : 'none'
   );
-  const typeLabels = { chicha:'🔥 Chicha', boisson:'🥤 Boissons', autre:'📦 Autre' };
-
-  const tabsHTML = types.length > 1 ? `
-    <div class="type-tabs">
-      ${types.map(t => `
-        <button class="type-btn${t===activeType?' active':''}" data-t="${t}"
-          onclick="setType('${t}')">${typeLabels[t]||t}</button>
-      `).join('')}
-    </div>` : '';
-
-  const filtered = produits.filter(p => (p.type||'autre') === activeType);
-
-  const gridHTML = `
-    <div class="prod-grid" id="prod-grid">
-      ${filtered.length ? filtered.map(p => {
-        const idx = produits.indexOf(p);
-        return `
-        <button type="button" class="prod-card ${p.type||'autre'}${selectedProd?.nom===p.nom?' selected':''}"
-          onclick="selectProdByIndex(${idx})">
-          <div class="prod-card-nom">${escHtml(p.nom)}</div>
-          <div class="prod-card-prix${!p.prix?' no-prix':''}">${p.prix ? gnf(p.prix) : '— GNF'}</div>
-        </button>`;
-      }).join('') : `<div class="grid-empty">Aucun produit dans cette catégorie</div>`}
-    </div>`;
-
-  $('main-body').innerHTML = banner + tabsHTML + gridHTML
-    + renderVentesList(true)
-    + (ventes.length ? totalBarHTML(total, totOM, totEsp) : '<div class="state-msg" style="padding:20px">Aucune vente — tapez un produit ci-dessus.</div>')
-    + renderNotes();
-
-
-  initNotes();
+  window.scrollTo(0, 0);
 }
 
-function totalBarHTML(total, totOM, totEsp) {
-  return `
-    <div class="total-bar">
-      ${totOM > 0 ? `
-        <div class="total-bar-row"><span>💵 Espèces</span><span>${gnf(totEsp)}</span></div>
-        <div class="total-bar-row"><span style="color:#FF7800">📱 Orange Money</span>
-          <span style="color:#FF7800">${gnf(totOM)}</span></div>` : ''}
-      <div class="total-bar-main">
-        <div><div class="total-bar-label">Total du soir</div></div>
-        <div class="total-bar-val">${gnf(total)}</div>
-      </div>
-    </div>
-    <button class="close-cta" onclick="confirmClose()">CLÔTURER MA SESSION →</button>`;
+/* ══════════════════════════════════════════════
+   REALTIME — sessions_caisse
+══════════════════════════════════════════════ */
+function startRealtime() {
+  if (!session) return;
+  realtimeSub = db.channel('saisie-rt')
+    .on('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'sessions_caisse',
+      filter: `id=eq.${session.id}`
+    }, payload => {
+      session = { ...session, ...payload.new };
+      if (isLocked()) showScreen('locked');
+    })
+    .subscribe();
 }
 
-function renderVentesList(canDelete) {
-  if (!ventes.length) return '';
-  return `
-    <div class="s-head">${ventes.length} vente${ventes.length>1?'s':''}</div>
-    ${[...ventes].reverse().map(v => {
-      const pm = v.paiement || 'especes';
-      return `
-        <div class="vente-item">
-          <div class="vente-dot ${v.type||'autre'}"></div>
-          <div class="vente-info">
-            <div class="vente-label">${escHtml(v.label)}</div>
-            <div class="vente-meta">×${v.qty} · ${gnf(v.prix_unit)}</div>
-          </div>
-          <span class="pay-badge ${pm}">${pm==='om'?'OM':'💵'}</span>
-          <div class="vente-total">${gnf(v.total)}</div>
-          ${canDelete ? `<button class="vente-del" onclick="deleteVente('${v.id}')">×</button>` : ''}
-        </div>`;
-    }).join('')}`;
-}
-
-function renderNotes() {
-  return `
-    <div class="s-head">Notes</div>
-    <div class="notes-card">
-      <textarea class="notes-area" id="note-area"
-        placeholder="Commandes spéciales, observations…"
-        rows="4" oninput="onNoteInput()"></textarea>
-      <div class="notes-status" id="note-status"></div>
-    </div>`;
-}
-
-function initNotes() {
-  const area = document.getElementById('note-area');
-  if (area) area.value = localStorage.getItem(noteKey()) || '';
-}
-
-function onNoteInput() {
-  clearTimeout(_noteSave);
-  const st = document.getElementById('note-status');
-  if (st) st.textContent = '…';
-  _noteSave = setTimeout(() => {
-    const val = document.getElementById('note-area')?.value || '';
-    localStorage.setItem(noteKey(), val);
-    if (st) { st.textContent = 'Sauvegardé ✓'; setTimeout(() => { st.textContent = ''; }, 1500); }
-  }, 600);
-}
-
-/* ── Filtre type ── */
-function setType(t) {
-  activeType = t;
-  selectedProd = null;
-  renderPage();
-}
-
-/* ── Sélection produit → bottom sheet ── */
-function selectProdByIndex(idx) {
-  const p = produits[idx];
-  if (!p) return;
-  selectProd(p.nom, p.prix || 0, p.type || 'autre');
-}
-
-function selectProdEl(el) {
-  selectProd(el.dataset.nom, parseInt(el.dataset.prix)||0, el.dataset.type||'autre');
-}
-
-function selectProd(nom, prix, type) {
-  selectedProd = { nom, prix, type };
-  openConfirmSheet();
-}
-
-function openConfirmSheet() {
-  try {
-  if (!selectedProd) return;
-  const { nom, prix, type } = selectedProd;
-  const hasPrix = prix > 0;
-
-  $('overlay-sheet').innerHTML = `
-      <div class="confirm-title">${escHtml(nom)}</div>
-      <div class="confirm-prix-unit">${hasPrix ? gnf(prix)+' / unité' : 'Prix à saisir'}</div>
-
-      ${!hasPrix ? `
-        <div class="prix-custom-wrap">
-          <div class="prix-custom-label">Prix unitaire (GNF)</div>
-          <input type="number" class="prix-custom-input" id="cs-prix"
-            inputmode="numeric" placeholder="0" oninput="updateConfirmTotal()">
-        </div>` : ''}
-
-      <div class="qty-stepper">
-        <button class="qty-btn" onclick="stepQty(-1)">−</button>
-        <input type="number" class="qty-val" id="cs-qty" value="1" min="1"
-          inputmode="numeric" oninput="updateConfirmTotal()">
-        <button class="qty-btn" onclick="stepQty(1)">+</button>
-      </div>
-
-      <div class="confirm-total">
-        <span class="confirm-total-label">Total</span>
-        <span class="confirm-total-val" id="cs-total">${hasPrix ? gnf(prix) : '0 GNF'}</span>
-      </div>
-
-      <div class="pay-tabs" id="cs-pay-tabs">
-        <button class="pay-btn${paiement==='especes'?' active especes':''}"
-          onclick="setSheetPay('especes')">💵 Espèces</button>
-        <button class="pay-btn${paiement==='om'?' active om':''}"
-          onclick="setSheetPay('om')">📱 Orange Money</button>
-      </div>
-
-      <button class="btn-ok" id="cs-btn" onclick="confirmAdd()" style="width:100%;font-size:20px;padding:16px;letter-spacing:2px">
-        ✓ AJOUTER
-      </button>
-      <button class="btn-cancel" onclick="closeSheet()" style="margin-top:8px;width:100%">
-        Annuler
-      </button>`;
-
-  const ov = document.getElementById('overlay');
-  if (ov) ov.classList.add('on');
-  /* Focus prix si absent */
-  if (!hasPrix) setTimeout(() => document.getElementById('cs-prix')?.focus(), 100);
-  } catch(err) {
-    toast('Erreur : ' + err.message, 'ko');
-    console.error('openConfirmSheet:', err);
-  }
-}
-
-function stepQty(delta) {
-  const el = $('cs-qty');
-  if (!el) return;
-  const v = parseInt(el.value)||1;
-  el.value = Math.max(1, v + delta);
-  updateConfirmTotal();
-}
-
-function updateConfirmTotal() {
-  const qty  = parseInt($('cs-qty')?.value)  || 1;
-  const prix = selectedProd?.prix > 0
-    ? selectedProd.prix
-    : (parseFloat($('cs-prix')?.value) || 0);
-  const tot  = $('cs-total');
-  if (tot) tot.textContent = gnf(qty * prix);
-}
-
-function setSheetPay(p) {
-  paiement = p;
-  $('cs-pay-tabs')?.querySelectorAll('.pay-btn').forEach(b => {
-    const isEsp = b.textContent.includes('Esp');
-    const mine  = (p==='especes' && isEsp) || (p==='om' && !isEsp);
-    b.className = `pay-btn${mine ? ` active ${p}` : ''}`;
-  });
-}
-
-function closeSheet() {
-  $('overlay').classList.remove('on');
-  selectedProd = null;
-}
-
-/* ── Ajouter vente ── */
-async function confirmAdd() {
-  if (_savingVente || !selectedProd) return;
-  if (sessionStatut === 'valide_caissier' || sessionStatut === 'valide_manager') {
-    toast('Session clôturée par la caissière — impossible d\'ajouter', 'ko');
-    closeSheet();
+/* ══════════════════════════════════════════════
+   GRILLE TABLES
+══════════════════════════════════════════════ */
+function renderTables() {
+  const grid = $('tables-grid');
+  if (!tables.length) {
+    grid.innerHTML = `<p style="color:var(--muted);font-size:13px;grid-column:span 3;text-align:center;padding:16px">
+      Aucune table configurée dans Paramètres.</p>`;
     return;
   }
 
-  const qty   = Math.max(1, parseInt($('cs-qty')?.value) || 1);
-  const prix  = selectedProd.prix > 0
-    ? selectedProd.prix
-    : (parseFloat($('cs-prix')?.value) || 0);
-  const total = qty * prix;
+  const locked = isLocked();
 
-  if (prix <= 0) { toast('Entrez un prix', 'ko'); $('cs-prix')?.focus(); return; }
+  grid.innerHTML = tables.map(t => {
+    let cls = 'tbl-btn';
+    let sub = '';
 
-  _savingVente = true;
-  const btn = $('cs-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    if (locked) {
+      cls += ' locked';
+      sub = 'Clôturée';
+    } else if (t.ouverte_par === empId) {
+      cls += ' active-moi';
+      sub = 'Ma table';
+    } else if (t.ouverte_par) {
+      cls += ' active-autre';
+      sub = 'En service';
+    }
+
+    if (tableLabel === t.label) cls += ' sel';
+
+    return `<button class="${cls}" onclick="selectTable('${jsStr(t.label)}')">
+      <span class="tbl-label">${escHtml(t.label)}</span>
+      <span class="tbl-sub">${sub}</span>
+    </button>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════════════
+   SÉLECTION TABLE
+══════════════════════════════════════════════ */
+function selectTable(label) {
+  if (isLocked()) { showScreen('locked'); return; }
+
+  tableLabel = label;
+  cart       = [];
+  paiement   = null;
+
+  $('form-tbl-lbl').textContent = 'Table ' + label;
+  $('form-vente').style.display = 'block';
+
+  renderTables();
+  renderTypeTabs();
+  renderProds();
+  renderCart();
+  syncPayBtns();
+
+  $('form-vente').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ══════════════════════════════════════════════
+   PRODUITS
+══════════════════════════════════════════════ */
+function renderTypeTabs() {
+  const types = [...new Set(produits.map(p => p.type).filter(Boolean))];
+  const ordre = ['chicha','boisson','autre'];
+  const sorted = ordre.filter(t => types.includes(t))
+    .concat(types.filter(t => !ordre.includes(t)));
+
+  if (sorted.length <= 1) {
+    $('type-tabs').innerHTML = '';
+    return;
+  }
+  const labels = { chicha: 'Chicha', boisson: 'Boissons', autre: 'Autre' };
+  $('type-tabs').innerHTML = sorted.map(t =>
+    `<button class="type-btn${t === catActive ? ' active' : ''}" onclick="setCat('${jsStr(t)}')">${escHtml(labels[t] || t)}</button>`
+  ).join('');
+}
+
+function setCat(t) {
+  catActive = t;
+  renderTypeTabs();
+  renderProds();
+}
+
+function renderProds() {
+  const filtered = catActive
+    ? produits.filter(p => p.type === catActive)
+    : produits;
+
+  if (!filtered.length) {
+    $('prod-grid').innerHTML = `<p style="color:var(--muted);font-size:13px;grid-column:span 2;padding:8px 0">Aucun produit</p>`;
+    return;
+  }
+
+  $('prod-grid').innerHTML = filtered.map(p => {
+    const inCart = cart.find(x => x.prod.id === p.id);
+    return `<button class="prod-card${inCart ? ' in-cart' : ''}" onclick="addProd('${jsStr(p.id)}')">
+      <div class="prod-nom">${escHtml(p.nom)}</div>
+      <div class="prod-prix">${gnf(p.prix_defaut)}</div>
+      ${inCart ? `<div class="prod-qty-dot">${inCart.qty}</div>` : ''}
+    </button>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════════════
+   PANIER
+══════════════════════════════════════════════ */
+function addProd(prodId) {
+  const prod = produits.find(p => p.id === prodId);
+  if (!prod) return;
+  const i = cart.findIndex(x => x.prod.id === prodId);
+  if (i >= 0) cart[i].qty++;
+  else        cart.push({ prod, qty: 1 });
+  renderProds();
+  renderCart();
+}
+
+function changeQty(prodId, delta) {
+  const i = cart.findIndex(x => x.prod.id === prodId);
+  if (i < 0) return;
+  cart[i].qty += delta;
+  if (cart[i].qty <= 0) cart.splice(i, 1);
+  renderProds();
+  renderCart();
+}
+
+function cartTotal() {
+  return cart.reduce((s, x) => s + x.prod.prix_defaut * x.qty, 0);
+}
+
+function renderCart() {
+  const empty    = $('cart-empty');
+  const items    = $('cart-items');
+  const totalRow = $('cart-total-row');
+
+  if (!cart.length) {
+    empty.style.display    = 'block';
+    items.innerHTML        = '';
+    totalRow.style.display = 'none';
+    return;
+  }
+
+  empty.style.display    = 'none';
+  totalRow.style.display = 'flex';
+
+  items.innerHTML = cart.map(x => `
+    <div class="cart-item">
+      <span class="cart-nom">${escHtml(x.prod.nom)}</span>
+      <div class="qty-ctrl">
+        <button class="qty-btn" onclick="changeQty('${jsStr(x.prod.id)}',-1)">−</button>
+        <span class="qty-num">${x.qty}</span>
+        <button class="qty-btn" onclick="changeQty('${jsStr(x.prod.id)}',1)">+</button>
+      </div>
+      <span class="cart-line">${gnf(x.prod.prix_defaut * x.qty)}</span>
+    </div>`).join('');
+
+  $('cart-total-val').textContent = gnf(cartTotal());
+}
+
+/* ══════════════════════════════════════════════
+   PAIEMENT
+══════════════════════════════════════════════ */
+function setPay(mode) {
+  paiement = mode;
+  syncPayBtns();
+}
+
+function syncPayBtns() {
+  $('pay-esp').className = 'pay-btn' + (paiement === 'especes' ? ' sel-esp' : '');
+  $('pay-om').className  = 'pay-btn' + (paiement === 'om'      ? ' sel-om'  : '');
+}
+
+function resetForm() {
+  tableLabel = null; cart = []; paiement = null;
+  $('form-vente').style.display = 'none';
+  renderTables();
+  window.scrollTo(0, 0);
+}
+
+/* ══════════════════════════════════════════════
+   CONFIRMATION
+══════════════════════════════════════════════ */
+function openConfirm() {
+  if (isLocked()) { showScreen('locked'); return; }
+  if (!tableLabel)    { toast('Sélectionne une table', 'ko');          return; }
+  if (!cart.length)   { toast('Ajoute au moins un produit', 'ko');     return; }
+  if (!paiement)      { toast('Choisis un mode de paiement', 'ko');    return; }
+
+  const total = cartTotal();
+  $('confirm-body').innerHTML = `
+    <div class="card" style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--b1)">
+        <span style="color:var(--muted);font-size:13px">Table</span>
+        <span style="font-weight:600">${escHtml(tableLabel)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--b1)">
+        <span style="color:var(--muted);font-size:13px">Paiement</span>
+        <span style="font-weight:600">${paiement === 'especes' ? '💵 Espèces' : '📱 Orange Money'}</span>
+      </div>
+      ${cart.map(x => `
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b1)">
+        <span style="font-size:13px;color:var(--muted)">${escHtml(x.prod.nom)} ×${x.qty}</span>
+        <span style="font-size:13px">${gnf(x.prod.prix_defaut * x.qty)}</span>
+      </div>`).join('')}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:12px;margin-top:4px">
+        <span style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Total</span>
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--gold)">${gnf(total)}</span>
+      </div>
+    </div>`;
+
+  showScreen('confirm');
+}
+
+function backToForm() {
+  showScreen('main');
+  $('form-vente').style.display = 'block';
+}
+
+/* ══════════════════════════════════════════════
+   SOUMISSION
+══════════════════════════════════════════════ */
+async function submitVente() {
+  if (_submitting) return;
+  if (isLocked()) { showScreen('locked'); return; }
+
+  const btn = $('btn-submit');
+  btn.disabled = true; btn.textContent = 'Envoi…';
+  _submitting = true;
 
   try {
-    const { error } = await db.from('ventes_session').insert({
-      session_id:   sessionId,
-      employe_id:   empId,
-      label:        selectedProd.nom,
-      type:         selectedProd.type,
-      qty, prix_unit: prix, total,
-      paiement, valide_staff: false
-    });
+    /* S'assurer que la session existe */
+    if (!session) await loadSession();
+
+    /* Ouvrir la table si libre (SET ouverte_par si IS NULL) */
+    const { data: tbl } = await db.from('tables_lounge')
+      .select('ouverte_par')
+      .eq('label', tableLabel)
+      .single();
+    if (tbl && !tbl.ouverte_par) {
+      await db.from('tables_lounge')
+        .update({ ouverte_par: empId })
+        .eq('label', tableLabel);
+    }
+
+    /* Construire les lignes (une par produit) */
+    const rows = cart.map(x => ({
+      session_id:    session.id,
+      employe_id:    empId,
+      produit_id:    x.prod.id,
+      produit_nom:   x.prod.nom,
+      qty:           x.qty,
+      prix_unitaire: x.prod.prix_defaut,
+      total:         x.prod.prix_defaut * x.qty,
+      paiement:      paiement,
+      table_label:   tableLabel
+    }));
+
+    const { error } = await db.from('ventes_session').insert(rows);
     if (error) throw error;
 
-    ML.logAction(`🛒 ${selectedProd.nom} ×${qty} ${paiement==='om'?'📱OM':'💵'} · ${gnf(total)}`);
-    toast(`${selectedProd.nom} ×${qty} ✓`, 'ok');
-    closeSheet();
+    await ML.logAction(`vente T${tableLabel} ${gnf(cartTotal())} ${paiement}`);
+
+    /* Recharger tables pour refléter ouverte_par */
+    await loadTables();
+
+    showDone();
+
   } catch(e) {
     toast('Erreur : ' + e.message, 'ko');
-    if (btn) { btn.disabled = false; btn.textContent = '✓ AJOUTER'; }
-  } finally { _savingVente = false; }
-}
-
-async function deleteVente(id) {
-  try {
-    await db.from('ventes_session').delete().eq('id', id);
-  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
-}
-
-/* ── Nouvelle saisie après clôture (bloqué si caissière a validé) ── */
-function nouvellesSaisies() {
-  if (sessionStatut === 'valide_caissier' || sessionStatut === 'valide_manager') {
-    toast('Session déjà validée par la caissière', 'ko');
-    return;
+    btn.disabled = false; btn.textContent = 'Confirmer';
+  } finally {
+    _submitting = false;
   }
-  closed = false;
-  renderPage();
 }
 
-/* ── Clôture ── */
-function confirmClose() {
-  const total  = ventes.reduce((s, v) => s + (v.total || 0), 0);
-  const totOM  = ventes.filter(v => v.paiement === 'om').reduce((s,v) => s+v.total, 0);
-  const totEsp = total - totOM;
-  $('overlay-sheet').innerHTML = `
-    <div class="sheet-title">Clôturer la session ?</div>
-    <div class="sheet-text">
-      <strong style="color:var(--text)">${ventes.length} vente${ventes.length>1?'s':''}</strong>
-      pour un total de <strong style="color:var(--gold)">${gnf(total)}</strong>.<br>
-      ${totOM > 0 ? `💵 Espèces : <strong>${gnf(totEsp)}</strong> · 📱 OM : <strong style="color:#FF7800">${gnf(totOM)}</strong><br>` : ''}
-      <br>Vos ventes seront envoyées à la caisse. Vous pourrez en ajouter d'autres après.
-    </div>
-    <div class="sheet-btns">
-      <button class="btn-cancel" onclick="$('overlay').classList.remove('on')">Annuler</button>
-      <button class="btn-ok" onclick="closeSession()">CLÔTURER</button>
-    </div>`;
-  $('overlay').classList.add('on');
+/* ══════════════════════════════════════════════
+   ÉCRAN DONE
+══════════════════════════════════════════════ */
+function showDone() {
+  const total  = cartTotal();
+  const detail = `Table ${tableLabel} — ${paiement === 'especes' ? 'Espèces' : 'Orange Money'}
+${cart.map(x => `${x.qty}× ${x.prod.nom}`).join(', ')}`;
+
+  $('done-detail').textContent = detail;
+  $('done-total').textContent  = gnf(total);
+
+  /* Reset pour la prochaine saisie */
+  tableLabel = null; cart = []; paiement = null;
+
+  showScreen('done');
 }
 
-async function closeSession() {
-  $('overlay').classList.remove('on');
-  try {
-    const ids = ventes.map(v => v.id);
-    const { error } = await db.from('ventes_session').update({ valide_staff: true }).in('id', ids);
-    if (error) throw error;
+/* ══════════════════════════════════════════════
+   NOUVELLE SAISIE
+══════════════════════════════════════════════ */
+function nouvellesSaisies() {
+  if (isLocked()) { showScreen('locked'); return; }
 
-    const total = ventes.reduce((s, v) => s + (v.total || 0), 0);
-    ML.logAction(`✅ Session clôturée — ${empNom} · ${gnf(total)} · ${ventes.length} ventes`);
-    toast('Session clôturée — envoyé à la caisse ✓', 'ok');
-    closed = true;
-    ventes = ventes.map(v => ({...v, valide_staff: true}));
-    renderPage();
-  } catch(e) { toast('Erreur : ' + e.message, 'ko'); }
+  $('form-vente').style.display = 'none';
+  renderTables();
+  showScreen('main');
 }
 
-document.addEventListener('click', e => {
-  /* Clic sur le fond de l'overlay pour fermer */
-  if (e.target.id === 'overlay') closeSheet();
-});
+init();
 </script>
 </body>
 </html>

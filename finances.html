@@ -232,7 +232,7 @@ async function loadBilan() {
       db.from('rapports').select('net,total_chicha,total_boissons,total_achats')
         .gte('date',debut).lte('date',fin),
       db.from('charges').select('montant,label,paye').eq('mois',mois),
-      db.from('employes').select('pourcentage').eq('role','associe').eq('actif',true),
+      db.from('associes').select('pourcentage').not('actif','is',false),
       db.from('config').select('key,value')
     ]);
 
@@ -467,7 +467,7 @@ async function loadDividendes() {
       db.from('rapports').select('total_chicha,total_boissons,total_achats')
         .gte('date',debut).lte('date',fin),
       db.from('charges').select('montant').eq('mois',mois),
-      db.from('employes').select('id,nom,prenom,pourcentage').eq('role','associe').eq('actif',true).order('nom'),
+      db.from('associes').select('id,nom,prenom,pourcentage').not('actif','is',false).order('nom'),
       db.from('config').select('key,value')
     ]);
 
