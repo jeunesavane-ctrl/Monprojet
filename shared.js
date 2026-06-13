@@ -14,6 +14,17 @@ try {
     db = supabase.createClient(SB_URL, SB_KEY);
 } catch(e) { console.warn('Supabase:', e.message); }
 
+/* RLS Phase 2 — restaure ou crée une session auth sur chaque page.
+   La session est stockée en localStorage par le client Supabase.
+   Sans ça, les requêtes partent avec la clé anon seule → RLS bloque. */
+const _dbReady = (async () => {
+  if (!db) return;
+  try {
+    const { data } = await db.auth.getSession();
+    if (!data?.session) await db.auth.signInAnonymously();
+  } catch {}
+})();
+
 /* ── AUTH ────────────────────────────────────────────────────── */
 const ML = {
   getRole()   { return sessionStorage.getItem('ml_role'); },
