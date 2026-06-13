@@ -17,13 +17,8 @@ try {
 /* ── AUTH ────────────────────────────────────────────────────── */
 const ML = {
   getRole()   { return sessionStorage.getItem('ml_role'); },
-  getHashes() {
-    try { return JSON.parse(sessionStorage.getItem('ml_hashes') || '{}'); }
-    catch { return {}; }
-  },
-  setSession(role, hashes, extra = null) {
+  setSession(role, extra = null) {
     sessionStorage.setItem('ml_role', role);
-    sessionStorage.setItem('ml_hashes', JSON.stringify(hashes));
     if (extra) sessionStorage.setItem('ml_extra', JSON.stringify(extra));
     else sessionStorage.removeItem('ml_extra');
     ML._logConnection(role, extra?.nom || null);

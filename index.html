@@ -183,141 +183,130 @@ body::after{
 <div id="toast"></div>
 
 <script>
-const H_STAFF_DEF   = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
+/* URL de l'Edge Function Supabase (vérification PIN côté serveur) */
+const LOGIN_URL = 'https://stpmokparkaybgkabbeo.supabase.co/functions/v1/login';
 const H_MANAGER_DEF = 'b8dc2c143be8994682b08461f46487e05874e59dd9ab65cf973e3a3c67a763aa';
 
 let pinBuf     = '';
-let hOwner     = null;
-let hStaff     = H_STAFF_DEF;
-let hManager   = H_MANAGER_DEF;
 let setupBuf   = '';
 let setupFirst = null;
-let employesList  = [];
-let ownerNomCfg   = null;
+let _checking  = false; /* anti-doublon pendant le fetch */
 
+/* ── CLAVIER PIN ─────────────────────────────────────────────── */
 function kp(k) {
-  if (pinBuf.length >= 4) return;
+  if (pinBuf.length >= 4 || _checking) return;
   pinBuf += k;
   renderDots();
   if (pinBuf.length === 4) setTimeout(checkPin, 120);
 }
-function kdel() { pinBuf = pinBuf.slice(0,-1); renderDots(); }
+function kdel() { if (!_checking) { pinBuf = pinBuf.slice(0, -1); renderDots(); } }
 function renderDots() {
-  for (let i=0;i<4;i++)
-    document.getElementById('d'+i)?.classList.toggle('on', i < pinBuf.length);
+  for (let i = 0; i < 4; i++)
+    document.getElementById('d' + i)?.classList.toggle('on', i < pinBuf.length);
 }
 
+/* ── VÉRIFICATION PIN — côté serveur (Edge Function) ────────── */
 async function checkPin() {
-  const h = await sha256(pinBuf);
-  let matched = null, extra = null;
+  if (_checking) return;
+  _checking = true;
+  const pinToSend = pinBuf;
+  pinBuf = ''; renderDots();
 
-  if (h === hOwner) {
-    matched = 'owner';
-    if (ownerNomCfg) extra = { nom: ownerNomCfg };
-  } else if (h === hManager) {
-    matched = 'manager';
-  } else {
-    const emp = employesList.find(e => e.pin_hash === h && e.actif !== false);
-    if (emp) {
-      matched = emp.role || 'staff';
-      const nomComplet = [emp.prenom, emp.nom].filter(Boolean).join(' ') || emp.nom;
-      if (emp.role === 'associe') {
-        /* Associé : session compatible avec finances.html (extra.id + extra.pourcentage) */
-        extra = { nom: nomComplet, pourcentage: emp.pourcentage || 0, id: emp.id };
-      } else {
-        extra = { nom: nomComplet, employe_id: emp.id };
-      }
+  try {
+    const res  = await fetch(LOGIN_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ pin: pinToSend })
+    });
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      showPinErr(data.error || 'Code incorrect');
+      return;
     }
-  }
 
-  if (matched) {
-    ML.setSession(matched, { hOwner, hStaff, hManager }, extra);
+    const { role, extra } = data;
+    ML.setSession(role, extra);
     window.location.href =
-      matched === 'staff'    ? 'saisie.html'   :
-      matched === 'caissier' ? 'caisse.html'   :
-      matched === 'chicha'   ? 'chicha.html'   :
-      matched === 'achats'   ? 'achats.html'   :
+      role === 'staff'    ? 'saisie.html'  :
+      role === 'caissier' ? 'caisse.html'  :
+      role === 'chicha'   ? 'chicha.html'  :
+      role === 'achats'   ? 'achats.html'  :
       'dashboard.html';
-  } else {
-    document.getElementById('pin-err').textContent = 'Code incorrect';
-    pinBuf = ''; renderDots();
-    setTimeout(() => document.getElementById('pin-err').textContent = '', 1500);
+
+  } catch {
+    showPinErr('Erreur réseau');
+  } finally {
+    _checking = false;
   }
 }
 
+function showPinErr(msg) {
+  const el = document.getElementById('pin-err');
+  el.textContent = msg;
+  setTimeout(() => { el.textContent = ''; }, 1500);
+}
+
+/* ── SETUP PREMIER LANCEMENT ─────────────────────────────────── */
 function skp(k) {
   if (setupBuf.length >= 4) return;
   setupBuf += k;
   renderSDots();
   if (setupBuf.length === 4) setTimeout(setupNext, 120);
 }
-function sdel() { setupBuf = setupBuf.slice(0,-1); renderSDots(); }
+function sdel() { setupBuf = setupBuf.slice(0, -1); renderSDots(); }
 function renderSDots() {
-  for (let i=0;i<4;i++)
-    document.getElementById('sd'+i)?.classList.toggle('on', i < setupBuf.length);
+  for (let i = 0; i < 4; i++)
+    document.getElementById('sd' + i)?.classList.toggle('on', i < setupBuf.length);
 }
+
 async function setupNext() {
   if (!setupFirst) {
     setupFirst = setupBuf;
-    setupBuf = '';
+    setupBuf   = '';
     renderSDots();
     document.getElementById('setup-info').textContent = 'Confirmez votre PIN propriétaire.';
-    document.getElementById('setup-err').textContent = '';
+    document.getElementById('setup-err').textContent  = '';
   } else {
     if (setupBuf !== setupFirst) {
-      document.getElementById('setup-err').textContent = 'Les codes ne correspondent pas.';
-      setupBuf = ''; setupFirst = null; renderSDots();
+      document.getElementById('setup-err').textContent  = 'Les codes ne correspondent pas.';
       document.getElementById('setup-info').textContent = 'Créez votre PIN propriétaire (4 chiffres).';
+      setupBuf = ''; setupFirst = null; renderSDots();
       return;
     }
     const h = await sha256(setupBuf);
     try {
       await db.from('config').upsert([
-        { key:'pin_owner', value:h },
-        { key:'pin_staff', value:H_STAFF_DEF },
-        { key:'pin_manager', value:H_MANAGER_DEF }
+        { key: 'pin_owner',   value: h },
+        { key: 'pin_manager', value: H_MANAGER_DEF }
       ]);
-      hOwner = h;
-      ML.setSession('owner', { hOwner:h, hStaff:H_STAFF_DEF, hManager:H_MANAGER_DEF });
-      window.location.href = 'dashboard.html';
-    } catch(e) {
-      document.getElementById('setup-err').textContent = 'Erreur : '+e.message;
+      ML.setSession('owner', { nom: 'Gestionnaire' });
+      window.location.href = 'parametres.html';
+    } catch (e) {
+      document.getElementById('setup-err').textContent = 'Erreur : ' + e.message;
       setupBuf = ''; setupFirst = null; renderSDots();
     }
   }
 }
 
+/* ── DÉTECTION PREMIER LANCEMENT ─────────────────────────────── */
 document.addEventListener('DOMContentLoaded', async () => {
   if (!db) return;
   try {
-    const { data } = await db.from('config').select('key,value');
-    const cfg = {};
-    (data||[]).forEach(r => cfg[r.key] = r.value);
-
-    if (!cfg.pin_owner) {
-      document.getElementById('screen-pin').style.display = 'none';
+    /* Vérifie juste si pin_owner existe — ne lit JAMAIS le hash */
+    const { data } = await db.from('config').select('key').eq('key', 'pin_owner').limit(1);
+    if (!data || !data.length) {
+      document.getElementById('screen-pin').style.display   = 'none';
       document.getElementById('screen-setup').style.display = 'flex';
-      return;
     }
-    hOwner       = cfg.pin_owner;
-    hStaff       = cfg.pin_staff   || H_STAFF_DEF;
-    hManager     = cfg.pin_manager || H_MANAGER_DEF;
-    ownerNomCfg  = cfg.owner_nom   || null;
-
-    try {
-      const { data: empData } = await db.from('employes')
-        .select('id,nom,prenom,pin_hash,role,actif,pourcentage')
-        .not('pin_hash','is',null);
-      employesList = empData || [];
-    } catch { employesList = []; }
-
-  } catch(e) { console.warn('Config:', e.message); }
+  } catch (e) { console.warn('Init:', e.message); }
 });
 
+/* ── CLAVIER PHYSIQUE ────────────────────────────────────────── */
 document.addEventListener('keydown', e => {
-  const active = document.getElementById('screen-setup').style.display !== 'none' ? 'setup' : 'pin';
-  if (e.key >= '0' && e.key <= '9') active === 'pin' ? kp(e.key) : skp(e.key);
-  if (e.key === 'Backspace') active === 'pin' ? kdel() : sdel();
+  const isSetup = document.getElementById('screen-setup').style.display !== 'none';
+  if (e.key >= '0' && e.key <= '9') isSetup ? skp(e.key) : kp(e.key);
+  if (e.key === 'Backspace')         isSetup ? sdel()     : kdel();
 });
 </script>
 </body>
