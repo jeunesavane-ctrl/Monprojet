@@ -212,12 +212,17 @@ async function checkPin() {
   const pinToSend = pinBuf;
   pinBuf = ''; renderDots();
 
+  const ctrl    = new AbortController();
+  const timeout = setTimeout(() => ctrl.abort(), 10000); /* 10 s max */
+
   try {
     const res  = await fetch(LOGIN_URL, {
       method:  'POST',
+      signal:  ctrl.signal,
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ pin: pinToSend })
     });
+    clearTimeout(timeout);
     const data = await res.json();
 
     if (!res.ok || data.error) {
