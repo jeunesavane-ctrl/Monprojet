@@ -89,7 +89,7 @@ const CH = {};
 let _realtimeSubbed = false;
 let _finalizingSess = false; /* garde anti double-validation de session */
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
   if (!await initPage(['manager','owner','associe'])) return;
   document.addEventListener('click', e => {

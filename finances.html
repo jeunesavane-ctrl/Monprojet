@@ -161,7 +161,7 @@
   <div id="toast"></div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
   if (!await initPage(['owner','manager','associe'])) return;
 

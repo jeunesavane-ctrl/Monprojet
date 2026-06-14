@@ -253,7 +253,7 @@ let _editStaffId = null;
 let _presStatuts = {};   /* { employe_id: statut } — état local présences */
 let _paieData    = {};   /* { empId: paieObj } — données de paie du mois affiché */
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
   if (!await initPage(['owner','manager'])) return;
 

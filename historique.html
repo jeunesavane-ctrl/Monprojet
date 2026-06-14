@@ -167,7 +167,7 @@ let histData   = [];
 let histView   = 'list';
 let histFilter = { period:'all', manager:'', minNet:'' };
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('__header__').outerHTML = HEADER_HTML;
   if (!await initPage(['staff','caissier','chicha','achats','manager','owner','associe'])) return;
   loadHist();
